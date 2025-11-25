@@ -1095,11 +1095,28 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
     ? 'Your social sharing needs some improvement. Add Open Graph tags for better Facebook sharing.'
     : 'Your social sharing needs work. Add Open Graph and Twitter Card tags to improve how your site looks when shared.'
 
+  // Collect social metadata evidence
+  const twitterCard = siteData.$('meta[name="twitter:card"]').attr('content')
+  const twitterImage = siteData.$('meta[name="twitter:image"]').attr('content')
+  const ogImage = siteData.$('meta[property="og:image"]').attr('content')
+  const ogType = siteData.$('meta[property="og:type"]').attr('content')
+
   return {
     moduleKey: 'social',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      ogTitle: ogTitle || 'Not found',
+      ogDescription: ogDescription || 'Not found',
+      ogImage: ogImage || 'Not found',
+      ogType: ogType || 'Not found',
+      ogUrl: ogUrl || 'Not found',
+      twitterCard: twitterCard || 'Not found',
+      twitterTitle: twitterTitle || 'Not found',
+      twitterDescription: twitterDescription || 'Not found',
+      twitterImage: twitterImage || 'Not found',
+    },
   }
 }
 
