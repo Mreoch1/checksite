@@ -28,12 +28,19 @@ function getTransporter(): nodemailer.Transporter {
       tls: {
         rejectUnauthorized: false, // Zoho sometimes has certificate issues
       },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     })
   }
   return transporterInstance
 }
 
-export const transporter = getTransporter()
+// Lazy initialization - don't create transporter at module load
+// This prevents errors if SMTP config is missing
+export function getEmailTransporter(): nodemailer.Transporter {
+  return getTransporter()
+}
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
 const FROM_NAME = process.env.FROM_NAME || 'SEO CheckSite'
@@ -49,6 +56,7 @@ export async function sendAuditReportEmail(
   reportHtml: string
 ): Promise<void> {
   const domain = new URL(url).hostname
+  const transporter = getEmailTransporter()
 
   await transporter.sendMail({
     from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
@@ -123,6 +131,7 @@ export async function sendAuditFailureEmail(
   url: string
 ): Promise<void> {
   const domain = new URL(url).hostname
+  const transporter = getEmailTransporter()
 
   await transporter.sendMail({
     from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
