@@ -26,17 +26,40 @@ const processAuditFunction = inngest.createFunction(
       })
       
       try {
-        await Promise.race([processPromise, timeoutPromise])
+        const result = await Promise.race([processPromise, timeoutPromise])
         console.log(`[Inngest] Audit ${auditId} completed successfully`)
         return { success: true, auditId }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorStack = error instanceof Error ? error.stack : 'No stack trace'
-        console.error(`[Inngest] Error processing audit ${auditId}:`, errorMessage)
-        console.error(`[Inngest] Error stack:`, errorStack)
-        console.error(`[Inngest] Full error object:`, JSON.stringify(error, Object.getOwnPropertyNames(error)))
-        // Re-throw with more details
-        throw new Error(`Audit processing failed: ${errorMessage}. Stack: ${errorStack}`)
+        const errorName = error instanceof Error ? error.name : 'Unknown'
+        
+        // Log detailed error information
+        console.error(`[Inngest] ❌ Error processing audit ${auditId}:`)
+        console.error(`[Inngest] Error name: ${errorName}`)
+        console.error(`[Inngest] Error message: ${errorMessage}`)
+        console.error(`[Inngest] Error stack: ${errorStack}`)
+        
+        // Try to stringify error for full details
+        try {
+          const errorDetails = {
+            name: errorName,
+            message: errorMessage,
+            stack: errorStack,
+            ...(error instanceof Error ? { cause: error.cause } : {}),
+          }
+          console.error(`[Inngest] Error details:`, JSON.stringify(errorDetails, null, 2))
+        } catch (jsonError) {
+          console.error(`[Inngest] Could not stringify error:`, jsonError)
+        }
+        
+        // Create a more descriptive error that Inngest can display
+        const descriptiveError = new Error(
+          `Audit processing failed for ${auditId}: ${errorMessage} (${errorName})`
+        )
+        descriptiveError.name = errorName
+        descriptiveError.stack = errorStack
+        throw descriptiveError
       }
     })
   }

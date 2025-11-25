@@ -74,8 +74,19 @@ export async function callDeepSeek(
     })
 
     console.log('Waiting for DeepSeek API response...')
-    const response = await Promise.race([fetchPromise, timeoutPromise])
-    clearTimeout(timeoutId)
+    let response: Response
+    try {
+      response = await Promise.race([fetchPromise, timeoutPromise])
+      clearTimeout(timeoutId)
+    } catch (raceError) {
+      clearTimeout(timeoutId)
+      if (raceError instanceof Error && (raceError.name === 'AbortError' || raceError.message.includes('timeout'))) {
+        console.error('❌ DeepSeek API timeout or abort')
+        throw new Error('DeepSeek API timeout: Request took longer than 2.5 minutes')
+      }
+      console.error('❌ DeepSeek API Promise.race error:', raceError)
+      throw new Error(`DeepSeek API call failed: ${raceError instanceof Error ? raceError.message : String(raceError)}`)
+    }
     
     const duration = ((Date.now() - startTime) / 1000).toFixed(1)
     console.log(`DeepSeek API response received in ${duration}s`)
