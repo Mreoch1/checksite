@@ -93,7 +93,7 @@ async function sendViaResend(options: {
       resend.emails.send({
         from: fromFormatted,
         to: options.to,
-        replyTo: from,
+        reply_to: from,
         subject: options.subject,
         html: options.html,
         text: options.text,
@@ -116,7 +116,7 @@ async function sendViaResend(options: {
         resend.emails.send({
           from: fromFormatted,
           to: options.to,
-          replyTo: from,
+          reply_to: from,
           subject: options.subject,
           html: options.html,
           text: options.text,
