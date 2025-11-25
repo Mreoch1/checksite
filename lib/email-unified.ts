@@ -82,7 +82,7 @@ async function sendViaResend(options: {
   
   // Try custom domain first, fallback to Resend default if not verified
   let from = RESEND_FROM
-  const fromFormatted = `"${FROM_NAME}" <${from}>`
+  let fromFormatted = `"${FROM_NAME}" <${from}>`
   
   // Check if using custom domain (not resend.dev)
   const isCustomDomain = from.includes('@') && !from.includes('resend.dev')
@@ -252,7 +252,7 @@ export async function sendAuditReportEmail(
       <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="text-align: center; margin-bottom: 30px;">
           <div style="display: inline-block; margin-bottom: 15px;">
-            <svg width="180" height="54" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+            <svg width="300" height="90" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
               <circle cx="30" cy="30" r="25" fill="url(#gradient)" opacity="0.1"/>
               <circle cx="30" cy="30" r="20" fill="none" stroke="url(#gradient)" stroke-width="2"/>
               <path d="M 20 30 L 27 37 L 40 24" stroke="url(#gradient)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -327,7 +327,7 @@ export async function sendAuditFailureEmail(
       <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="text-align: center; margin-bottom: 30px;">
           <div style="display: inline-block; margin-bottom: 15px;">
-            <svg width="180" height="54" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+            <svg width="300" height="90" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
               <circle cx="30" cy="30" r="25" fill="url(#gradientFail)" opacity="0.1"/>
               <circle cx="30" cy="30" r="20" fill="none" stroke="url(#gradientFail)" stroke-width="2"/>
               <path d="M 20 30 L 27 37 L 40 24" stroke="url(#gradientFail)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>

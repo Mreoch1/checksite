@@ -198,12 +198,12 @@ async function processAudit(auditId: string) {
     const customer = audit.customers as any
     try {
       console.log(`Attempting to send email to ${customer.email} for audit ${auditId}`)
-      await sendAuditReportEmail(
-        customer.email,
-        audit.url,
-        auditId,
-        html
-      )
+    await sendAuditReportEmail(
+      customer.email,
+      audit.url,
+      auditId,
+      html
+    )
       console.log(`Email sent successfully to ${customer.email}`)
     } catch (emailError) {
       console.error('Resend email failed (Stripe receipt email includes the report link):', emailError)
@@ -223,15 +223,15 @@ async function processAudit(auditId: string) {
 
     // Send failure email
     try {
-      const { data: audit } = await supabase
-        .from('audits')
-        .select('*, customers(*)')
-        .eq('id', auditId)
-        .single()
+    const { data: audit } = await supabase
+      .from('audits')
+      .select('*, customers(*)')
+      .eq('id', auditId)
+      .single()
 
-      if (audit) {
-        const customer = audit.customers as any
-        await sendAuditFailureEmail(customer.email, audit.url)
+    if (audit) {
+      const customer = audit.customers as any
+      await sendAuditFailureEmail(customer.email, audit.url)
       }
     } catch (failureEmailError) {
       console.error('Error sending failure email:', failureEmailError)

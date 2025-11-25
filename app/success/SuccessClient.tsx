@@ -57,8 +57,8 @@ export default function SuccessClient() {
               <Image
                 src="/logo.svg"
                 alt="SEO CheckSite"
-                width={160}
-                height={48}
+                width={240}
+                height={72}
               />
             </div>
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
