@@ -140,12 +140,14 @@ Content: ${contentSample}
 
 For each module, set true if recommended, false if not needed, and provide a one-sentence reason:
 
-1. local - Is this a local business (restaurant, service, store with location)?
-2. accessibility - Should accessibility be checked? (Usually yes)
-3. security - Should security be verified? (Usually yes)
+1. local - ONLY set true if this is a LOCAL business with a physical location (restaurant, cafe, barber shop, plumber, dentist, local store). Set FALSE for online-only services, SaaS, digital agencies, consulting firms, or remote services.
+2. accessibility - Should accessibility be checked? (Usually yes for all sites)
+3. security - Should security be verified? (Usually yes for all sites)
 4. schema - Would structured data help? (Usually yes for businesses)
-5. social - Would social sharing optimization help? (If content is shareable)
-6. competitor_overview - Would competitor analysis help? (For competitive markets)
+5. social - Would social sharing optimization help? (If content is shareable or has blog/articles)
+6. competitor_overview - Would competitor analysis help? (For businesses in competitive markets)
+
+CRITICAL for local: Only recommend local SEO if the site has a physical location, serves a local area, or is a local service business. Online services, SaaS, agencies, and consulting firms should be FALSE.
 
 Respond with ONLY valid JSON:
 {
@@ -156,7 +158,7 @@ Respond with ONLY valid JSON:
   "social": true/false,
   "competitor_overview": true/false,
   "reasons": {
-    "local": "One sentence explanation",
+    "local": "One sentence explanation - if false, explain why it's not a local business",
     "accessibility": "One sentence explanation",
     "security": "One sentence explanation",
     "schema": "One sentence explanation",
