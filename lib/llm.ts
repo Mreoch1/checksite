@@ -215,44 +215,34 @@ export async function generateReport(auditResult: {
     competitor_overview: 'Competitor Overview',
   }
 
-  // Optimize prompt size - only include essential data, limit issue details
+  // Aggressively optimize prompt size - limit issues and truncate text
   const optimizedModules = auditResult.modules.map(m => ({
-    moduleKey: m.moduleKey,
+    key: m.moduleKey,
     score: m.score,
-    summary: m.summary || `This module checks ${m.moduleKey}.`,
-    // Limit to first 10 issues per module to keep prompt manageable
-    issues: m.issues.slice(0, 10).map(i => ({
-      title: i.title,
+    // Limit to first 5 issues per module (was 10)
+    issues: m.issues.slice(0, 5).map(i => ({
+      title: i.title.substring(0, 100), // Limit title length
       severity: i.severity,
-      // Truncate long explanations to keep prompt size down
-      plainLanguageExplanation: (i.plainLanguageExplanation || '').substring(0, 200),
-      suggestedFix: (i.suggestedFix || '').substring(0, 200),
+      // Truncate to 150 chars (was 200) to keep prompt smaller
+      why: (i.plainLanguageExplanation || '').substring(0, 150),
+      how: (i.suggestedFix || '').substring(0, 150),
     })),
   }))
   
   console.log(`Optimized modules for prompt: ${optimizedModules.length} modules`)
   const totalIssues = optimizedModules.reduce((sum, m) => sum + m.issues.length, 0)
-  console.log(`Total issues in prompt: ${totalIssues}`)
-
-  // Create a more compact summary for the prompt
-  const moduleSummaries = optimizedModules.map(m => ({
-    key: m.moduleKey,
-    score: m.score,
-    issueCount: m.issues.length,
-    issues: m.issues.map(i => ({
-      title: i.title,
-      severity: i.severity,
-      why: i.plainLanguageExplanation,
-      how: i.suggestedFix,
-    })),
-  }))
+  console.log(`Total issues in prompt: ${totalIssues} (max 5 per module)`)
+  
+  // Calculate prompt size before creating full prompt
+  const moduleDataSize = JSON.stringify(optimizedModules).length
+  console.log(`Module data size: ${moduleDataSize} characters (${(moduleDataSize / 1024).toFixed(1)} KB)`)
 
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
 Website URL: ${auditResult.url}
 
-Audit Results Summary:
-${JSON.stringify(moduleSummaries, null, 2)}
+Audit Results (${optimizedModules.length} modules checked):
+${JSON.stringify(optimizedModules, null, 1)}
 
 CRITICAL REQUIREMENTS:
 1. You MUST include EVERY module from the audit results in your report. Do not skip any.
