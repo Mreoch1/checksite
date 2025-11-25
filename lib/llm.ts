@@ -98,7 +98,12 @@ Analyze this website and determine which optional SEO modules would be valuable.
 
 CRITICAL: For each module, provide a clear explanation:
 - If RECOMMENDED (true): Explain WHY it's valuable for this specific site (e.g., "Your site appears to be a local business, so local SEO will help customers find you in local search results.")
-- If NOT RECOMMENDED (false): Explain WHY it's not needed (e.g., "Your site doesn't appear to need a local SEO audit because it's an online-only business without a physical location or local service area.")
+- If NOT RECOMMENDED (false): Explain WHY it's not needed. MUST start with "Your site doesn't appear to need [module name] because..." (e.g., "Your site doesn't appear to need a local SEO audit because it's an online-only business without a physical location or local service area.")
+
+IMPORTANT: Be accurate with your recommendations:
+- Set local to FALSE if the site is purely digital/online with no physical location or local service area
+- Set local to TRUE only if there's evidence of a physical location, local service area, or local business model
+- Be consistent: if your explanation says the site doesn't need something, set that module to FALSE
 
 Be specific and helpful. The user needs to understand why you're making each recommendation.
 
