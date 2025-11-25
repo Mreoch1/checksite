@@ -188,17 +188,25 @@ export async function processAudit(auditId: string) {
     
     let html: string, plaintext: string
     try {
+      // Use a more aggressive timeout with proper cleanup
       const reportPromise = generateReport(auditResult)
+      let timeoutHandle: NodeJS.Timeout | null = null
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Report generation timeout: Took longer than 4 minutes'))
-        }, 240000) // 4 minutes total timeout
+        timeoutHandle = setTimeout(() => {
+          reject(new Error('Report generation timeout: Took longer than 3 minutes'))
+        }, 180000) // 3 minutes total timeout (reduced from 4 to catch issues faster)
       })
       
-      const result = await Promise.race([reportPromise, timeoutPromise])
-      html = result.html
-      plaintext = result.plaintext
-      console.log('✅ Report generated successfully')
+      try {
+        const result = await Promise.race([reportPromise, timeoutPromise])
+        if (timeoutHandle) clearTimeout(timeoutHandle)
+        html = result.html
+        plaintext = result.plaintext
+        console.log('✅ Report generated successfully')
+      } catch (raceError) {
+        if (timeoutHandle) clearTimeout(timeoutHandle)
+        throw raceError
+      }
     } catch (reportError) {
       console.error('❌ Report generation failed:', reportError)
       console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError))

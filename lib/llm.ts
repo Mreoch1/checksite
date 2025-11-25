@@ -65,12 +65,14 @@ export async function callDeepSeek(
       signal: controller.signal,
     })
 
-    // Race between fetch and timeout
+    // Race between fetch and timeout - use separate timeout to ensure it fires
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         controller.abort()
         reject(new Error('DeepSeek API timeout: Request took longer than 2.5 minutes'))
       }, 150000)
+      // Store timeout ID for cleanup if needed
+      ;(timeoutPromise as any)._timeout = timeout
     })
 
     console.log('Waiting for DeepSeek API response...')
