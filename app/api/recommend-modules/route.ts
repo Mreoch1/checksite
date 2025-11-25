@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { recommendModules } from '@/lib/llm'
 import * as cheerio from 'cheerio'
 
+// Force dynamic rendering - this route cannot be statically analyzed
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json()
