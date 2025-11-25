@@ -234,12 +234,25 @@ export async function generateReport(auditResult: {
   const totalIssues = optimizedModules.reduce((sum, m) => sum + m.issues.length, 0)
   console.log(`Total issues in prompt: ${totalIssues}`)
 
+  // Create a more compact summary for the prompt
+  const moduleSummaries = optimizedModules.map(m => ({
+    key: m.moduleKey,
+    score: m.score,
+    issueCount: m.issues.length,
+    issues: m.issues.map(i => ({
+      title: i.title,
+      severity: i.severity,
+      why: i.plainLanguageExplanation,
+      how: i.suggestedFix,
+    })),
+  }))
+
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
 Website URL: ${auditResult.url}
 
-Audit Results (ALL modules that were checked):
-${JSON.stringify(optimizedModules, null, 2)}
+Audit Results Summary:
+${JSON.stringify(moduleSummaries, null, 2)}
 
 CRITICAL REQUIREMENTS:
 1. You MUST include EVERY module from the audit results in your report. Do not skip any.
