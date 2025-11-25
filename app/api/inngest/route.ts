@@ -53,12 +53,31 @@ const processAuditFunction = inngest.createFunction(
           console.error(`[Inngest] Could not stringify error:`, jsonError)
         }
         
+        // Use step.sendEvent to log error details that Inngest can capture
+        try {
+          await step.sendEvent('audit-error', {
+            name: 'audit/error',
+            data: {
+              auditId,
+              errorName,
+              errorMessage,
+              errorStack: errorStack.substring(0, 1000), // Limit stack trace size
+              timestamp: new Date().toISOString(),
+            },
+          })
+        } catch (eventError) {
+          console.error(`[Inngest] Could not send error event:`, eventError)
+        }
+        
         // Create a more descriptive error that Inngest can display
+        // Include the error message in the error name to ensure it's visible
         const descriptiveError = new Error(
-          `Audit processing failed for ${auditId}: ${errorMessage} (${errorName})`
+          `[${errorName}] Audit ${auditId} failed: ${errorMessage}`
         )
-        descriptiveError.name = errorName
-        descriptiveError.stack = errorStack
+        descriptiveError.name = `AuditError_${errorName}`
+        if (errorStack) {
+          descriptiveError.stack = errorStack
+        }
         throw descriptiveError
       }
     })
