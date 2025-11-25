@@ -22,6 +22,10 @@ export default function RecommendPage() {
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
+    // Reset processing state when component mounts or reloads
+    setProcessing(false)
+    setError('')
+
     // Get data from sessionStorage
     const auditUrl = sessionStorage.getItem('auditUrl')
     const auditEmail = sessionStorage.getItem('auditEmail')
