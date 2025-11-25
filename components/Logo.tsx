@@ -24,6 +24,7 @@ export default function Logo({ variant = 'full', className = '', showLink = fals
           alt="SEO CheckSite"
           width={180}
           height={54}
+          className={className.includes('scale') ? className : ''}
         />
       )}
     </div>
