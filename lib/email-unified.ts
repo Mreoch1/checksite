@@ -106,14 +106,15 @@ async function sendViaResend(options: {
     // If custom domain not verified, retry with Resend default
     if (result?.error && isCustomDomain && 
         (result.error.message?.includes('not verified') || 
-         result.error.message?.includes('domain'))) {
-      console.warn('Custom domain not verified, using Resend default domain')
+         result.error.message?.includes('domain') ||
+         result.error.message?.includes('unauthorized'))) {
+      console.warn('Custom domain not verified, retrying with Resend default domain')
       from = 'onboarding@resend.dev'
-      const fallbackFrom = `"${FROM_NAME}" <${from}>`
+      fromFormatted = `"${FROM_NAME}" <${from}>`
       
       result = await Promise.race([
         resend.emails.send({
-          from: fallbackFrom,
+          from: fromFormatted,
           to: options.to,
           replyTo: from,
           subject: options.subject,
