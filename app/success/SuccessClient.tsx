@@ -142,7 +142,7 @@ export default function SuccessClient() {
                 </p>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

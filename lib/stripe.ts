@@ -12,14 +12,17 @@ function getStripe(): Stripe {
     if (!stripeSecretKey) {
       throw new Error('STRIPE_SECRET_KEY environment variable is required')
     }
-      stripeInstance = new Stripe(stripeSecretKey, {
-        apiVersion: '2023-10-16',
-      })
+    stripeInstance = new Stripe(stripeSecretKey, {
+      apiVersion: '2023-10-16',
+    })
   }
   return stripeInstance
 }
 
-export const stripe = getStripe()
+// Lazy getter - don't initialize at module load time
+export function getStripeClient(): Stripe {
+  return getStripe()
+}
 
 export interface CheckoutSessionData {
   auditId: string
@@ -39,6 +42,7 @@ export async function createCheckoutSession(
 ): Promise<Stripe.Checkout.Session> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const reportUrl = `${siteUrl}/report/${data.auditId}`
+  const stripe = getStripeClient()
   
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
@@ -63,7 +67,6 @@ export async function createCheckoutSession(
     consent_collection: {
       terms_of_service: 'required',
     },
-    terms_of_service_url: `${siteUrl}/terms`,
     payment_intent_data: {
       description: `Website Audit for ${data.url}`,
       metadata: {
