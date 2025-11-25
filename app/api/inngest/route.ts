@@ -15,7 +15,8 @@ const processAuditFunction = inngest.createFunction(
 
     // Use Inngest step with timeout wrapper
     return await step.run('process-audit', async () => {
-      console.log(`[Inngest] Processing audit ${auditId} at ${new Date().toISOString()}`)
+      const startTime = new Date().toISOString()
+      console.log(`[Inngest] Processing audit ${auditId} at ${startTime}`)
       
       try {
         // Add timeout wrapper (5 minutes)
@@ -122,20 +123,32 @@ const processAuditFunction = inngest.createFunction(
         }
         
         // Create a more descriptive error that Inngest can display
-        // Put the actual error message in the Error message itself (most important)
+        // Inngest serializes errors, so we need to ensure the message is clear
         const errorMsg = errorMessage || 'An unknown error occurred'
-        const descriptiveError = new Error(
-          `Audit ${auditId} failed: ${errorMsg}`
-        )
+        
+        // Create error with clear message - Inngest should capture this
+        const descriptiveError = new Error(errorMsg)
         descriptiveError.name = errorName || 'Error'
+        
+        // Preserve stack trace if available
         if (errorStack) {
           descriptiveError.stack = errorStack
         }
         
-        // Attach additional properties that Inngest might serialize
-        ;(descriptiveError as any).errorMessage = errorMsg
-        ;(descriptiveError as any).errorType = errorName || 'Error'
-        ;(descriptiveError as any).auditId = auditId
+        // Add context to error message for better visibility in Inngest
+        // Prefix with audit ID and error type for easier debugging
+        const fullErrorMessage = `[Audit ${auditId}] ${errorName || 'Error'}: ${errorMsg}`
+        descriptiveError.message = fullErrorMessage
+        
+        // Attach properties that Inngest might serialize
+        // Some Inngest versions look for these specific property names
+        Object.assign(descriptiveError, {
+          errorMessage: errorMsg,
+          errorType: errorName || 'Error',
+          auditId: auditId,
+          originalMessage: errorMsg,
+          originalName: errorName || 'Error',
+        })
         
         throw descriptiveError
       }
