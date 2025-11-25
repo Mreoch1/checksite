@@ -9,6 +9,8 @@ import { ModuleKey } from '@/lib/types'
 // Force dynamic rendering - webhooks must be dynamic
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const fetchCache = 'force-no-store'
+export const revalidate = 0
 
 function getStripe(): Stripe {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY
