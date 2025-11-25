@@ -199,6 +199,17 @@ Respond with ONLY valid JSON in this exact format:
  */
 export async function generateReport(auditResult: {
   url: string
+  pageAnalysis?: {
+    url: string
+    finalUrl?: string
+    httpStatus?: number
+    contentType?: string
+    contentLength?: number
+    hasRedirect?: boolean
+    isHttps?: boolean
+    title?: string | null
+    metaDescription?: string | null
+  }
   modules: Array<{
     moduleKey: string
     score: number
@@ -208,8 +219,10 @@ export async function generateReport(auditResult: {
       technicalExplanation: string
       plainLanguageExplanation: string
       suggestedFix: string
+      evidence?: any
     }>
     summary: string
+    evidence?: any
   }>
 }): Promise<{ html: string; plaintext: string }> {
   // Map module keys to display names
@@ -230,6 +243,7 @@ export async function generateReport(auditResult: {
   const optimizedModules = auditResult.modules.map(m => ({
     key: m.moduleKey,
     score: m.score,
+    evidence: m.evidence || {}, // Include module-level evidence
     // Limit to first 5 issues per module (was 10)
     issues: m.issues.slice(0, 5).map(i => ({
       title: i.title.substring(0, 100), // Limit title length
@@ -237,6 +251,7 @@ export async function generateReport(auditResult: {
       // Truncate to 150 chars (was 200) to keep prompt smaller
       why: (i.plainLanguageExplanation || '').substring(0, 150),
       how: (i.suggestedFix || '').substring(0, 150),
+      evidence: i.evidence || {}, // Include issue-level evidence
     })),
   }))
   
@@ -248,10 +263,21 @@ export async function generateReport(auditResult: {
   const moduleDataSize = JSON.stringify(optimizedModules).length
   console.log(`Module data size: ${moduleDataSize} characters (${(moduleDataSize / 1024).toFixed(1)} KB)`)
 
+  const pageInfo = auditResult.pageAnalysis ? `
+Page Analysis:
+- URL: ${auditResult.pageAnalysis.url}
+- Final URL: ${auditResult.pageAnalysis.finalUrl || auditResult.pageAnalysis.url}
+- HTTP Status: ${auditResult.pageAnalysis.httpStatus || 200}
+- Content Type: ${auditResult.pageAnalysis.contentType || 'unknown'}
+- Page Size: ${auditResult.pageAnalysis.contentLength ? `${(auditResult.pageAnalysis.contentLength / 1024).toFixed(1)} KB` : 'unknown'}
+- Has Redirect: ${auditResult.pageAnalysis.hasRedirect ? 'Yes' : 'No'}
+- Uses HTTPS: ${auditResult.pageAnalysis.isHttps ? 'Yes' : 'No'}
+` : ''
+
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
 Website URL: ${auditResult.url}
-
+${pageInfo}
 Audit Results (${optimizedModules.length} modules checked):
 ${JSON.stringify(optimizedModules, null, 1)}
 
@@ -269,17 +295,22 @@ CRITICAL REQUIREMENTS:
    - "social" → "Social Metadata"
    - "competitor_overview" → "Competitor Overview"
 
-3. Executive Summary (3-5 bullet points):
+3. Page Information Section (if pageAnalysis is provided):
+   - Display basic page info: URL, HTTP status, content type, page size
+   - Note any redirects
+   - Show if HTTPS is enabled
+
+4. Executive Summary (3-5 bullet points):
    - Overall health assessment
    - 3 main strengths
    - 3 main weaknesses
    - Top priorities in plain language
 
-4. "Start Here: Top Priority Actions" Section:
+5. "Start Here: Top Priority Actions" Section:
    - Exactly 5 most important fixes (prioritize High severity issues)
    - For each: title, why it matters (one sentence), how to fix it (simple steps)
 
-5. Module-by-Module Sections (MANDATORY - include ALL modules):
+6. Module-by-Module Sections (MANDATORY - include ALL modules):
    - You MUST include EVERY SINGLE module from the audit results. Count them first.
    - For EACH module in the audit results (check the moduleKey field):
      * Use the exact display name from the mapping above (e.g., "on_page" → "On-Page SEO")
@@ -291,15 +322,17 @@ CRITICAL REQUIREMENTS:
        - Use the severity from results (high/medium/low)
        - Use plainLanguageExplanation as "why this matters"
        - Use suggestedFix as "how to fix it"
+       - If evidence is provided, include it in an "evidence" field showing actual values found (e.g., actual title tag text, robots.txt content, etc.)
+     * Include module-level evidence when available (e.g., actual page title, meta description, H1 text, etc.)
    - Before finishing, verify you have included ALL modules. Count the modules in audit results and ensure your response has the same number.
 
-6. NEVER include:
+7. NEVER include:
    - "Coming soon" messages
    - Empty sections
    - Placeholder text
    - Technical jargon without explanation
 
-7. If a module has no issues, still include it with:
+8. If a module has no issues, still include it with:
    - Overview sentence
    - "All checks passed for this category."
 
@@ -307,6 +340,14 @@ Tone: Simple, friendly, encouraging. Write as if explaining to a friend who owns
 
 Respond with ONLY valid JSON in this exact format:
 {
+  "pageInfo": {
+    "url": "The audited URL",
+    "httpStatus": 200,
+    "contentType": "text/html",
+    "pageSize": "Size in KB",
+    "hasRedirect": false,
+    "isHttps": true
+  },
   "executiveSummary": ["bullet point 1", "bullet point 2", "bullet point 3", "bullet point 4", "bullet point 5"],
   "topActions": [
     {
@@ -319,12 +360,23 @@ Respond with ONLY valid JSON in this exact format:
     {
       "moduleName": "Performance",
       "overview": "One sentence about what this category checks",
+      "evidence": {
+        "title": "Actual page title found",
+        "metaDescription": "Actual meta description found",
+        "h1Text": "Actual H1 heading text",
+        "etc": "Other relevant evidence"
+      },
       "issues": [
         {
           "title": "Issue title from results",
           "severity": "high",
           "why": "Why this matters",
-          "how": "How to fix it"
+          "how": "How to fix it",
+          "evidence": {
+            "found": "Actual value found (e.g., actual title text, robots.txt content)",
+            "expected": "What should be there",
+            "actual": "What was actually found"
+          }
         }
       ]
     }
@@ -575,6 +627,53 @@ function generateHTMLReport(reportData: any, url: string): string {
       font-size: 0.95em;
       margin-bottom: 30px;
     }
+    .evidence-table {
+      margin: 15px 0;
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .evidence-table th {
+      background: #f3f4f6;
+      padding: 10px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9em;
+      color: #374151;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    .evidence-table td {
+      padding: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.9em;
+    }
+    .evidence-table tr:last-child td {
+      border-bottom: none;
+    }
+    .evidence-code {
+      font-family: 'Monaco', 'Courier New', monospace;
+      background: #f9fafb;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      word-break: break-all;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .evidence-section {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f9fafb;
+      border-radius: 4px;
+      border-left: 3px solid #0ea5e9;
+    }
+    .evidence-section h4 {
+      margin-top: 0;
+      color: #0369a1;
+      font-size: 1em;
+    }
   </style>
 </head>
 <body>
@@ -589,6 +688,21 @@ function generateHTMLReport(reportData: any, url: string): string {
   <p><strong>Website:</strong> ${domain}</p>
   <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
     </div>
+
+    ${reportData.pageInfo ? `
+  <h2>Page Information</h2>
+  <div class="evidence-section">
+    <table class="evidence-table">
+      <tr><th>URL</th><td>${reportData.pageInfo.url || domain}</td></tr>
+      ${reportData.pageInfo.finalUrl && reportData.pageInfo.finalUrl !== reportData.pageInfo.url ? `<tr><th>Final URL (after redirect)</th><td>${reportData.pageInfo.finalUrl}</td></tr>` : ''}
+      <tr><th>HTTP Status</th><td>${reportData.pageInfo.httpStatus || 200}</td></tr>
+      <tr><th>Content Type</th><td>${reportData.pageInfo.contentType || 'unknown'}</td></tr>
+      ${reportData.pageInfo.pageSize ? `<tr><th>Page Size</th><td>${reportData.pageInfo.pageSize}</td></tr>` : ''}
+      <tr><th>HTTPS</th><td>${reportData.pageInfo.isHttps ? 'Yes ✓' : 'No ✗'}</tr>
+      ${reportData.pageInfo.hasRedirect ? `<tr><th>Redirect</th><td>Yes (redirected from ${reportData.pageInfo.url} to ${reportData.pageInfo.finalUrl || reportData.pageInfo.url})</td></tr>` : ''}
+    </table>
+  </div>
+    ` : ''}
 
   <h2>Executive Summary</h2>
   <div class="summary">
@@ -608,12 +722,38 @@ function generateHTMLReport(reportData: any, url: string): string {
       <div class="module-section">
     <h2>${module.moduleName}</h2>
         <p style="margin-bottom: 15px;">${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
+        ${module.evidence && Object.keys(module.evidence).length > 0 ? `
+          <div class="evidence-section">
+            <h4>What We Found:</h4>
+            <table class="evidence-table">
+              ${Object.entries(module.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => `
+                <tr>
+                  <th>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</th>
+                  <td>${typeof value === 'string' && value.length > 200 ? `<div class="evidence-code">${value.substring(0, 200)}...</div>` : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}</td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        ` : ''}
         ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
           <div class="issue ${issue.severity}">
         <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
             <h3 style="margin-top: 10px;">${issue.title}</h3>
         <p><strong>Why this matters:</strong> ${issue.why}</p>
         <p><strong>How to fix it:</strong> ${issue.how}</p>
+        ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
+          <div class="evidence-section" style="margin-top: 15px;">
+            <h4>Evidence:</h4>
+            <table class="evidence-table">
+              ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => `
+                <tr>
+                  <th>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</th>
+                  <td>${typeof value === 'string' && value.length > 300 ? `<div class="evidence-code">${value.substring(0, 300)}...</div>` : typeof value === 'object' ? `<div class="evidence-code">${JSON.stringify(value, null, 2).substring(0, 500)}</div>` : String(value)}</td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        ` : ''}
           </div>
         `).join('') : '<div class="no-issues">✓ All checks passed for this category.</div>'}
       </div>

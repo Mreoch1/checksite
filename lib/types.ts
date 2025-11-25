@@ -24,6 +24,14 @@ export interface AuditIssue {
   technicalExplanation: string
   plainLanguageExplanation: string
   suggestedFix: string
+  evidence?: {
+    // Actual values found (e.g., actual title tag, robots.txt content, etc.)
+    found?: string | string[]
+    expected?: string
+    actual?: string
+    count?: number
+    details?: Record<string, any>
+  }
 }
 
 export interface ModuleResult {
@@ -31,6 +39,10 @@ export interface ModuleResult {
   score: number // 0-100
   issues: AuditIssue[]
   summary: string // Plain language summary
+  evidence?: {
+    // Module-level evidence (e.g., page title, meta description, H1 text, etc.)
+    [key: string]: any
+  }
 }
 
 export interface AuditResult {

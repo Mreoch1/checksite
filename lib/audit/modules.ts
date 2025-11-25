@@ -13,6 +13,10 @@ interface SiteData {
   title?: string
   description?: string
   headers: Record<string, string>
+  httpStatus?: number
+  finalUrl?: string
+  contentType?: string
+  contentLength?: number
 }
 
 /**
@@ -42,6 +46,11 @@ export async function fetchSite(url: string): Promise<SiteData> {
     const $ = cheerio.load(html)
     const headers: Record<string, string> = {}
     
+    // Extract response headers
+    response.headers.forEach((value, key) => {
+      headers[key.toLowerCase()] = value
+    })
+    
     // Extract headers (we can't access response headers directly in this context,
     // but we can check meta tags and other indicators)
     const title = $('title').first().text().trim()
@@ -55,6 +64,10 @@ export async function fetchSite(url: string): Promise<SiteData> {
       title,
       description,
       headers,
+      httpStatus: response.status,
+      finalUrl: response.url || url,
+      contentType: headers['content-type'] || 'unknown',
+      contentLength: parseInt(headers['content-length'] || '0'),
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -72,61 +85,126 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   const issues: AuditIssue[] = []
   let score = 100
 
+  // Collect evidence data
+  const imageSources: string[] = []
+  const blockingScriptSources: string[] = []
+  const asyncScriptSources: string[] = []
+  const deferScriptSources: string[] = []
+  let totalImages = 0
+  let imagesWithLazy = 0
+  let imagesWithoutLazy = 0
+
   // Check if site uses HTTPS
-  if (!siteData.url.startsWith('https://')) {
+  const isHttps = siteData.url.startsWith('https://')
+  if (!isHttps) {
     issues.push({
       title: 'Site is not using HTTPS',
       severity: 'high',
       technicalExplanation: 'Site is served over HTTP instead of HTTPS',
       plainLanguageExplanation: 'Your website is not secure. Visitors may see warnings and search engines prefer secure sites.',
       suggestedFix: 'Contact your web hosting provider to enable SSL/HTTPS. Most hosting providers offer free SSL certificates.',
+      evidence: {
+        found: 'HTTP (not secure)',
+        actual: siteData.url,
+        expected: 'HTTPS (secure connection)',
+      },
     })
     score -= 20
   }
 
-  // Check for large images (heuristic: look for img tags without size attributes)
+  // Check for images and lazy loading
   const images = siteData.$('img')
-  let largeImageCount = 0
   images.each((_, el) => {
     const src = siteData.$(el).attr('src')
     if (src && !src.startsWith('data:')) {
-      // Check if image has loading="lazy" attribute
-      if (!siteData.$(el).attr('loading')) {
-        largeImageCount++
+      totalImages++
+      imageSources.push(src)
+      const loading = siteData.$(el).attr('loading')
+      if (loading === 'lazy') {
+        imagesWithLazy++
+      } else {
+        imagesWithoutLazy++
       }
     }
   })
 
-  if (largeImageCount > 5) {
+  if (imagesWithoutLazy > 5) {
     issues.push({
       title: 'Images may be slowing down your site',
       severity: 'medium',
-      technicalExplanation: `Found ${largeImageCount} images without lazy loading`,
+      technicalExplanation: `Found ${imagesWithoutLazy} images without lazy loading`,
       plainLanguageExplanation: 'Large images can make your site slow to load, especially on mobile devices.',
       suggestedFix: 'Ask your web designer to add "lazy loading" to images. This makes images load only when visitors scroll to them.',
+      evidence: {
+        found: `${imagesWithoutLazy} images without lazy loading`,
+        actual: `${imagesWithLazy} with lazy loading, ${imagesWithoutLazy} without`,
+        expected: 'All images should have loading="lazy" attribute',
+        count: imagesWithoutLazy,
+      },
     })
     score -= 10
   }
 
-  // Check for render-blocking resources (simplified check)
-  const blockingScripts = siteData.$('script[src]').filter((_, el) => {
+  // Check for render-blocking resources
+  const allScripts = siteData.$('script[src]')
+  allScripts.each((_, el) => {
     const src = siteData.$(el).attr('src') || ''
-    return !src.includes('async') && !src.includes('defer')
-  }).length
+    if (src) {
+      if (src.includes('async')) {
+        asyncScriptSources.push(src)
+      } else if (src.includes('defer')) {
+        deferScriptSources.push(src)
+      } else {
+        blockingScriptSources.push(src)
+      }
+    }
+  })
 
-  if (blockingScripts > 3) {
+  const blockingScriptsCount = blockingScriptSources.length
+  if (blockingScriptsCount > 3) {
     issues.push({
       title: 'Too many scripts may slow page loading',
       severity: 'medium',
-      technicalExplanation: `Found ${blockingScripts} scripts that block page rendering`,
+      technicalExplanation: `Found ${blockingScriptsCount} scripts that block page rendering`,
       plainLanguageExplanation: 'Scripts can prevent your page from showing quickly to visitors.',
       suggestedFix: 'Ask your web designer to optimize scripts or move them to load after the page content.',
+      evidence: {
+        found: `${blockingScriptsCount} blocking scripts`,
+        actual: `${blockingScriptsCount} blocking, ${asyncScriptSources.length} async, ${deferScriptSources.length} deferred`,
+        expected: 'Scripts should use async or defer attributes',
+        count: blockingScriptsCount,
+        details: {
+          blockingScripts: blockingScriptSources.slice(0, 5), // Limit to first 5
+        },
+      },
     })
     score -= 10
   }
 
-  // TODO: Integrate Lighthouse API for real performance metrics
-  // For now, use placeholder logic
+  // Check for external resources that might slow loading
+  const externalResources = siteData.$('[src^="http://"], [href^="http://"]').length
+  if (externalResources > 0 && isHttps) {
+    issues.push({
+      title: 'Site may load some content over insecure connection',
+      severity: 'medium',
+      technicalExplanation: `Found ${externalResources} resources loaded over HTTP`,
+      plainLanguageExplanation: 'Loading some content over HTTP can make your site less secure.',
+      suggestedFix: 'Update all links and resources to use HTTPS instead of HTTP.',
+      evidence: {
+        found: `${externalResources} HTTP resources`,
+        actual: `${externalResources} resources using HTTP`,
+        expected: 'All resources should use HTTPS',
+        count: externalResources,
+      },
+    })
+    score -= 5
+  }
+
+  // Calculate resource counts
+  const totalScripts = allScripts.length
+  const totalStylesheets = siteData.$('link[rel="stylesheet"]').length
+  const totalResources = totalImages + totalScripts + totalStylesheets
+
   const summary = score >= 80
     ? 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
     : score >= 60
@@ -138,6 +216,19 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      isHttps: isHttps,
+      totalImages: totalImages,
+      imagesWithLazyLoading: imagesWithLazy,
+      imagesWithoutLazyLoading: imagesWithoutLazy,
+      totalScripts: totalScripts,
+      blockingScripts: blockingScriptsCount,
+      asyncScripts: asyncScriptSources.length,
+      deferredScripts: deferScriptSources.length,
+      totalStylesheets: totalStylesheets,
+      totalResources: totalResources,
+      externalHttpResources: externalResources,
+    },
   }
 }
 
@@ -157,6 +248,10 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'No <title> tag found',
       plainLanguageExplanation: 'Search engines need a title to understand what your page is about.',
       suggestedFix: 'Add a clear, descriptive title (50-60 characters) that describes your page content.',
+      evidence: {
+        found: null,
+        expected: 'A title tag with 50-60 characters',
+      },
     })
     score -= 25
   } else if (title.length < 30) {
@@ -166,6 +261,11 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `Title is only ${title.length} characters`,
       plainLanguageExplanation: 'Short titles don\'t give search engines enough information.',
       suggestedFix: 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
+      evidence: {
+        found: title,
+        actual: `${title.length} characters`,
+        expected: '50-60 characters',
+      },
     })
     score -= 10
   } else if (title.length > 60) {
@@ -175,6 +275,11 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `Title is ${title.length} characters (recommended: 50-60)`,
       plainLanguageExplanation: 'Long titles get cut off in search results.',
       suggestedFix: 'Shorten your title to 50-60 characters to ensure it displays fully.',
+      evidence: {
+        found: title,
+        actual: `${title.length} characters`,
+        expected: '50-60 characters',
+      },
     })
     score -= 5
   }
@@ -188,6 +293,10 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'No meta description tag found',
       plainLanguageExplanation: 'Descriptions help people decide if they want to visit your site from search results.',
       suggestedFix: 'Add a description (150-160 characters) that explains what your page offers.',
+      evidence: {
+        found: null,
+        expected: 'A meta description tag with 150-160 characters',
+      },
     })
     score -= 20
   } else if (description.length < 120) {
@@ -197,12 +306,22 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `Description is only ${description.length} characters`,
       plainLanguageExplanation: 'Short descriptions don\'t give enough information to potential visitors.',
       suggestedFix: 'Expand your description to 150-160 characters with more details about your page.',
+      evidence: {
+        found: description,
+        actual: `${description.length} characters`,
+        expected: '150-160 characters',
+      },
     })
     score -= 10
   }
 
   // Check H1 tag
   const h1Count = siteData.$('h1').length
+  const h1Texts: string[] = []
+  siteData.$('h1').each((_, el) => {
+    h1Texts.push(siteData.$(el).text().trim())
+  })
+  
   if (h1Count === 0) {
     issues.push({
       title: 'Missing main heading (H1)',
@@ -210,6 +329,10 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'No H1 tag found',
       plainLanguageExplanation: 'The main heading helps search engines and visitors understand your page topic.',
       suggestedFix: 'Add one H1 heading at the top of your main content that describes what the page is about.',
+      evidence: {
+        found: null,
+        expected: 'One H1 tag with the main page heading',
+      },
     })
     score -= 20
   } else if (h1Count > 1) {
@@ -219,6 +342,12 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `Found ${h1Count} H1 tags (should be 1)`,
       plainLanguageExplanation: 'Having multiple main headings confuses search engines about your page focus.',
       suggestedFix: 'Keep only one H1 tag and use H2, H3 for other headings.',
+      evidence: {
+        found: h1Texts,
+        actual: `${h1Count} H1 tags found`,
+        expected: '1 H1 tag',
+        details: { h1Texts },
+      },
     })
     score -= 10
   }
@@ -234,6 +363,12 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `Page has only ${wordCount} words`,
       plainLanguageExplanation: 'Pages with little content don\'t rank well in search results.',
       suggestedFix: 'Add more helpful content to your page (aim for at least 300-500 words).',
+      evidence: {
+        found: `${wordCount} words`,
+        actual: `${wordCount} words`,
+        expected: 'At least 300-500 words',
+        count: wordCount,
+      },
     })
     score -= 15
   }
@@ -256,6 +391,12 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: `${missingAltCount} images without alt attributes`,
       plainLanguageExplanation: 'Image descriptions help search engines understand your images and improve accessibility.',
       suggestedFix: 'Add descriptive alt text to all images describing what they show.',
+      evidence: {
+        found: `${missingAltCount} images without alt text`,
+        actual: `${missingAltCount} missing, ${images.length - missingAltCount} with alt text`,
+        expected: 'All images should have descriptive alt text',
+        count: missingAltCount,
+      },
     })
     score -= Math.min(15, missingAltCount * 2)
   }
@@ -266,11 +407,29 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     ? 'Your on-page SEO needs some improvements. Focus on adding titles, descriptions, and proper headings.'
     : 'Your on-page SEO needs significant work. Start with adding a title, description, and main heading.'
 
+  // Collect module-level evidence
+  const h1Text = h1Count > 0 ? h1Texts[0] : null
+  const h2Count = siteData.$('h2').length
+  const h3Count = siteData.$('h3').length
+  
   return {
     moduleKey: 'on_page',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      title: title || null,
+      titleLength: title ? title.length : 0,
+      metaDescription: description || null,
+      metaDescriptionLength: description ? description.length : 0,
+      h1Text: h1Text,
+      h1Count: h1Count,
+      h2Count: h2Count,
+      h3Count: h3Count,
+      wordCount: wordCount,
+      imageCount: images.length,
+      missingAltCount: missingAltCount,
+    },
   }
 }
 
@@ -290,6 +449,10 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'No viewport meta tag found',
       plainLanguageExplanation: 'Without this, your site won\'t display properly on phones and tablets.',
       suggestedFix: 'Add this code to your page header: <meta name="viewport" content="width=device-width, initial-scale=1">',
+      evidence: {
+        found: null,
+        expected: '<meta name="viewport" content="width=device-width, initial-scale=1">',
+      },
     })
     score -= 30
   } else if (!viewport.includes('width=device-width')) {
@@ -299,6 +462,11 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'Viewport tag exists but may not be configured correctly',
       plainLanguageExplanation: 'Your mobile display settings may not be optimal.',
       suggestedFix: 'Update your viewport tag to: <meta name="viewport" content="width=device-width, initial-scale=1">',
+      evidence: {
+        found: viewport,
+        actual: viewport,
+        expected: 'width=device-width, initial-scale=1',
+      },
     })
     score -= 15
   }
@@ -344,6 +512,8 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
     return !!(height && parseInt(height[1]) < 44)
   }).length
 
+  const totalButtons = buttons.length
+
   if (smallButtons > 0) {
     issues.push({
       title: 'Some buttons may be too small for mobile',
@@ -351,6 +521,12 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
       technicalExplanation: 'Found buttons smaller than 44px height',
       plainLanguageExplanation: 'Small buttons are hard to tap on phones.',
       suggestedFix: 'Make sure all buttons and clickable links are at least 44x44 pixels.',
+      evidence: {
+        found: `${smallButtons} buttons too small`,
+        actual: `${smallButtons} buttons smaller than 44px`,
+        expected: 'All buttons should be at least 44x44 pixels',
+        count: smallButtons,
+      },
     })
     score -= 5
   }
@@ -366,6 +542,16 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      viewport: viewport || null,
+      hasViewport: !!viewport,
+      viewportOptimal: viewport ? viewport.includes('width=device-width') : false,
+      hasFixedWidth: hasFixedWidth,
+      smallTextElements: smallTexts,
+      totalButtons: totalButtons,
+      smallButtons: smallButtons,
+      touchTargetsOptimal: smallButtons === 0,
+    },
   }
 }
 
@@ -889,6 +1075,11 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
           technicalExplanation: 'robots.txt contains "Disallow: /"',
           plainLanguageExplanation: 'Your robots.txt file might be preventing search engines from finding your pages.',
           suggestedFix: 'Check your robots.txt file and make sure it\'s not blocking all pages. Remove "Disallow: /" unless you want to block search engines.',
+          evidence: {
+            found: robotsContent,
+            actual: 'Contains "Disallow: /" which blocks all pages',
+            expected: 'Should allow search engines to crawl pages (e.g., "User-agent: *\nAllow: /")',
+          },
         })
         score -= 30
       }
@@ -913,6 +1104,11 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       technicalExplanation: `Only ${internalLinks} internal links detected`,
       plainLanguageExplanation: 'Internal links help search engines discover all your pages.',
       suggestedFix: 'Add links between your pages. Link from your homepage to important pages, and from those pages back to your homepage.',
+      evidence: {
+        found: `${internalLinks} internal links`,
+        actual: `${internalLinks} links`,
+        expected: 'At least 5-10 internal links per page',
+      },
     })
     score -= 10
   }
@@ -923,11 +1119,30 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     ? 'Your crawl health needs improvement. Create a sitemap.xml file to help search engines find all your pages.'
     : 'Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.'
   
+  // Collect module-level evidence
+  let robotsContent: string | null = null
+  try {
+    const robotsUrl = new URL('/robots.txt', siteData.url).toString()
+    const robotsResponse = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+    })
+    if (robotsResponse.ok) {
+      robotsContent = await robotsResponse.text()
+    }
+  } catch {
+    // robots.txt not accessible
+  }
+  
   return {
     moduleKey: 'crawl_health',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      robotsTxtContent: robotsContent,
+      internalLinksCount: internalLinks,
+      sitemapExists: false, // Will be set if sitemap check passes
+    },
   }
 }
 
@@ -995,7 +1210,7 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
 export async function runAuditModules(
   url: string,
   enabledModules: ModuleKey[]
-): Promise<ModuleResult[]> {
+): Promise<{ results: ModuleResult[]; siteData: SiteData }> {
   const siteData = await fetchSite(url)
   const results: ModuleResult[] = []
 
@@ -1037,6 +1252,6 @@ export async function runAuditModules(
     }
   }
 
-  return results
+  return { results, siteData }
 }
 
