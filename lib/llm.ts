@@ -330,22 +330,44 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     },
   ]
 
+  const promptSize = JSON.stringify(messages).length
   console.log(`Calling DeepSeek with ${auditResult.modules.length} modules...`)
-  console.log(`Prompt size: ${JSON.stringify(messages).length} characters`)
+  console.log(`Prompt size: ${promptSize} characters (${(promptSize / 1024).toFixed(1)} KB)`)
   
-  const response = await callDeepSeek(messages, 0.5)
-  console.log(`DeepSeek response received, length: ${response.length} characters`)
+  let response: string
+  try {
+    response = await callDeepSeek(messages, 0.5)
+    console.log(`✅ DeepSeek response received, length: ${response.length} characters`)
+  } catch (llmError) {
+    console.error('❌ DeepSeek API call failed:', llmError)
+    console.error('Error details:', llmError instanceof Error ? llmError.message : String(llmError))
+    throw new Error(`Failed to generate report: ${llmError instanceof Error ? llmError.message : String(llmError)}`)
+  }
+  
+  if (!response || response.length === 0) {
+    console.error('❌ Empty response from DeepSeek')
+    throw new Error('DeepSeek returned empty response')
+  }
   
   // Extract JSON
+  console.log('Extracting JSON from response...')
   const jsonMatch = response.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
-    console.error('No JSON found in response. Response preview:', response.substring(0, 500))
-    throw new Error('Invalid JSON response from DeepSeek')
+    console.error('❌ No JSON found in response')
+    console.error('Response preview (first 1000 chars):', response.substring(0, 1000))
+    throw new Error('Invalid JSON response from DeepSeek - no JSON found in response')
   }
 
   console.log('Parsing JSON response...')
-  const reportData = JSON.parse(jsonMatch[0])
-  console.log('JSON parsed successfully')
+  let reportData: any
+  try {
+    reportData = JSON.parse(jsonMatch[0])
+    console.log('✅ JSON parsed successfully')
+  } catch (parseError) {
+    console.error('❌ JSON parse error:', parseError)
+    console.error('JSON string preview:', jsonMatch[0].substring(0, 500))
+    throw new Error(`Failed to parse JSON from DeepSeek response: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+  }
 
   // Ensure all modules from audit are included
   const moduleDisplayNames: Record<string, string> = {
