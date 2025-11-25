@@ -69,8 +69,8 @@ export async function callDeepSeek(
     const timeoutPromise = new Promise<never>((_, reject) => {
       const timeout = setTimeout(() => {
         controller.abort()
-        reject(new Error('DeepSeek API timeout: Request took longer than 2.5 minutes'))
-      }, 150000)
+        reject(new Error('DeepSeek API timeout: Request took longer than 3 minutes'))
+      }, 180000) // 3 minutes (increased from 2.5)
       // Store timeout ID for cleanup if needed
       ;(timeoutPromise as any)._timeout = timeout
     })
@@ -105,9 +105,9 @@ export async function callDeepSeek(
     return content
   } catch (error) {
     clearTimeout(timeoutId)
-    if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
-      console.error('DeepSeek API timeout after 2.5 minutes')
-      throw new Error('DeepSeek API timeout: Request took longer than 2.5 minutes')
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
+        console.error('DeepSeek API timeout after 3 minutes')
+        throw new Error('DeepSeek API timeout: Request took longer than 3 minutes')
     }
     console.error('DeepSeek API error:', error)
     throw error
