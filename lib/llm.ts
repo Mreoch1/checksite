@@ -320,60 +320,157 @@ function generateHTMLReport(reportData: any, url: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Website Report - ${domain}</title>
+  <title>SEO CheckSite - Website Report</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-    h1 { color: #0369a1; border-bottom: 3px solid #0ea5e9; padding-bottom: 10px; }
-    h2 { color: #0284c7; margin-top: 30px; }
-    .summary { background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
-    .summary ul { margin: 10px 0; padding-left: 20px; }
-    .action { background: #fff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 15px 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      line-height: 1.6; 
+      color: #333; 
+      max-width: 900px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      background: #f9fafb;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    h1 { 
+      color: #0369a1; 
+      border-bottom: 3px solid #0ea5e9; 
+      padding-bottom: 10px; 
+      margin-top: 0;
+    }
+    h2 { 
+      color: #0284c7; 
+      margin-top: 40px; 
+      margin-bottom: 15px;
+      font-size: 1.5em;
+    }
+    h3 {
+      color: #0369a1;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+    }
+    .summary { 
+      background: #f0f9ff; 
+      padding: 20px; 
+      border-radius: 8px; 
+      margin: 20px 0; 
+      border-left: 4px solid #0ea5e9;
+    }
+    .summary ul { 
+      margin: 10px 0; 
+      padding-left: 20px; 
+    }
+    .summary li {
+      margin: 8px 0;
+    }
+    .action { 
+      background: #fff; 
+      border-left: 4px solid #0ea5e9; 
+      padding: 15px; 
+      margin: 15px 0; 
+      border-radius: 4px;
+    }
     .action.high { border-left-color: #dc2626; }
     .action.medium { border-left-color: #f59e0b; }
     .action.low { border-left-color: #10b981; }
-    .issue { margin: 20px 0; padding: 15px; background: #f9fafb; border-radius: 6px; }
-    .severity { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85em; font-weight: 600; margin-bottom: 10px; }
+    .module-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9fafb;
+      border-radius: 6px;
+    }
+    .module-section h2 {
+      margin-top: 0;
+    }
+    .issue { 
+      margin: 15px 0; 
+      padding: 15px; 
+      background: #fff; 
+      border-radius: 6px; 
+      border-left: 3px solid #e5e7eb;
+    }
+    .issue.high { border-left-color: #dc2626; }
+    .issue.medium { border-left-color: #f59e0b; }
+    .issue.low { border-left-color: #10b981; }
+    .severity { 
+      display: inline-block; 
+      padding: 4px 12px; 
+      border-radius: 4px; 
+      font-size: 0.85em; 
+      font-weight: 600; 
+      margin-bottom: 10px; 
+      text-transform: uppercase;
+    }
     .severity.high { background: #fee2e2; color: #991b1b; }
     .severity.medium { background: #fef3c7; color: #92400e; }
     .severity.low { background: #d1fae5; color: #065f46; }
+    .no-issues {
+      color: #10b981;
+      font-weight: 600;
+      padding: 10px;
+      background: #d1fae5;
+      border-radius: 4px;
+    }
+    .meta-info {
+      color: #6b7280;
+      font-size: 0.95em;
+      margin-bottom: 30px;
+    }
   </style>
 </head>
 <body>
-  <h1>Website Report</h1>
-  <p><strong>Website:</strong> ${domain}</p>
-  <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-
-  <h2>Executive Summary</h2>
-  <div class="summary">
-    <ul>
-      ${reportData.executiveSummary.map((point: string) => `<li>${point}</li>`).join('')}
-    </ul>
-  </div>
-
-  <h2>Start Here: Top Priority Actions</h2>
-  ${reportData.topActions.map((action: any, idx: number) => `
-    <div class="action ${action.severity || 'high'}">
-      <h3>${idx + 1}. ${action.title}</h3>
-      <p><strong>Why this matters:</strong> ${action.why}</p>
-      <p><strong>How to fix it:</strong> ${action.how}</p>
+  <div class="container">
+    <h1>SEO CheckSite</h1>
+    <div style="margin-bottom: 20px;">
+      <a href="/" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">← Back to Home</a>
     </div>
-  `).join('')}
+    
+    <h1 style="margin-top: 20px;">Website Report</h1>
+    <div class="meta-info">
+      <p><strong>Website:</strong> ${domain}</p>
+      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+    </div>
 
-  ${reportData.modules.map((module: any) => `
-    <h2>${module.moduleName}</h2>
-    <p>${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
-    ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
-      <div class="issue">
-        <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
-        <h3>${issue.title}</h3>
-        <p><strong>Why this matters:</strong> ${issue.why}</p>
-        <p><strong>How to fix it:</strong> ${issue.how}</p>
+    <h2>Executive Summary</h2>
+    <div class="summary">
+      ${reportData.executiveSummary ? reportData.executiveSummary.map((point: string) => `<p>${point}</p>`).join('') : '<p>Your website audit is complete. Review the sections below for detailed findings.</p>'}
+    </div>
+
+    <h2>Start Here: Top Priority Actions</h2>
+    ${reportData.topActions && reportData.topActions.length > 0 ? reportData.topActions.map((action: any, idx: number) => `
+      <div class="action ${action.severity || 'high'}">
+        <h3>${idx + 1}. ${action.title}</h3>
+        <p><strong>Why this matters:</strong> ${action.why}</p>
+        <p><strong>How to fix it:</strong> ${action.how}</p>
       </div>
-    `).join('') : '<p style="color: #10b981; font-weight: 600;">✓ All checks passed for this category.</p>'}
-  `).join('')}
+    `).join('') : '<p>Review the detailed sections below for specific recommendations.</p>'}
 
-  <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
-  <p style="color: #6b7280; font-size: 0.9em;">This report was generated by SiteCheck. For questions, contact support.</p>
+    ${reportData.modules && reportData.modules.length > 0 ? reportData.modules.map((module: any) => `
+      <div class="module-section">
+        <h2>${module.moduleName}</h2>
+        <p style="margin-bottom: 15px;">${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
+        ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
+          <div class="issue ${issue.severity}">
+            <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
+            <h3 style="margin-top: 10px;">${issue.title}</h3>
+            <p><strong>Why this matters:</strong> ${issue.why}</p>
+            <p><strong>How to fix it:</strong> ${issue.how}</p>
+          </div>
+        `).join('') : '<div class="no-issues">✓ All checks passed for this category.</div>'}
+      </div>
+    `).join('') : '<p>No module data available.</p>'}
+
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
+    <p style="color: #6b7280; font-size: 0.9em; text-align: center;">
+      This report was generated by SEO CheckSite. For questions, contact support.
+    </p>
+  </div>
 </body>
 </html>`
 }
@@ -381,31 +478,53 @@ function generateHTMLReport(reportData: any, url: string): string {
 function generatePlaintextReport(reportData: any, url: string): string {
   const domain = new URL(url).hostname
   
-  let text = `WEBSITE REPORT\n`
+  let text = `SEO CHECKSITE - WEBSITE REPORT\n`
+  text += `${'='.repeat(50)}\n\n`
   text += `Website: ${domain}\n`
   text += `Date: ${new Date().toLocaleDateString()}\n\n`
+  
   text += `EXECUTIVE SUMMARY\n`
   text += `${'='.repeat(50)}\n`
-  reportData.executiveSummary.forEach((point: string) => {
-    text += `• ${point}\n`
-  })
+  if (reportData.executiveSummary && reportData.executiveSummary.length > 0) {
+    reportData.executiveSummary.forEach((point: string) => {
+      text += `• ${point}\n`
+    })
+  } else {
+    text += `Your website audit is complete. Review the sections below for detailed findings.\n`
+  }
+  
   text += `\nSTART HERE: TOP PRIORITY ACTIONS\n`
   text += `${'='.repeat(50)}\n`
-  reportData.topActions.forEach((action: any, idx: number) => {
-    text += `\n${idx + 1}. ${action.title}\n`
-    text += `   Why this matters: ${action.why}\n`
-    text += `   How to fix it: ${action.how}\n`
-  })
-  reportData.modules.forEach((module: any) => {
-    text += `\n${module.moduleName.toUpperCase()}\n`
-    text += `${'='.repeat(50)}\n`
-    text += `${module.overview}\n\n`
-    module.issues.forEach((issue: any) => {
-      text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
-      text += `Why this matters: ${issue.why}\n`
-      text += `How to fix it: ${issue.how}\n\n`
+  if (reportData.topActions && reportData.topActions.length > 0) {
+    reportData.topActions.forEach((action: any, idx: number) => {
+      text += `\n${idx + 1}. ${action.title}\n`
+      text += `   Why this matters: ${action.why}\n`
+      text += `   How to fix it: ${action.how}\n`
     })
-  })
+  } else {
+    text += `Review the detailed sections below for specific recommendations.\n`
+  }
+  
+  if (reportData.modules && reportData.modules.length > 0) {
+    reportData.modules.forEach((module: any) => {
+      text += `\n${module.moduleName.toUpperCase()}\n`
+      text += `${'='.repeat(50)}\n`
+      text += `${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}\n\n`
+      if (module.issues && module.issues.length > 0) {
+        module.issues.forEach((issue: any) => {
+          text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
+          text += `Why this matters: ${issue.why}\n`
+          text += `How to fix it: ${issue.how}\n\n`
+        })
+      } else {
+        text += `✓ All checks passed for this category.\n\n`
+      }
+    })
+  }
+  
+  text += `\n${'='.repeat(50)}\n`
+  text += `This report was generated by SEO CheckSite.\n`
+  
   return text
 }
 
