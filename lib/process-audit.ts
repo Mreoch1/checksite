@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
-import { generateReport } from '@/lib/llm'
+import { generateSimpleReport } from '@/lib/generate-simple-report'
+// import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
 import { sendAuditReportEmail } from '@/lib/email-unified'
 // sendAuditFailureEmail disabled to preserve Resend quota
 import { ModuleKey } from '@/lib/types'
@@ -188,31 +189,21 @@ export async function processAudit(auditId: string) {
           // (Database constraint only allows: pending, running, completed, failed)
           console.log('Generating report (status remains: running)...')
     
-    // Generate formatted report using DeepSeek with timeout protection
-    console.log('Generating formatted report with DeepSeek...')
+    // Generate formatted report using simple script-based generator (no LLM for now)
+    console.log('Generating formatted report (simple script-based)...')
     console.log(`Audit result has ${auditResult.modules.length} modules`)
     
     let html: string, plaintext: string
     try {
-      // Use a more aggressive timeout with proper cleanup
-      const reportPromise = generateReport(auditResult)
-      let timeoutHandle: NodeJS.Timeout | null = null
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          reject(new Error('Report generation timeout: Took longer than 3 minutes'))
-        }, 180000) // 3 minutes total timeout (allows 2 min for API + 1 min for processing)
+      const result = generateSimpleReport({
+        url: audit.url,
+        pageAnalysis,
+        modules: results,
+        overallScore,
       })
-      
-      try {
-        const result = await Promise.race([reportPromise, timeoutPromise])
-        if (timeoutHandle) clearTimeout(timeoutHandle)
-        html = result.html
-        plaintext = result.plaintext
-        console.log('✅ Report generated successfully')
-      } catch (raceError) {
-        if (timeoutHandle) clearTimeout(timeoutHandle)
-        throw raceError
-      }
+      html = result.html
+      plaintext = result.plaintext
+      console.log('✅ Report generated successfully')
     } catch (reportError) {
       console.error('❌ Report generation failed:', reportError)
       console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError))
