@@ -1,0 +1,910 @@
+/**
+ * Audit module implementations
+ * Each module performs checks and returns structured results
+ */
+
+import * as cheerio from 'cheerio'
+import { ModuleKey, ModuleResult, AuditIssue } from '../types'
+
+interface SiteData {
+  url: string
+  html: string
+  $: cheerio.CheerioAPI
+  title?: string
+  description?: string
+  headers: Record<string, string>
+}
+
+/**
+ * Fetch and parse a website
+ */
+export async function fetchSite(url: string): Promise<SiteData> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)',
+      },
+      redirect: 'follow',
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const html = await response.text()
+    const $ = cheerio.load(html)
+    const headers: Record<string, string> = {}
+    
+    // Extract headers (we can't access response headers directly in this context,
+    // but we can check meta tags and other indicators)
+    const title = $('title').first().text().trim()
+    const description = $('meta[name="description"]').attr('content') || 
+                       $('meta[property="og:description"]').attr('content') || ''
+
+    return {
+      url,
+      html,
+      $,
+      title,
+      description,
+      headers,
+    }
+  } catch (error) {
+    throw new Error(`Failed to fetch ${url}: ${error}`)
+  }
+}
+
+/**
+ * Performance Module
+ * Checks page speed and performance metrics
+ */
+export async function runPerformanceModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check if site uses HTTPS
+  if (!siteData.url.startsWith('https://')) {
+    issues.push({
+      title: 'Site is not using HTTPS',
+      severity: 'high',
+      technicalExplanation: 'Site is served over HTTP instead of HTTPS',
+      plainLanguageExplanation: 'Your website is not secure. Visitors may see warnings and search engines prefer secure sites.',
+      suggestedFix: 'Contact your web hosting provider to enable SSL/HTTPS. Most hosting providers offer free SSL certificates.',
+    })
+    score -= 20
+  }
+
+  // Check for large images (heuristic: look for img tags without size attributes)
+  const images = siteData.$('img')
+  let largeImageCount = 0
+  images.each((_, el) => {
+    const src = siteData.$(el).attr('src')
+    if (src && !src.startsWith('data:')) {
+      // Check if image has loading="lazy" attribute
+      if (!siteData.$(el).attr('loading')) {
+        largeImageCount++
+      }
+    }
+  })
+
+  if (largeImageCount > 5) {
+    issues.push({
+      title: 'Images may be slowing down your site',
+      severity: 'medium',
+      technicalExplanation: `Found ${largeImageCount} images without lazy loading`,
+      plainLanguageExplanation: 'Large images can make your site slow to load, especially on mobile devices.',
+      suggestedFix: 'Ask your web designer to add "lazy loading" to images. This makes images load only when visitors scroll to them.',
+    })
+    score -= 10
+  }
+
+  // Check for render-blocking resources (simplified check)
+  const blockingScripts = siteData.$('script[src]').filter((_, el) => {
+    const src = siteData.$(el).attr('src') || ''
+    return !src.includes('async') && !src.includes('defer')
+  }).length
+
+  if (blockingScripts > 3) {
+    issues.push({
+      title: 'Too many scripts may slow page loading',
+      severity: 'medium',
+      technicalExplanation: `Found ${blockingScripts} scripts that block page rendering`,
+      plainLanguageExplanation: 'Scripts can prevent your page from showing quickly to visitors.',
+      suggestedFix: 'Ask your web designer to optimize scripts or move them to load after the page content.',
+    })
+    score -= 10
+  }
+
+  // TODO: Integrate Lighthouse API for real performance metrics
+  // For now, use placeholder logic
+  const summary = score >= 80
+    ? 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
+    : score >= 60
+    ? 'Your site performance needs improvement. Focus on enabling HTTPS and optimizing images.'
+    : 'Your site performance needs significant improvement. Start with HTTPS and image optimization.'
+
+  return {
+    moduleKey: 'performance',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * On-Page SEO Module
+ */
+export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check title tag
+  const title = siteData.title || ''
+  if (!title) {
+    issues.push({
+      title: 'Missing page title',
+      severity: 'high',
+      technicalExplanation: 'No <title> tag found',
+      plainLanguageExplanation: 'Search engines need a title to understand what your page is about.',
+      suggestedFix: 'Add a clear, descriptive title (50-60 characters) that describes your page content.',
+    })
+    score -= 25
+  } else if (title.length < 30) {
+    issues.push({
+      title: 'Page title is too short',
+      severity: 'medium',
+      technicalExplanation: `Title is only ${title.length} characters`,
+      plainLanguageExplanation: 'Short titles don\'t give search engines enough information.',
+      suggestedFix: 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
+    })
+    score -= 10
+  } else if (title.length > 60) {
+    issues.push({
+      title: 'Page title is too long',
+      severity: 'low',
+      technicalExplanation: `Title is ${title.length} characters (recommended: 50-60)`,
+      plainLanguageExplanation: 'Long titles get cut off in search results.',
+      suggestedFix: 'Shorten your title to 50-60 characters to ensure it displays fully.',
+    })
+    score -= 5
+  }
+
+  // Check meta description
+  const description = siteData.description || ''
+  if (!description) {
+    issues.push({
+      title: 'Missing page description',
+      severity: 'high',
+      technicalExplanation: 'No meta description tag found',
+      plainLanguageExplanation: 'Descriptions help people decide if they want to visit your site from search results.',
+      suggestedFix: 'Add a description (150-160 characters) that explains what your page offers.',
+    })
+    score -= 20
+  } else if (description.length < 120) {
+    issues.push({
+      title: 'Page description is too short',
+      severity: 'medium',
+      technicalExplanation: `Description is only ${description.length} characters`,
+      plainLanguageExplanation: 'Short descriptions don\'t give enough information to potential visitors.',
+      suggestedFix: 'Expand your description to 150-160 characters with more details about your page.',
+    })
+    score -= 10
+  }
+
+  // Check H1 tag
+  const h1Count = siteData.$('h1').length
+  if (h1Count === 0) {
+    issues.push({
+      title: 'Missing main heading (H1)',
+      severity: 'high',
+      technicalExplanation: 'No H1 tag found',
+      plainLanguageExplanation: 'The main heading helps search engines and visitors understand your page topic.',
+      suggestedFix: 'Add one H1 heading at the top of your main content that describes what the page is about.',
+    })
+    score -= 20
+  } else if (h1Count > 1) {
+    issues.push({
+      title: 'Multiple main headings found',
+      severity: 'medium',
+      technicalExplanation: `Found ${h1Count} H1 tags (should be 1)`,
+      plainLanguageExplanation: 'Having multiple main headings confuses search engines about your page focus.',
+      suggestedFix: 'Keep only one H1 tag and use H2, H3 for other headings.',
+    })
+    score -= 10
+  }
+
+  // Check content length
+  const textContent = siteData.$('body').text().replace(/\s+/g, ' ').trim()
+  const wordCount = textContent.split(' ').filter(w => w.length > 0).length
+
+  if (wordCount < 300) {
+    issues.push({
+      title: 'Page has very little content',
+      severity: 'medium',
+      technicalExplanation: `Page has only ${wordCount} words`,
+      plainLanguageExplanation: 'Pages with little content don\'t rank well in search results.',
+      suggestedFix: 'Add more helpful content to your page (aim for at least 300-500 words).',
+    })
+    score -= 15
+  }
+
+  // Check image alt text
+  const images = siteData.$('img')
+  let missingAltCount = 0
+  images.each((_, el) => {
+    const alt = siteData.$(el).attr('alt')
+    const src = siteData.$(el).attr('src')
+    if (src && !src.startsWith('data:') && alt === undefined) {
+      missingAltCount++
+    }
+  })
+
+  if (missingAltCount > 0) {
+    issues.push({
+      title: `${missingAltCount} image${missingAltCount > 1 ? 's' : ''} missing descriptions`,
+      severity: missingAltCount > 5 ? 'high' : 'medium',
+      technicalExplanation: `${missingAltCount} images without alt attributes`,
+      plainLanguageExplanation: 'Image descriptions help search engines understand your images and improve accessibility.',
+      suggestedFix: 'Add descriptive alt text to all images describing what they show.',
+    })
+    score -= Math.min(15, missingAltCount * 2)
+  }
+
+  const summary = score >= 80
+    ? 'Your on-page SEO is in good shape. Keep titles and descriptions clear and descriptive.'
+    : score >= 60
+    ? 'Your on-page SEO needs some improvements. Focus on adding titles, descriptions, and proper headings.'
+    : 'Your on-page SEO needs significant work. Start with adding a title, description, and main heading.'
+
+  return {
+    moduleKey: 'on_page',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Mobile Optimization Module
+ */
+export async function runMobileModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check viewport meta tag
+  const viewport = siteData.$('meta[name="viewport"]').attr('content')
+  if (!viewport) {
+    issues.push({
+      title: 'Missing mobile viewport setting',
+      severity: 'high',
+      technicalExplanation: 'No viewport meta tag found',
+      plainLanguageExplanation: 'Without this, your site won\'t display properly on phones and tablets.',
+      suggestedFix: 'Add this code to your page header: <meta name="viewport" content="width=device-width, initial-scale=1">',
+    })
+    score -= 30
+  } else if (!viewport.includes('width=device-width')) {
+    issues.push({
+      title: 'Viewport setting may not be optimal',
+      severity: 'medium',
+      technicalExplanation: 'Viewport tag exists but may not be configured correctly',
+      plainLanguageExplanation: 'Your mobile display settings may not be optimal.',
+      suggestedFix: 'Update your viewport tag to: <meta name="viewport" content="width=device-width, initial-scale=1">',
+    })
+    score -= 15
+  }
+
+  // Check for fixed width elements (heuristic)
+  const bodyStyles = siteData.$('body').attr('style') || ''
+  const hasFixedWidth = bodyStyles.includes('width:') && bodyStyles.includes('px')
+
+  if (hasFixedWidth) {
+    issues.push({
+      title: 'Site may use fixed widths',
+      severity: 'medium',
+      technicalExplanation: 'Body element may have fixed width styling',
+      plainLanguageExplanation: 'Fixed widths can make your site hard to use on small screens.',
+      suggestedFix: 'Ask your web designer to use responsive (flexible) widths instead of fixed pixel widths.',
+    })
+    score -= 10
+  }
+
+  // Check font sizes (heuristic)
+  const smallTexts = siteData.$('*').filter((_, el) => {
+    const style = siteData.$(el).attr('style') || ''
+    const fontSize = style.match(/font-size:\s*(\d+)px/)
+    return !!(fontSize && parseInt(fontSize[1]) < 14)
+  }).length
+
+  if (smallTexts > 5) {
+    issues.push({
+      title: 'Some text may be too small on mobile',
+      severity: 'low',
+      technicalExplanation: 'Found elements with font size less than 14px',
+      plainLanguageExplanation: 'Small text is hard to read on phones.',
+      suggestedFix: 'Ensure all text is at least 14-16 pixels for comfortable mobile reading.',
+    })
+    score -= 5
+  }
+
+  // Check for touch targets (heuristic: look for buttons/links)
+  const buttons = siteData.$('button, a[href], input[type="button"], input[type="submit"]')
+  const smallButtons = buttons.filter((_, el) => {
+    const style = siteData.$(el).attr('style') || ''
+    const height = style.match(/height:\s*(\d+)px/)
+    return height && parseInt(height[1]) < 44
+  }).length
+
+  if (smallButtons > 0) {
+    issues.push({
+      title: 'Some buttons may be too small for mobile',
+      severity: 'low',
+      technicalExplanation: 'Found buttons smaller than 44px height',
+      plainLanguageExplanation: 'Small buttons are hard to tap on phones.',
+      suggestedFix: 'Make sure all buttons and clickable links are at least 44x44 pixels.',
+    })
+    score -= 5
+  }
+
+  const summary = score >= 80
+    ? 'Your site is mobile-friendly. Keep up the good work!'
+    : score >= 60
+    ? 'Your site works on mobile but could be improved. Add a viewport tag and check button sizes.'
+    : 'Your site needs mobile optimization. Start by adding a proper viewport meta tag.'
+
+  return {
+    moduleKey: 'mobile',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Local SEO Module
+ */
+export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check for address patterns
+  const textContent = siteData.$('body').text()
+  const addressPattern = /\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct)/i
+  const hasAddress = addressPattern.test(textContent)
+
+  // Check for phone patterns
+  const phonePattern = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/
+  const hasPhone = phonePattern.test(textContent)
+
+  // Check for city/state patterns
+  const cityStatePattern = /[A-Z][a-z]+,\s*[A-Z]{2}\s+\d{5}/
+  const hasCityState = cityStatePattern.test(textContent)
+
+  if (!hasAddress) {
+    issues.push({
+      title: 'Business address not found',
+      severity: 'high',
+      technicalExplanation: 'No address pattern detected in page content',
+      plainLanguageExplanation: 'Local customers need to find your address easily.',
+      suggestedFix: 'Add your complete business address (street, city, state, zip) to your website, preferably in the footer or contact page.',
+    })
+    score -= 25
+  }
+
+  if (!hasPhone) {
+    issues.push({
+      title: 'Phone number not found',
+      severity: 'high',
+      technicalExplanation: 'No phone number pattern detected',
+      plainLanguageExplanation: 'Customers need an easy way to call you.',
+      suggestedFix: 'Add your business phone number prominently on your site, ideally in the header or footer.',
+    })
+    score -= 25
+  }
+
+  if (!hasCityState) {
+    issues.push({
+      title: 'City and state information not clearly visible',
+      severity: 'medium',
+      technicalExplanation: 'City/state pattern not detected',
+      plainLanguageExplanation: 'Clear location information helps local customers find you.',
+      suggestedFix: 'Make sure your city and state are clearly visible on your website.',
+    })
+    score -= 15
+  }
+
+  // Check for LocalBusiness schema
+  const schemas = siteData.$('script[type="application/ld+json"]')
+  let hasLocalSchema = false
+  schemas.each((_, el) => {
+    try {
+      const json = JSON.parse(siteData.$(el).html() || '{}')
+      if (json['@type'] === 'LocalBusiness' || json['@type'] === 'Organization') {
+        hasLocalSchema = true
+      }
+    } catch (e) {
+      // Invalid JSON, skip
+    }
+  })
+
+  if (!hasLocalSchema) {
+    issues.push({
+      title: 'Missing structured business information',
+      severity: 'medium',
+      technicalExplanation: 'No LocalBusiness or Organization schema found',
+      plainLanguageExplanation: 'Structured data helps Google show your business in local search results.',
+      suggestedFix: 'Add structured data (schema markup) with your business name, address, phone, and hours. Ask your web designer about "LocalBusiness schema".',
+    })
+    score -= 20
+  }
+
+  // Check for Google Maps embed or link
+  const hasGoogleMaps = 
+    siteData.$('iframe[src*="google.com/maps"]').length > 0 ||
+    siteData.$('a[href*="google.com/maps"]').length > 0 ||
+    textContent.toLowerCase().includes('google maps') ||
+    textContent.toLowerCase().includes('google business')
+
+  if (!hasGoogleMaps) {
+    issues.push({
+      title: 'No Google Maps integration found',
+      severity: 'low',
+      technicalExplanation: 'No Google Maps embed or link detected',
+      plainLanguageExplanation: 'A map helps customers find your location easily.',
+      suggestedFix: 'Add a Google Maps embed or link to your Google Business Profile on your contact page.',
+    })
+    score -= 10
+  }
+
+  const summary = score >= 80
+    ? 'Your local SEO is well set up. Customers can easily find your location and contact information.'
+    : score >= 60
+    ? 'Your local SEO needs improvement. Add your address, phone number, and consider adding structured data.'
+    : 'Your local SEO needs significant work. Start by adding your complete business address and phone number.'
+
+  return {
+    moduleKey: 'local',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Accessibility Module
+ */
+export async function runAccessibilityModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check image alt text
+  const images = siteData.$('img')
+  let missingAltCount = 0
+  images.each((_, el) => {
+    const alt = siteData.$(el).attr('alt')
+    const src = siteData.$(el).attr('src')
+    if (src && !src.startsWith('data:') && alt === undefined) {
+      missingAltCount++
+    }
+  })
+
+  if (missingAltCount > 0) {
+    issues.push({
+      title: `${missingAltCount} image${missingAltCount > 1 ? 's' : ''} missing descriptions`,
+      severity: missingAltCount > 5 ? 'high' : 'medium',
+      technicalExplanation: `${missingAltCount} images without alt attributes`,
+      plainLanguageExplanation: 'Image descriptions help people using screen readers understand your images.',
+      suggestedFix: 'Add descriptive alt text to all images. For decorative images, use alt="".',
+    })
+    score -= Math.min(20, missingAltCount * 3)
+  }
+
+  // Check for form labels
+  const inputs = siteData.$('input[type="text"], input[type="email"], input[type="tel"], textarea, select')
+  let missingLabelCount = 0
+  inputs.each((_, el) => {
+    const id = siteData.$(el).attr('id')
+    const name = siteData.$(el).attr('name')
+    const placeholder = siteData.$(el).attr('placeholder')
+    const ariaLabel = siteData.$(el).attr('aria-label')
+    
+    if (id) {
+      const label = siteData.$(`label[for="${id}"]`)
+      if (label.length === 0 && !ariaLabel && !placeholder) {
+        missingLabelCount++
+      }
+    } else if (!ariaLabel && !placeholder) {
+      missingLabelCount++
+    }
+  })
+
+  if (missingLabelCount > 0) {
+    issues.push({
+      title: `${missingLabelCount} form field${missingLabelCount > 1 ? 's' : ''} missing labels`,
+      severity: missingLabelCount > 3 ? 'high' : 'medium',
+      technicalExplanation: `${missingLabelCount} form inputs without proper labels`,
+      plainLanguageExplanation: 'Form fields need labels so everyone knows what information to enter.',
+      suggestedFix: 'Add labels to all form fields. Use <label> tags or aria-label attributes.',
+    })
+    score -= Math.min(20, missingLabelCount * 5)
+  }
+
+  // Check heading hierarchy
+  const headings = siteData.$('h1, h2, h3, h4, h5, h6')
+  let hierarchyIssues = 0
+  let lastLevel = 0
+
+  headings.each((_, el) => {
+    const tagName = el.tagName.toLowerCase()
+    const level = parseInt(tagName.charAt(1))
+    
+    if (lastLevel > 0 && level > lastLevel + 1) {
+      hierarchyIssues++
+    }
+    lastLevel = level
+  })
+
+  if (hierarchyIssues > 0) {
+    issues.push({
+      title: 'Heading structure may be confusing',
+      severity: 'low',
+      technicalExplanation: 'Headings skip levels (e.g., H1 to H3)',
+      plainLanguageExplanation: 'Proper heading order helps screen readers navigate your page.',
+      suggestedFix: 'Use headings in order: H1 first, then H2, then H3, etc. Don\'t skip levels.',
+    })
+    score -= 5
+  }
+
+  // Check for sufficient color contrast (heuristic: check for low contrast indicators)
+  const lowContrastElements = siteData.$('[style*="color:"]').filter((_, el) => {
+    const style = siteData.$(el).attr('style') || ''
+    // Very basic check - in production, use a proper contrast checker
+    return style.includes('color: gray') || style.includes('color: #999')
+  }).length
+
+  if (lowContrastElements > 5) {
+    issues.push({
+      title: 'Some text may have low contrast',
+      severity: 'medium',
+      technicalExplanation: 'Found elements with potentially low color contrast',
+      plainLanguageExplanation: 'Low contrast text is hard to read, especially for people with vision difficulties.',
+      suggestedFix: 'Ensure all text has sufficient contrast with its background. Use dark text on light backgrounds or vice versa.',
+    })
+    score -= 10
+  }
+
+  const summary = score >= 80
+    ? 'Your site is accessible. Good job making your site usable for everyone!'
+    : score >= 60
+    ? 'Your site accessibility needs improvement. Focus on adding alt text to images and labels to forms.'
+    : 'Your site needs significant accessibility improvements. Start with image descriptions and form labels.'
+
+  return {
+    moduleKey: 'accessibility',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Security Module
+ */
+export async function runSecurityModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check HTTPS
+  if (!siteData.url.startsWith('https://')) {
+    issues.push({
+      title: 'Site is not using HTTPS',
+      severity: 'high',
+      technicalExplanation: 'Site is served over HTTP instead of HTTPS',
+      plainLanguageExplanation: 'HTTPS encrypts data between your site and visitors, protecting sensitive information.',
+      suggestedFix: 'Contact your hosting provider to enable SSL/HTTPS. Most providers offer free SSL certificates.',
+    })
+    score -= 40
+  }
+
+  // Check for mixed content (HTTP resources on HTTPS page)
+  if (siteData.url.startsWith('https://')) {
+    const httpResources = siteData.$('[src^="http://"], [href^="http://"]').length
+    if (httpResources > 0) {
+      issues.push({
+        title: 'Site may load some content over insecure connection',
+        severity: 'medium',
+        technicalExplanation: `Found ${httpResources} resources loaded over HTTP`,
+        plainLanguageExplanation: 'Loading some content over HTTP can make your site less secure.',
+        suggestedFix: 'Update all links and resources to use HTTPS instead of HTTP.',
+      })
+      score -= 15
+    }
+  }
+
+  // Check for security headers (basic check via meta tags)
+  // Note: Real security headers are in HTTP response headers, not HTML
+  // This is a placeholder - in production, check actual response headers
+
+  const summary = score >= 80
+    ? 'Your site security looks good. Make sure HTTPS is enabled and keep it that way.'
+    : score >= 60
+    ? 'Your site security needs improvement. Enable HTTPS as soon as possible.'
+    : 'Your site security needs immediate attention. Enable HTTPS to protect your visitors.'
+
+  return {
+    moduleKey: 'security',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Schema Markup Module
+ */
+export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check for JSON-LD schema
+  const schemas = siteData.$('script[type="application/ld+json"]')
+  let schemaCount = 0
+  let hasOrganization = false
+  let hasLocalBusiness = false
+
+  schemas.each((_, el) => {
+    try {
+      const json = JSON.parse(siteData.$(el).html() || '{}')
+      schemaCount++
+      
+      if (json['@type'] === 'Organization' || json['@type'] === 'LocalBusiness') {
+        hasOrganization = true
+        if (json['@type'] === 'LocalBusiness') {
+          hasLocalBusiness = true
+        }
+      }
+    } catch (e) {
+      // Invalid JSON, skip
+    }
+  })
+
+  if (schemaCount === 0) {
+    issues.push({
+      title: 'No structured data found',
+      severity: 'high',
+      technicalExplanation: 'No JSON-LD schema markup detected',
+      plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results.',
+      suggestedFix: 'Add schema markup (structured data) with your business information. Ask your web designer about "Organization schema" or "LocalBusiness schema".',
+    })
+    score -= 30
+  } else if (!hasOrganization && !hasLocalBusiness) {
+    issues.push({
+      title: 'Missing business organization schema',
+      severity: 'medium',
+      technicalExplanation: 'Schema found but not Organization or LocalBusiness type',
+      plainLanguageExplanation: 'Business schema helps Google show your business information in search results.',
+      suggestedFix: 'Add Organization or LocalBusiness schema with your business name, address, phone, and website.',
+    })
+    score -= 20
+  }
+
+  // Check if schema has required fields
+  if (hasOrganization || hasLocalBusiness) {
+    schemas.each((_, el) => {
+      try {
+        const json = JSON.parse(siteData.$(el).html() || '{}')
+        if (json['@type'] === 'Organization' || json['@type'] === 'LocalBusiness') {
+          if (!json.name) {
+            issues.push({
+              title: 'Schema missing business name',
+              severity: 'medium',
+              technicalExplanation: 'Organization/LocalBusiness schema missing name field',
+              plainLanguageExplanation: 'Your business schema needs a name field.',
+              suggestedFix: 'Add a "name" field to your schema markup with your business name.',
+            })
+            score -= 10
+          }
+          if (!json.url && !json.sameAs) {
+            issues.push({
+              title: 'Schema missing website URL',
+              severity: 'low',
+              technicalExplanation: 'Schema missing url or sameAs field',
+              plainLanguageExplanation: 'Adding your website URL to schema helps search engines connect your business to your site.',
+              suggestedFix: 'Add a "url" field to your schema with your website address.',
+            })
+            score -= 5
+          }
+        }
+      } catch (e) {
+        // Skip invalid JSON
+      }
+    })
+  }
+
+  const summary = score >= 80
+    ? 'Your structured data is well implemented. This helps search engines understand your business.'
+    : score >= 60
+    ? 'Your structured data needs improvement. Add Organization or LocalBusiness schema with complete business information.'
+    : 'Your site needs structured data. Add schema markup to help search engines understand your business.'
+
+  return {
+    moduleKey: 'schema',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Social Metadata Module
+ */
+export async function runSocialModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check Open Graph tags
+  const ogTitle = siteData.$('meta[property="og:title"]').attr('content')
+  const ogDescription = siteData.$('meta[property="og:description"]').attr('content')
+  const ogImage = siteData.$('meta[property="og:image"]').attr('content')
+  const ogUrl = siteData.$('meta[property="og:url"]').attr('content')
+
+  if (!ogTitle) {
+    issues.push({
+      title: 'Missing Facebook sharing title',
+      severity: 'medium',
+      technicalExplanation: 'No og:title meta tag found',
+      plainLanguageExplanation: 'When someone shares your site on Facebook, it needs a title to display.',
+      suggestedFix: 'Add: <meta property="og:title" content="Your Page Title">',
+    })
+    score -= 10
+  }
+
+  if (!ogDescription) {
+    issues.push({
+      title: 'Missing Facebook sharing description',
+      severity: 'medium',
+      technicalExplanation: 'No og:description meta tag found',
+      plainLanguageExplanation: 'A description makes your shared link more appealing on Facebook.',
+      suggestedFix: 'Add: <meta property="og:description" content="Your page description">',
+    })
+    score -= 10
+  }
+
+  if (!ogImage) {
+    issues.push({
+      title: 'Missing Facebook sharing image',
+      severity: 'low',
+      technicalExplanation: 'No og:image meta tag found',
+      plainLanguageExplanation: 'An image makes your shared link stand out on Facebook.',
+      suggestedFix: 'Add: <meta property="og:image" content="https://yoursite.com/image.jpg">',
+    })
+    score -= 5
+  }
+
+  // Check Twitter Card tags
+  const twitterCard = siteData.$('meta[name="twitter:card"]').attr('content')
+  const twitterTitle = siteData.$('meta[name="twitter:title"]').attr('content')
+  const twitterDescription = siteData.$('meta[name="twitter:description"]').attr('content')
+  const twitterImage = siteData.$('meta[name="twitter:image"]').attr('content')
+
+  if (!twitterCard && !twitterTitle) {
+    issues.push({
+      title: 'Missing Twitter Card tags',
+      severity: 'low',
+      technicalExplanation: 'No Twitter Card meta tags found',
+      plainLanguageExplanation: 'Twitter Cards make your shared links look better on Twitter.',
+      suggestedFix: 'Add Twitter Card tags: <meta name="twitter:card" content="summary"> and related tags.',
+    })
+    score -= 10
+  }
+
+  const summary = score >= 80
+    ? 'Your social sharing is well configured. Your links will look great when shared!'
+    : score >= 60
+    ? 'Your social sharing needs some improvement. Add Open Graph tags for better Facebook sharing.'
+    : 'Your social sharing needs work. Add Open Graph and Twitter Card tags to improve how your site looks when shared.'
+
+  return {
+    moduleKey: 'social',
+    score: Math.max(0, score),
+    issues,
+    summary,
+  }
+}
+
+/**
+ * Crawl Health Module (Stubbed)
+ */
+export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleResult> {
+  // TODO: Implement real crawling logic
+  // For now, return placeholder results
+  
+  return {
+    moduleKey: 'crawl_health',
+    score: 75,
+    issues: [
+      {
+        title: 'Crawl health check not yet implemented',
+        severity: 'low',
+        technicalExplanation: 'This module requires a full site crawler to be implemented',
+        plainLanguageExplanation: 'This check will verify that search engines can find all your pages.',
+        suggestedFix: 'This feature is coming soon. For now, make sure you have a sitemap.xml file.',
+      },
+    ],
+    summary: 'Crawl health checking will be available in a future update. Ensure you have a sitemap.xml file for search engines.',
+  }
+}
+
+/**
+ * Competitor Overview Module (Stubbed)
+ */
+export async function runCompetitorOverviewModule(siteData: SiteData): Promise<ModuleResult> {
+  // TODO: Implement competitor analysis
+  // For now, return placeholder results
+  
+  return {
+    moduleKey: 'competitor_overview',
+    score: 0,
+    issues: [
+      {
+        title: 'Competitor analysis not yet implemented',
+        severity: 'low',
+        technicalExplanation: 'This module requires competitor URL crawling and analysis',
+        plainLanguageExplanation: 'This feature will compare your site against competitors.',
+        suggestedFix: 'This feature is coming soon.',
+      },
+    ],
+    summary: 'Competitor analysis will be available in a future update.',
+  }
+}
+
+/**
+ * Run all enabled modules
+ */
+export async function runAuditModules(
+  url: string,
+  enabledModules: ModuleKey[]
+): Promise<ModuleResult[]> {
+  const siteData = await fetchSite(url)
+  const results: ModuleResult[] = []
+
+  const moduleMap: Record<ModuleKey, (data: SiteData) => Promise<ModuleResult>> = {
+    performance: runPerformanceModule,
+    crawl_health: runCrawlHealthModule,
+    on_page: runOnPageModule,
+    mobile: runMobileModule,
+    local: runLocalModule,
+    accessibility: runAccessibilityModule,
+    security: runSecurityModule,
+    schema: runSchemaModule,
+    social: runSocialModule,
+    competitor_overview: runCompetitorOverviewModule,
+  }
+
+  for (const moduleKey of enabledModules) {
+    if (moduleMap[moduleKey]) {
+      try {
+        const result = await moduleMap[moduleKey](siteData)
+        results.push(result)
+      } catch (error) {
+        console.error(`Error running module ${moduleKey}:`, error)
+        results.push({
+          moduleKey,
+          score: 0,
+          issues: [
+            {
+              title: `Error running ${moduleKey} check`,
+              severity: 'low',
+              technicalExplanation: String(error),
+              plainLanguageExplanation: 'An error occurred while checking this aspect of your site.',
+              suggestedFix: 'Please try again or contact support.',
+            },
+          ],
+          summary: 'Unable to complete this check.',
+        })
+      }
+    }
+  }
+
+  return results
+}
+

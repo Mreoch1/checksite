@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Next.js
+.next
+out
+
+# Environment
+.env
+.env*.local
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Scripts (not needed in production)
+scripts/
+
+# Documentation (optional - remove if you want docs deployed)
+*.md
+!README.md
+
