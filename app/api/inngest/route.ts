@@ -30,8 +30,13 @@ const processAuditFunction = inngest.createFunction(
         console.log(`[Inngest] Audit ${auditId} completed successfully`)
         return { success: true, auditId }
       } catch (error) {
-        console.error(`[Inngest] Error processing audit ${auditId}:`, error)
-        throw error
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+        console.error(`[Inngest] Error processing audit ${auditId}:`, errorMessage)
+        console.error(`[Inngest] Error stack:`, errorStack)
+        console.error(`[Inngest] Full error object:`, JSON.stringify(error, Object.getOwnPropertyNames(error)))
+        // Re-throw with more details
+        throw new Error(`Audit processing failed: ${errorMessage}. Stack: ${errorStack}`)
       }
     })
   }

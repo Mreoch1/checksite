@@ -10,7 +10,7 @@ import { ModuleKey } from '@/lib/types'
  */
 export async function processAudit(auditId: string) {
   try {
-    console.log(`Processing audit ${auditId}`)
+    console.log(`[processAudit] Starting audit ${auditId} at ${new Date().toISOString()}`)
     
     // Get audit details
     const { data: audit, error: auditError } = await supabase
@@ -139,9 +139,21 @@ export async function processAudit(auditId: string) {
       throw new Error(`Failed to send email: ${emailError instanceof Error ? emailError.message : String(emailError)}`)
     }
   } catch (error) {
-    console.error('Error processing audit:', error)
-    console.error('Error details:', error instanceof Error ? error.message : String(error))
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+    const errorName = error instanceof Error ? error.name : 'Unknown'
+    
+    console.error(`[processAudit] ❌ Error processing audit ${auditId}:`)
+    console.error(`[processAudit] Error name: ${errorName}`)
+    console.error(`[processAudit] Error message: ${errorMessage}`)
+    console.error(`[processAudit] Stack trace: ${errorStack}`)
+    
+    // Log full error details for debugging
+    try {
+      console.error(`[processAudit] Full error:`, JSON.stringify(error, Object.getOwnPropertyNames(error)))
+    } catch (jsonError) {
+      console.error(`[processAudit] Could not stringify error:`, jsonError)
+    }
 
     // Mark audit as failed
     await supabase
