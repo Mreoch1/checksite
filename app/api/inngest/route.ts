@@ -74,9 +74,6 @@ const processAuditFunction = inngest.createFunction(
             console.error(`[Inngest] Could not update audit status at all:`, statusError)
           }
         }
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        const errorStack = error instanceof Error ? error.stack : 'No stack trace'
-        const errorName = error instanceof Error ? error.name : 'Unknown'
         
         // Log detailed error information
         console.error(`[Inngest] ❌ Error processing audit ${auditId}:`)
