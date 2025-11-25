@@ -76,9 +76,16 @@ export async function processAudit(auditId: string) {
         .eq('module_key', result.moduleKey)
     }
 
-    // Generate formatted report using DeepSeek
+    // Generate formatted report using DeepSeek with timeout protection
     console.log('Generating formatted report with DeepSeek...')
-    const { html, plaintext } = await generateReport(auditResult)
+    const reportPromise = generateReport(auditResult)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Report generation timeout: Took longer than 4 minutes'))
+      }, 240000) // 4 minutes total timeout
+    })
+    
+    const { html, plaintext } = await Promise.race([reportPromise, timeoutPromise])
     console.log('Report generated successfully')
 
     // Update audit with formatted report
