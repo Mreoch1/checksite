@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true })
 }
 
-async function processAudit(auditId: string) {
+export async function processAudit(auditId: string) {
   try {
     console.log(`Processing audit ${auditId}`)
     
