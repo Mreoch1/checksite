@@ -76,17 +76,34 @@ export async function processAudit(auditId: string) {
         .eq('module_key', result.moduleKey)
     }
 
+    // Update status to generating_report
+    await supabase
+      .from('audits')
+      .update({ status: 'generating_report' })
+      .eq('id', auditId)
+    
     // Generate formatted report using DeepSeek with timeout protection
     console.log('Generating formatted report with DeepSeek...')
-    const reportPromise = generateReport(auditResult)
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Report generation timeout: Took longer than 4 minutes'))
-      }, 240000) // 4 minutes total timeout
-    })
+    console.log(`Audit result has ${auditResult.modules.length} modules`)
     
-    const { html, plaintext } = await Promise.race([reportPromise, timeoutPromise])
-    console.log('Report generated successfully')
+    let html: string, plaintext: string
+    try {
+      const reportPromise = generateReport(auditResult)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Report generation timeout: Took longer than 4 minutes'))
+        }, 240000) // 4 minutes total timeout
+      })
+      
+      const result = await Promise.race([reportPromise, timeoutPromise])
+      html = result.html
+      plaintext = result.plaintext
+      console.log('✅ Report generated successfully')
+    } catch (reportError) {
+      console.error('❌ Report generation failed:', reportError)
+      console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError))
+      throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
+    }
 
     // Update audit with formatted report
     await supabase
