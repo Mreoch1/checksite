@@ -671,11 +671,28 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
     ? 'Your local SEO needs improvement. Add your address, phone number, and consider adding structured data.'
     : 'Your local SEO needs significant work. Start by adding your complete business address and phone number.'
 
+  // Extract found values for evidence
+  const addressMatch = textContent.match(addressPattern)
+  const phoneMatch = textContent.match(phonePattern)
+  const emailMatch = textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+  const hoursMatch = textContent.match(/(?:hours?|open|closed|monday|tuesday|wednesday|thursday|friday|saturday|sunday)[\s\S]{0,100}/i)
+
   return {
     moduleKey: 'local',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      addressFound: hasAddress,
+      phoneFound: hasPhone,
+      emailFound: !!emailMatch,
+      businessHoursFound: !!hoursMatch,
+      cityStateFound: hasCityState,
+      localSchemaFound: hasLocalSchema,
+      googleMapsFound: hasGoogleMaps,
+      addressText: addressMatch ? addressMatch[0].substring(0, 100) : 'Not found',
+      phoneText: phoneMatch ? phoneMatch[0] : 'Not found',
+    },
   }
 }
 
@@ -788,11 +805,30 @@ export async function runAccessibilityModule(siteData: SiteData): Promise<Module
     ? 'Your site accessibility needs improvement. Focus on adding alt text to images and labels to forms.'
     : 'Your site needs significant accessibility improvements. Start with image descriptions and form labels.'
 
+  const totalImages = images.length
+  const imagesWithAlt = totalImages - missingAltCount
+  const totalInputs = inputs.length
+  const inputsWithLabels = totalInputs - missingLabelCount
+  const h1Count = siteData.$('h1').length
+  const h2Count = siteData.$('h2').length
+  const h3Count = siteData.$('h3').length
+
   return {
     moduleKey: 'accessibility',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      totalImages,
+      imagesWithAlt,
+      imagesMissingAlt: missingAltCount,
+      totalFormFields: totalInputs,
+      formFieldsWithLabels: inputsWithLabels,
+      formFieldsMissingLabels: missingLabelCount,
+      headingStructure: `H1: ${h1Count}, H2: ${h2Count}, H3: ${h3Count}`,
+      headingHierarchyIssues: hierarchyIssues,
+      lowContrastElements: lowContrastElements,
+    },
   }
 }
 
@@ -840,11 +876,32 @@ export async function runSecurityModule(siteData: SiteData): Promise<ModuleResul
     ? 'Your site security needs improvement. Enable HTTPS as soon as possible.'
     : 'Your site security needs immediate attention. Enable HTTPS to protect your visitors.'
 
+  // Collect security evidence
+  const securityHeaders: string[] = []
+  const missingHeaders: string[] = []
+  const commonHeaders = ['strict-transport-security', 'x-frame-options', 'x-content-type-options', 'x-xss-protection', 'content-security-policy']
+  
+  commonHeaders.forEach(header => {
+    if (siteData.headers[header]) {
+      securityHeaders.push(header)
+    } else {
+      missingHeaders.push(header)
+    }
+  })
+
   return {
     moduleKey: 'security',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      httpsEnabled: siteData.isHttps || false,
+      hasMixedContent: issues.some(i => i.title.toLowerCase().includes('mixed content')),
+      securityHeadersFound: securityHeaders.length > 0 ? securityHeaders.join(', ') : 'None detected',
+      securityHeadersMissing: missingHeaders.length > 0 ? missingHeaders.join(', ') : 'None',
+      totalSecurityHeaders: securityHeaders.length,
+      totalMissingHeaders: missingHeaders.length,
+    },
   }
 }
 
@@ -936,11 +993,36 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
     ? 'Your structured data needs improvement. Add Organization or LocalBusiness schema with complete business information.'
     : 'Your site needs structured data. Add schema markup to help search engines understand your business.'
 
+  // Collect schema evidence
+  const schemaTypes: string[] = []
+  const schemaSnippets: string[] = []
+  
+  schemas.each((_, el) => {
+    try {
+      const jsonText = siteData.$(el).html()
+      if (jsonText) {
+        const schema = JSON.parse(jsonText)
+        if (schema['@type']) {
+          schemaTypes.push(schema['@type'])
+        }
+        schemaSnippets.push(jsonText.substring(0, 200))
+      }
+    } catch {
+      // Invalid JSON, skip
+    }
+  })
+
   return {
     moduleKey: 'schema',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      schemaFound: schemas.length > 0,
+      schemaCount: schemas.length,
+      schemaTypes: schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None detected',
+      schemaPreview: schemaSnippets.length > 0 ? schemaSnippets[0] + '...' : 'No schema markup found',
+    },
   }
 }
 
@@ -1331,11 +1413,23 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     ? 'Research your competitors and identify opportunities to improve your content and online presence.'
     : 'Your site needs more content to compete effectively. Research competitors and create more detailed, helpful content.'
   
+  // Collect competitor evidence
+  const competitorTitle = siteData.title || 'Not available'
+  const competitorDescription = siteData.description || 'Not available'
+  const competitorH1 = siteData.$('h1').first().text().trim() || 'Not found'
+
   return {
     moduleKey: 'competitor_overview',
     score: Math.max(0, score),
     issues,
     summary,
+    evidence: {
+      note: 'This is a basic overview. For detailed competitor analysis, consider professional SEO tools.',
+      competitorTitle,
+      competitorDescription: competitorDescription.substring(0, 200),
+      competitorH1,
+      competitorWordCount: siteData.$('body').text().split(' ').filter(w => w.length > 0).length,
+    },
   }
 }
 

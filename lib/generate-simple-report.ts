@@ -364,10 +364,42 @@ function generateHTMLReport(data: {
 
     ${data.modules.map(module => {
       const displayName = MODULE_DISPLAY_NAMES[module.moduleKey] || module.moduleKey
+      const scoreClass = module.score >= 80 ? 'score-high' : module.score >= 60 ? 'score-medium' : 'score-low'
+      const scoreLabel = module.score >= 80 ? 'GOOD' : module.score >= 60 ? 'MEDIUM' : 'NEEDS IMPROVEMENT'
+      
       return `
       <div class="module-section">
         <h2>${escapeHtml(displayName)}</h2>
+        <div style="margin-bottom: 15px;">
+          <span class="score-badge ${scoreClass}" style="margin-right: 10px;">${scoreLabel}</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: ${module.score}/100</span>
+        </div>
         <p style="margin-bottom: 15px;">${escapeHtml(module.summary || `This section checks ${displayName.toLowerCase()}.`)}</p>
+        
+        ${module.evidence && Object.keys(module.evidence).length > 0 ? `
+          <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
+            <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
+            <table class="evidence-table">
+              ${Object.entries(module.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
+                const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+                let safeValue = ''
+                if (typeof value === 'string') {
+                  safeValue = escapeHtml(value.length > 500 ? value.substring(0, 500) + '...' : value)
+                } else if (typeof value === 'object' && value !== null) {
+                  if (Array.isArray(value)) {
+                    safeValue = escapeHtml(value.length > 0 ? value.slice(0, 10).join(', ') + (value.length > 10 ? ` (and ${value.length - 10} more)` : '') : 'None')
+                  } else {
+                    safeValue = escapeHtml(JSON.stringify(value, null, 2).length > 500 ? JSON.stringify(value, null, 2).substring(0, 500) + '...' : JSON.stringify(value, null, 2))
+                  }
+                } else {
+                  safeValue = escapeHtml(String(value))
+                }
+                return `<tr><th style="width: 30%;">${escapeHtml(safeKey)}</th><td>${safeValue}</td></tr>`
+              }).join('')}
+            </table>
+          </div>
+        ` : ''}
+        
         ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
           <div class="issue ${issue.severity}">
             <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
@@ -376,7 +408,7 @@ function generateHTMLReport(data: {
             <p><strong>How to fix it:</strong> ${escapeHtml(issue.suggestedFix || '')}</p>
             ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
               <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
-                <h4>Evidence:</h4>
+                <h4>Details:</h4>
                 <table class="evidence-table">
                   ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
                     const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
@@ -389,7 +421,7 @@ function generateHTMLReport(data: {
               </div>
             ` : ''}
           </div>
-        `).join('') : '<div class="no-issues">✓ All checks passed for this category.</div>'}
+        `).join('') : '<div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>'}
       </div>
     `}).join('')}
 
