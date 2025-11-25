@@ -68,8 +68,8 @@ export default function Home() {
             <Image
               src="/logo.svg"
               alt="SEO CheckSite"
-              width={270}
-              height={81}
+              width={360}
+              height={108}
             />
           </div>
           <h1 className="text-5xl font-bold text-gray-900 mb-4">

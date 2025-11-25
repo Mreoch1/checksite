@@ -168,8 +168,8 @@ export default function RecommendPage() {
             <Image
               src="/logo.svg"
               alt="SEO CheckSite"
-              width={160}
-              height={48}
+              width={240}
+              height={72}
             />
           </Link>
           <Link
