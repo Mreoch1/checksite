@@ -585,15 +585,32 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     }
   }
   
-  // Final verification
-  const finalModuleCount = reportData.modules?.length || 0
+  // Final verification - check that all expected modules are present
+  // (LLM may return duplicates or extra modules, which is fine)
+  const finalModuleNames = new Set(
+    (reportData.modules || []).map((m: any) => 
+      (m.moduleName || '').toLowerCase().trim()
+    )
+  )
   const expectedModuleCount = auditModuleKeys.length
-  if (finalModuleCount !== expectedModuleCount) {
-    console.error(`❌ Module count mismatch! Expected ${expectedModuleCount}, got ${finalModuleCount}`)
-    throw new Error(`Report is missing modules. Expected ${expectedModuleCount} modules, but only ${finalModuleCount} are in the report.`)
+  const finalModuleCount = finalModuleNames.size
+  
+  // Check if all expected modules are present
+  const missingModules: string[] = []
+  for (const moduleKey of auditModuleKeys) {
+    const displayName = moduleDisplayNames[moduleKey] || moduleKey
+    const displayNameLower = displayName.toLowerCase().trim()
+    if (!finalModuleNames.has(displayNameLower)) {
+      missingModules.push(displayName)
+    }
   }
   
-  console.log(`✅ All ${expectedModuleCount} modules verified in report`)
+  if (missingModules.length > 0) {
+    console.error(`❌ Missing modules: ${missingModules.join(', ')}`)
+    throw new Error(`Report is missing modules: ${missingModules.join(', ')}. Expected ${expectedModuleCount} modules.`)
+  }
+  
+  console.log(`✅ All ${expectedModuleCount} expected modules verified in report (${finalModuleCount} total modules in report)`)
 
   // Generate HTML report
   const html = generateHTMLReport(reportData, auditResult.url)
