@@ -168,7 +168,7 @@ async function sendViaZoho(options: {
     const info = await transporter.sendMail({
       from: fromFormatted,
       to: options.to,
-      reply_to: from,
+      replyTo: from,
       subject: options.subject,
       text: options.text,
       html: options.html,
