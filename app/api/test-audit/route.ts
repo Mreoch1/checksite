@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
+import { rateLimit, getClientId } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 5 requests per minute per IP (test endpoint)
+  const clientId = getClientId(request)
+  const rateLimitResult = rateLimit(`test-audit:${clientId}`, 5, 60000)
+  
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      { 
+        error: 'Too many requests',
+        message: 'Please wait a moment before trying again',
+      },
+      { status: 429 }
+    )
+  }
   try {
     const { url = 'https://seoauditpro.net', email = 'Mreoch82@hotmail.com', modules } = await request.json()
 
