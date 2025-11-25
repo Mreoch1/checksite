@@ -158,10 +158,10 @@ async function processAudit(auditId: string) {
       })
       .eq('id', auditId)
 
-    // Send email
+    // Send email (optional - fails gracefully if domain not verified)
     const customer = audit.customers as any
     try {
-      console.log(`Sending email to ${customer.email} for audit ${auditId}`)
+      console.log(`Attempting to send email to ${customer.email} for audit ${auditId}`)
       await sendAuditReportEmail(
         customer.email,
         audit.url,
@@ -170,9 +170,10 @@ async function processAudit(auditId: string) {
       )
       console.log(`Email sent successfully to ${customer.email}`)
     } catch (emailError) {
-      console.error('Error sending email:', emailError)
-      // Don't fail the whole audit if email fails, but log it
-      // The report is still available via the URL
+      console.error('Email sending failed (this is okay - report is still available via URL):', emailError)
+      // Don't fail the whole audit if email fails
+      // The report is still available via the URL shown on the success page
+      // This allows the system to work even without email domain verification
     }
   } catch (error) {
     console.error('Error processing audit:', error)
