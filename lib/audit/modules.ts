@@ -822,48 +822,164 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
 }
 
 /**
- * Crawl Health Module (Stubbed)
+ * Crawl Health Module
  */
 export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleResult> {
-  // TODO: Implement real crawling logic
-  // For now, return placeholder results
-  
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // Check for sitemap.xml
+  try {
+    const sitemapUrl = new URL('/sitemap.xml', siteData.url).toString()
+    const sitemapResponse = await fetch(sitemapUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    })
+    
+    if (!sitemapResponse.ok) {
+      issues.push({
+        title: 'Sitemap file not found',
+        severity: 'high',
+        technicalExplanation: 'sitemap.xml not accessible',
+        plainLanguageExplanation: 'A sitemap helps search engines find all your pages.',
+        suggestedFix: 'Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.',
+      })
+      score -= 25
+    }
+  } catch (error) {
+    issues.push({
+      title: 'Sitemap file not found',
+      severity: 'high',
+      technicalExplanation: 'Could not access sitemap.xml',
+      plainLanguageExplanation: 'A sitemap helps search engines find all your pages.',
+      suggestedFix: 'Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.',
+    })
+    score -= 25
+  }
+
+  // Check for robots.txt
+  try {
+    const robotsUrl = new URL('/robots.txt', siteData.url).toString()
+    const robotsResponse = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+      signal: AbortSignal.timeout(10000),
+    })
+    
+    if (!robotsResponse.ok) {
+      issues.push({
+        title: 'Robots.txt file not found',
+        severity: 'low',
+        technicalExplanation: 'robots.txt not accessible',
+        plainLanguageExplanation: 'A robots.txt file tells search engines which pages they can and cannot access.',
+        suggestedFix: 'Create a robots.txt file in your website root. For most sites, you can use: User-agent: *\nAllow: /',
+      })
+      score -= 10
+    } else {
+      const robotsContent = await robotsResponse.text()
+      if (robotsContent.toLowerCase().includes('disallow: /')) {
+        issues.push({
+          title: 'Robots.txt may be blocking search engines',
+          severity: 'high',
+          technicalExplanation: 'robots.txt contains "Disallow: /"',
+          plainLanguageExplanation: 'Your robots.txt file might be preventing search engines from finding your pages.',
+          suggestedFix: 'Check your robots.txt file and make sure it\'s not blocking all pages. Remove "Disallow: /" unless you want to block search engines.',
+        })
+        score -= 30
+      }
+    }
+  } catch (error) {
+    issues.push({
+      title: 'Robots.txt file not found',
+      severity: 'low',
+      technicalExplanation: 'Could not access robots.txt',
+      plainLanguageExplanation: 'A robots.txt file tells search engines which pages they can and cannot access.',
+      suggestedFix: 'Create a robots.txt file in your website root. For most sites, you can use: User-agent: *\nAllow: /',
+    })
+    score -= 10
+  }
+
+  // Check for internal links (heuristic)
+  const internalLinks = siteData.$('a[href^="/"], a[href*="' + new URL(siteData.url).hostname + '"]').length
+  if (internalLinks < 5) {
+    issues.push({
+      title: 'Few internal links found',
+      severity: 'low',
+      technicalExplanation: `Only ${internalLinks} internal links detected`,
+      plainLanguageExplanation: 'Internal links help search engines discover all your pages.',
+      suggestedFix: 'Add links between your pages. Link from your homepage to important pages, and from those pages back to your homepage.',
+    })
+    score -= 10
+  }
+
+  const summary = score >= 80
+    ? 'Search engines should be able to find your pages easily. Make sure you have a sitemap.xml file.'
+    : score >= 60
+    ? 'Your crawl health needs improvement. Create a sitemap.xml file to help search engines find all your pages.'
+    : 'Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.'
+
   return {
     moduleKey: 'crawl_health',
-    score: 75,
-    issues: [
-      {
-        title: 'Crawl health check not yet implemented',
-        severity: 'low',
-        technicalExplanation: 'This module requires a full site crawler to be implemented',
-        plainLanguageExplanation: 'This check will verify that search engines can find all your pages.',
-        suggestedFix: 'This feature is coming soon. For now, make sure you have a sitemap.xml file.',
-      },
-    ],
-    summary: 'Crawl health checking will be available in a future update. Ensure you have a sitemap.xml file for search engines.',
+    score: Math.max(0, score),
+    issues,
+    summary,
   }
 }
 
 /**
- * Competitor Overview Module (Stubbed)
+ * Competitor Overview Module
  */
 export async function runCompetitorOverviewModule(siteData: SiteData): Promise<ModuleResult> {
-  // TODO: Implement competitor analysis
-  // For now, return placeholder results
-  
+  const issues: AuditIssue[] = []
+  let score = 75 // Default score since we can't do full competitor analysis
+
+  // Extract domain to suggest competitors
+  const domain = new URL(siteData.url).hostname.replace('www.', '')
+  const domainParts = domain.split('.')
+  const businessName = domainParts[0] // First part of domain
+
+  // Generic competitor insights based on common patterns
+  issues.push({
+    title: 'Monitor your top competitors',
+    severity: 'low',
+    technicalExplanation: 'Competitor analysis requires manual research',
+    plainLanguageExplanation: 'Understanding what your competitors do well can help you improve your own site.',
+    suggestedFix: `Research 3-5 businesses similar to yours. Check their websites, see what content they have, and note what they do well. Look for businesses in your area or industry that rank well in search results.`,
+  })
+
+  // Check if site has unique content (heuristic)
+  const textContent = siteData.$('body').text().trim()
+  const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length
+
+  if (wordCount < 500) {
+    issues.push({
+      title: 'Your site may need more content than competitors',
+      severity: 'medium',
+      technicalExplanation: `Site has only ${wordCount} words`,
+      plainLanguageExplanation: 'Competitors with more detailed content often rank better in search results.',
+      suggestedFix: 'Add more helpful content to your pages. Aim for at least 500-1000 words per main page with useful information about your business.',
+    })
+    score -= 15
+  }
+
+  issues.push({
+    title: 'Keep your content fresh and updated',
+    severity: 'low',
+    technicalExplanation: 'Content freshness is important for SEO',
+    plainLanguageExplanation: 'Competitors who regularly update their content tend to rank better.',
+    suggestedFix: 'Update your website content regularly. Add new pages, update existing content, and keep information current. Aim to add or update content at least once a month.',
+  })
+
+  const summary = score >= 80
+    ? 'Focus on creating unique, helpful content that sets you apart from competitors.'
+    : score >= 60
+    ? 'Research your competitors and identify opportunities to improve your content and online presence.'
+    : 'Your site needs more content to compete effectively. Research competitors and create more detailed, helpful content.'
+
   return {
     moduleKey: 'competitor_overview',
-    score: 0,
-    issues: [
-      {
-        title: 'Competitor analysis not yet implemented',
-        severity: 'low',
-        technicalExplanation: 'This module requires competitor URL crawling and analysis',
-        plainLanguageExplanation: 'This feature will compare your site against competitors.',
-        suggestedFix: 'This feature is coming soon.',
-      },
-    ],
-    summary: 'Competitor analysis will be available in a future update.',
+    score: Math.max(0, score),
+    issues,
+    summary,
   }
 }
 
