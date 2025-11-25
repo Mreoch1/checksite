@@ -30,7 +30,7 @@ export async function fetchSite(url: string): Promise<SiteData> {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)',
       },
       redirect: 'follow',
       signal: controller.signal,
@@ -1020,7 +1020,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     const sitemapController = new AbortController()
     const sitemapTimeout = setTimeout(() => sitemapController.abort(), 10000)
     const sitemapResponse = await fetch(sitemapUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
       signal: sitemapController.signal,
     })
     clearTimeout(sitemapTimeout)
@@ -1052,7 +1052,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     const robotsController = new AbortController()
     const robotsTimeout = setTimeout(() => robotsController.abort(), 10000)
     const robotsResponse = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
       signal: robotsController.signal,
     })
     clearTimeout(robotsTimeout)
@@ -1124,7 +1124,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
     const robotsResponse = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
     })
     if (robotsResponse.ok) {
       robotsContent = await robotsResponse.text()

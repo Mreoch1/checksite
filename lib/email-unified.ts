@@ -316,7 +316,7 @@ export async function sendAuditReportEmail(
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 14px; margin: 0; line-height: 1.5;">
-            Questions? Just reply to this email. We're here to help!
+            Questions? Email us at <a href="mailto:contact@seoauditpro.net" style="color: #0ea5e9; text-decoration: none;">contact@seoauditpro.net</a>. We're here to help!
           </p>
           <p style="color: #9ca3af; font-size: 12px; margin: 15px 0 0 0;">
             — The SEO CheckSite Team

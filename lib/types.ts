@@ -1,5 +1,5 @@
 /**
- * Core type definitions for SiteCheck
+ * Core type definitions for SEO CheckSite
  */
 
 export type ModuleKey =
@@ -26,7 +26,7 @@ export interface AuditIssue {
   suggestedFix: string
   evidence?: {
     // Actual values found (e.g., actual title tag, robots.txt content, etc.)
-    found?: string | string[]
+    found?: string | string[] | null
     expected?: string
     actual?: string
     count?: number

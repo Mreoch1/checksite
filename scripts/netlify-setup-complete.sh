@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Complete Netlify Setup for SiteCheck"
+echo "🚀 Complete Netlify Setup for SEO CheckSite"
 echo "========================================"
 echo ""
 

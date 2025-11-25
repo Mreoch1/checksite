@@ -4,7 +4,6 @@ Helper scripts for development and deployment.
 
 ## Setup Scripts
 
-- **`setup.sh`** - Main setup script (installs dependencies, creates .env.local)
 - **`create-local-env.sh`** - Creates `.env.local` from template
 - **`setup-stripe-webhook.sh`** - Sets up Stripe webhook for local development
 - **`setup-git-remote.sh`** - Configures Git remote repository
@@ -17,6 +16,10 @@ Helper scripts for development and deployment.
 - **`netlify-setup-complete.sh`** - Complete Netlify setup (one-time use)
 - **`verify-netlify-env.sh`** - Verifies Netlify environment variables are set
 
+## Database Scripts
+
+- **`apply-migration.sh`** - Applies Supabase database migrations
+
 ## Git Scripts
 
 - **`final-commit.sh`** - Commits and pushes changes to GitHub
@@ -25,6 +28,7 @@ Helper scripts for development and deployment.
 ## Utility Scripts
 
 - **`get-webhook-secret.sh`** - Gets Stripe webhook secret from CLI
+- **`set-resend-key.sh`** - Sets Resend API key in Netlify
 
 ## Usage
 

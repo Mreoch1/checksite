@@ -8,7 +8,7 @@ import PrintButton from './PrintButton'
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const { data: audit } = await supabase
     .from('audits')
-    .select('url, status')
+    .select('url, status, completed_at')
     .eq('id', params.id)
     .single()
 
@@ -19,10 +19,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 
   const domain = audit.url ? new URL(audit.url).hostname : 'your website'
+  const reportDate = audit.completed_at 
+    ? new Date(audit.completed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   
   return {
-    title: `Website Audit Report for ${domain} | SEO CheckSite`,
-    description: `Complete SEO audit report for ${domain}. Get actionable insights to improve your website's performance and search rankings.`,
+    title: `Website Audit Report for ${domain} - ${reportDate} | SEO CheckSite`,
+    description: `Complete SEO audit report for ${domain} generated on ${reportDate}. Get actionable insights to improve your website's performance and search rankings.`,
   }
 }
 
@@ -35,6 +38,13 @@ export default async function ReportPage({ params }: { params: { id: string } })
     .select('*')
     .eq('id', id)
     .single()
+
+  // Generate filename-friendly date
+  const dateForFilename = audit?.completed_at
+    ? new Date(audit.completed_at).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0]
+  const domain = audit?.url ? new URL(audit.url).hostname.replace(/\./g, '-') : 'website'
+  const reportFilename = `SEO-Audit-Report-${domain}-${dateForFilename}`
 
   if (error || !audit) {
     notFound()
@@ -120,7 +130,7 @@ export default async function ReportPage({ params }: { params: { id: string } })
           dangerouslySetInnerHTML={{ __html: audit.formatted_report_html }}
         />
         <div className="mt-8 pt-8 border-t text-center">
-          <PrintButton />
+          <PrintButton filename={reportFilename} />
         </div>
       </div>
     </div>

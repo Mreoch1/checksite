@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     try {
       const response = await fetch(normalizedUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)',
         },
         redirect: 'follow',
       })

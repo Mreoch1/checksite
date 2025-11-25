@@ -204,7 +204,7 @@ export async function generateReport(auditResult: {
     finalUrl?: string
     httpStatus?: number
     contentType?: string
-    contentLength?: number
+    pageSize?: string | null
     hasRedirect?: boolean
     isHttps?: boolean
     title?: string | null
@@ -269,74 +269,80 @@ Page Analysis:
 - Final URL: ${auditResult.pageAnalysis.finalUrl || auditResult.pageAnalysis.url}
 - HTTP Status: ${auditResult.pageAnalysis.httpStatus || 200}
 - Content Type: ${auditResult.pageAnalysis.contentType || 'unknown'}
-- Page Size: ${auditResult.pageAnalysis.contentLength ? `${(auditResult.pageAnalysis.contentLength / 1024).toFixed(1)} KB` : 'unknown'}
+- Page Size: ${auditResult.pageAnalysis.pageSize || 'unknown'}
 - Has Redirect: ${auditResult.pageAnalysis.hasRedirect ? 'Yes' : 'No'}
 - Uses HTTPS: ${auditResult.pageAnalysis.isHttps ? 'Yes' : 'No'}
 ` : ''
 
-  const prompt = `You write clear, plain language SEO reports for non-technical business owners.
+  const prompt = `You write ultra-simple, beginner-friendly website reports for small business owners who have 1-10 page websites. They want quick fixes, not technical education.
 
 Website URL: ${auditResult.url}
 ${pageInfo}
 Audit Results (${optimizedModules.length} modules checked):
 ${JSON.stringify(optimizedModules, null, 1)}
 
-CRITICAL REQUIREMENTS:
-1. You MUST include EVERY module from the audit results in your report. Do not skip any.
-2. For each module, use the exact moduleKey to map to the display name:
-   - "performance" → "Performance"
-   - "crawl_health" → "Crawl Health"
-   - "on_page" → "On-Page SEO"
-   - "mobile" → "Mobile Optimization"
-   - "local" → "Local SEO"
+CRITICAL REQUIREMENTS FOR SMALL BUSINESS AUDIENCE:
+
+1. KEEP IT SHORT: Maximum 2-3 pages. Small business owners won't read long reports.
+
+2. USE PLAIN ENGLISH ONLY - NO JARGON:
+   - ❌ DON'T SAY: "JSON-LD validation", "H1/H2 hierarchy", "viewport meta tag", "structured data"
+   - ✅ DO SAY: "Your site works well on phones", "Your page needs a headline", "Your description is missing", "We found 6 images without alt text"
+
+3. "FIX IN ONE SENTENCE" APPROACH:
+   Every issue must have:
+   - What needs fixing (simple title)
+   - Why it matters (one sentence)
+   - How to fix it (ONE SENTENCE - tell them exactly what to do)
+   - What we found (show the evidence)
+
+4. REPORT STRUCTURE (in this exact order):
+   a) Executive Summary (3-4 short bullet points max)
+   b) Quick Fix Checklist (simple checkbox list of top 5-7 fixes)
+   c) Top Priority Actions (5 most important - each with one-sentence fix)
+   d) Module sections (brief, evidence-focused)
+
+5. QUICK FIX CHECKLIST:
+   Create a simple checklist like:
+   - [ ] Add a page description
+   - [ ] Fix robots.txt blocking
+   - [ ] Add alt text to 6 images
+   - [ ] Enable HTTPS
+   - [ ] Add a main heading
+   
+   Keep it to 5-7 items max. Use simple language.
+
+6. Module Display Names (use these exact simple names):
+   - "performance" → "Page Speed"
+   - "crawl_health" → "Search Engine Access"
+   - "on_page" → "Page Content"
+   - "mobile" → "Mobile Friendly"
+   - "local" → "Local Business Info"
    - "accessibility" → "Accessibility"
    - "security" → "Security"
-   - "schema" → "Schema Markup"
-   - "social" → "Social Metadata"
-   - "competitor_overview" → "Competitor Overview"
+   - "schema" → "Business Information"
+   - "social" → "Social Sharing"
+   - "competitor_overview" → "Competitor Tips"
 
-3. Page Information Section (if pageAnalysis is provided):
-   - Display basic page info: URL, HTTP status, content type, page size
-   - Note any redirects
-   - Show if HTTPS is enabled
+   IMPORTANT: Use these simple names, NOT technical terms like "On-Page SEO" or "Crawl Health"
 
-4. Executive Summary (3-5 bullet points):
-   - Overall health assessment
-   - 3 main strengths
-   - 3 main weaknesses
-   - Top priorities in plain language
+7. For each module:
+   - One sentence overview (what this checks)
+   - List issues with: Title, Why (one sentence), How to fix (ONE SENTENCE), Evidence (what we found)
+   - If no issues: "All good! ✓"
 
-5. "Start Here: Top Priority Actions" Section:
-   - Exactly 5 most important fixes (prioritize High severity issues)
-   - For each: title, why it matters (one sentence), how to fix it (simple steps)
+8. NEVER include:
+   - Technical terms (LCP, CLS, HTTP headers, JSON-LD, etc.)
+   - Long explanations
+   - Professional SEO terminology
+   - Complex instructions
 
-6. Module-by-Module Sections (MANDATORY - include ALL modules):
-   - You MUST include EVERY SINGLE module from the audit results. Count them first.
-   - For EACH module in the audit results (check the moduleKey field):
-     * Use the exact display name from the mapping above (e.g., "on_page" → "On-Page SEO")
-     * Provide a brief overview sentence (1-2 sentences)
-     * List ALL issues from the module results (include all issues, not just 1-3)
-     * If a module has NO issues, include: "All checks passed for this category."
-     * For each issue:
-       - Use the exact title from the results
-       - Use the severity from results (high/medium/low)
-       - Use plainLanguageExplanation as "why this matters"
-       - Use suggestedFix as "how to fix it"
-       - If evidence is provided, include it in an "evidence" field showing actual values found (e.g., actual title tag text, robots.txt content, etc.)
-     * Include module-level evidence when available (e.g., actual page title, meta description, H1 text, etc.)
-   - Before finishing, verify you have included ALL modules. Count the modules in audit results and ensure your response has the same number.
+9. ALWAYS include:
+   - Evidence tables showing what was actually found
+   - One-sentence fixes
+   - Simple severity badges (High/Medium/Low only)
 
-7. NEVER include:
-   - "Coming soon" messages
-   - Empty sections
-   - Placeholder text
-   - Technical jargon without explanation
-
-8. If a module has no issues, still include it with:
-   - Overview sentence
-   - "All checks passed for this category."
-
-Tone: Simple, friendly, encouraging. Write as if explaining to a friend who owns a small business.
+Tone: Friendly, encouraging, like helping a friend. Assume they know nothing about websites.
 
 Respond with ONLY valid JSON in this exact format:
 {
@@ -348,17 +354,22 @@ Respond with ONLY valid JSON in this exact format:
     "hasRedirect": false,
     "isHttps": true
   },
-  "executiveSummary": ["bullet point 1", "bullet point 2", "bullet point 3", "bullet point 4", "bullet point 5"],
+  "executiveSummary": ["bullet point 1", "bullet point 2", "bullet point 3"],
+  "quickFixChecklist": [
+    "Add a page description",
+    "Fix robots.txt blocking",
+    "Add alt text to images"
+  ],
   "topActions": [
     {
       "title": "Fix title",
       "why": "Why this matters in one sentence",
-      "how": "Simple step-by-step instructions"
+      "how": "How to fix it in ONE SENTENCE - be specific"
     }
   ],
   "modules": [
     {
-      "moduleName": "Performance",
+      "moduleName": "Page Speed",
       "overview": "One sentence about what this category checks",
       "evidence": {
         "title": "Actual page title found",
@@ -708,6 +719,21 @@ function generateHTMLReport(reportData: any, url: string): string {
   <div class="summary">
       ${reportData.executiveSummary ? reportData.executiveSummary.map((point: string) => `<p>${point}</p>`).join('') : '<p>Your website audit is complete. Review the sections below for detailed findings.</p>'}
   </div>
+
+    ${reportData.quickFixChecklist && reportData.quickFixChecklist.length > 0 ? `
+  <h2>Quick Fix Checklist</h2>
+  <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
+    <ul style="list-style: none; padding-left: 0;">
+      ${reportData.quickFixChecklist.map((item: string) => `
+        <li style="margin: 10px 0; padding-left: 30px; position: relative;">
+          <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
+          ${item}
+        </li>
+      `).join('')}
+    </ul>
+    <p style="margin-top: 15px; color: #6b7280; font-size: 14px;">Check off each item as you complete it!</p>
+  </div>
+    ` : ''}
 
   <h2>Start Here: Top Priority Actions</h2>
     ${reportData.topActions && reportData.topActions.length > 0 ? reportData.topActions.map((action: any, idx: number) => `
