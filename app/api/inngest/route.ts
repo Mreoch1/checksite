@@ -18,8 +18,15 @@ const processAuditFunction = inngest.createFunction(
 )
 
 // Export the Inngest serve handler
+// In dev mode (no event key/signing key), it will automatically use dev mode
+// In production (with keys), it will use cloud mode
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [processAuditFunction],
+  // Explicitly set dev mode for local development
+  // This will be overridden by environment variables in production
+  ...(process.env.NODE_ENV === 'development' && !process.env.INNGEST_EVENT_KEY
+    ? { isDev: true }
+    : {}),
 })
 
