@@ -40,7 +40,16 @@ export async function callDeepSeek(
 
   try {
     const apiKey = getDeepSeekApiKey()
+    const requestBody = {
+      model: 'deepseek-chat',
+      messages,
+      temperature,
+    }
+    const requestBodySize = JSON.stringify(requestBody).length
+    
     console.log('Calling DeepSeek API...')
+    console.log(`Request body size: ${requestBodySize} characters (${(requestBodySize / 1024).toFixed(1)} KB)`)
+    console.log(`Number of messages: ${messages.length}`)
     const startTime = Date.now()
     
     // Use Promise.race to ensure timeout works even if fetch hangs
@@ -50,11 +59,7 @@ export async function callDeepSeek(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-        temperature,
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     })
 
@@ -66,6 +71,7 @@ export async function callDeepSeek(
       }, 150000)
     })
 
+    console.log('Waiting for DeepSeek API response...')
     const response = await Promise.race([fetchPromise, timeoutPromise])
     clearTimeout(timeoutId)
     
@@ -207,12 +213,25 @@ export async function generateReport(auditResult: {
     competitor_overview: 'Competitor Overview',
   }
 
+  // Optimize prompt size - only include essential data
+  const optimizedModules = auditResult.modules.map(m => ({
+    moduleKey: m.moduleKey,
+    score: m.score,
+    summary: m.summary,
+    issues: m.issues.map(i => ({
+      title: i.title,
+      severity: i.severity,
+      plainLanguageExplanation: i.plainLanguageExplanation,
+      suggestedFix: i.suggestedFix,
+    })),
+  }))
+
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
 Website URL: ${auditResult.url}
 
 Audit Results (ALL modules that were checked):
-${JSON.stringify(auditResult.modules, null, 2)}
+${JSON.stringify(optimizedModules, null, 2)}
 
 CRITICAL REQUIREMENTS:
 1. You MUST include EVERY module from the audit results in your report. Do not skip any.
@@ -303,15 +322,22 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     },
   ]
 
+  console.log(`Calling DeepSeek with ${auditResult.modules.length} modules...`)
+  console.log(`Prompt size: ${JSON.stringify(messages).length} characters`)
+  
   const response = await callDeepSeek(messages, 0.5)
+  console.log(`DeepSeek response received, length: ${response.length} characters`)
   
   // Extract JSON
   const jsonMatch = response.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
+    console.error('No JSON found in response. Response preview:', response.substring(0, 500))
     throw new Error('Invalid JSON response from DeepSeek')
   }
 
+  console.log('Parsing JSON response...')
   const reportData = JSON.parse(jsonMatch[0])
+  console.log('JSON parsed successfully')
 
   // Ensure all modules from audit are included
   const moduleDisplayNames: Record<string, string> = {
