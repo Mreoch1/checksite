@@ -78,19 +78,62 @@ export async function POST(request: NextRequest) {
       // Continue with empty summary
     }
 
-    // Get recommendations from DeepSeek with overall timeout (2.5 minutes total - reduced for faster failure)
+    // Get recommendations from DeepSeek with a short timeout (8 seconds to avoid Netlify 10s limit)
+    // If LLM times out, return smart defaults based on site content
     console.log(`[recommend-modules] Starting analysis for ${normalizedUrl}`)
-    const recommendationsPromise = recommendModules(normalizedUrl, siteSummary)
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Recommendation request timeout: Took longer than 2.5 minutes'))
-      }, 150000) // 2.5 minutes total timeout (reduced from 3)
-    })
+    
+    try {
+      const recommendationsPromise = recommendModules(normalizedUrl, siteSummary)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Recommendation request timeout'))
+        }, 8000) // 8 seconds - must complete before Netlify's 10s limit
+      })
 
-    const recommendations = await Promise.race([recommendationsPromise, timeoutPromise])
-    console.log(`[recommend-modules] Analysis complete for ${normalizedUrl}`)
-
-    return NextResponse.json(recommendations)
+      const recommendations = await Promise.race([recommendationsPromise, timeoutPromise])
+      console.log(`[recommend-modules] Analysis complete for ${normalizedUrl}`)
+      return NextResponse.json(recommendations)
+    } catch (timeoutError) {
+      // If LLM times out, return smart defaults based on site content
+      console.warn(`[recommend-modules] LLM timeout for ${normalizedUrl}, using smart defaults`)
+      
+      const titleLower = (siteSummary.title || '').toLowerCase()
+      const descLower = (siteSummary.description || '').toLowerCase()
+      const contentLower = (siteSummary.content || '').toLowerCase()
+      const allText = `${titleLower} ${descLower} ${contentLower}`
+      
+      // Smart defaults based on content analysis
+      const isLocalBusiness = /restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|location|address|phone|hours|menu|services|local/i.test(allText)
+      const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram/i.test(allText)
+      const isBusiness = /business|company|services|products|about|contact/i.test(allText)
+      
+      const defaultRecommendations = {
+        local: isLocalBusiness,
+        accessibility: true, // Always recommended
+        security: true, // Always recommended
+        schema: isBusiness, // Recommended for businesses
+        social: hasSocialContent || isBusiness,
+        competitor_overview: isBusiness,
+        reasons: {
+          local: isLocalBusiness 
+            ? 'Your site appears to be a local business, so local SEO will help customers find you in local search results.'
+            : 'Your site doesn\'t appear to need a local SEO audit because it\'s an online-only business without a physical location or local service area.',
+          accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
+          security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
+          schema: isBusiness
+            ? 'Structured data helps search engines understand your business information and can improve how your site appears in search results.'
+            : 'Your site doesn\'t appear to need schema markup because it lacks clear business information that would benefit from structured data.',
+          social: hasSocialContent || isBusiness
+            ? 'Social media optimization helps your content look great when shared on social platforms, increasing visibility and engagement.'
+            : 'Your site doesn\'t appear to need social metadata optimization because it lacks shareable content or social media presence.',
+          competitor_overview: isBusiness
+            ? 'Competitor analysis helps you understand your market position and identify opportunities to improve your SEO strategy.'
+            : 'Your site doesn\'t appear to need competitor analysis because it\'s not clearly a business competing in a market.',
+        },
+      }
+      
+      return NextResponse.json(defaultRecommendations)
+    }
   } catch (error) {
     console.error('[recommend-modules] Error:', error)
     const errorDetails = error instanceof Error ? {
