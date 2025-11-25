@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit'
-import { inngest } from '@/lib/inngest'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -77,27 +76,12 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', audit.id)
 
-    // Trigger Inngest function for background processing
-    console.log(`Triggering Inngest function for test audit: ${audit.id}`)
-    
-    try {
-      await inngest.send({
-        name: 'audit/process',
-        data: { auditId: audit.id },
-      })
-      console.log(`✅ Inngest event sent for audit ${audit.id}`)
-    } catch (error) {
-      console.error('❌ Failed to send Inngest event:', error)
-      // Fallback to direct processing if Inngest fails
-      console.log('Falling back to direct processing...')
-      processAudit(audit.id).catch(async (processError) => {
-        console.error('Error processing test audit:', processError)
-        await supabase
-          .from('audits')
-          .update({ status: 'failed' })
-          .eq('id', audit.id)
-      })
-    }
+    // Process audit directly in background (non-blocking)
+    console.log(`Starting audit processing for audit ${audit.id}`)
+    processAudit(audit.id).catch(async (processError) => {
+      console.error('Error processing audit:', processError)
+      // processAudit already handles error logging and status updates
+    })
 
     return NextResponse.json({
       success: true,
