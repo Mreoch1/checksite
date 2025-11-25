@@ -1113,6 +1113,62 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     score -= 10
   }
 
+  // Check for broken links (sample up to 10 links to avoid timeout)
+  const allLinks = siteData.$('a[href]')
+  const linkUrls: string[] = []
+  allLinks.each((_, el) => {
+    const href = siteData.$(el).attr('href')
+    if (href && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+      try {
+        const linkUrl = new URL(href, siteData.url).toString()
+        linkUrls.push(linkUrl)
+      } catch {
+        // Invalid URL, skip
+      }
+    }
+  })
+
+  const brokenLinks: string[] = []
+  const linksToCheck = linkUrls.slice(0, 10) // Limit to first 10 to avoid timeout
+  
+  for (const linkUrl of linksToCheck) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000) // 5 second timeout per link
+      const response = await fetch(linkUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        signal: controller.signal,
+        method: 'HEAD', // Use HEAD to check without downloading
+      })
+      clearTimeout(timeout)
+      
+      if (!response.ok && response.status !== 405) { // 405 = Method Not Allowed is OK
+        brokenLinks.push(linkUrl)
+      }
+    } catch (error) {
+      // Link is broken or unreachable
+      brokenLinks.push(linkUrl)
+    }
+  }
+
+  if (brokenLinks.length > 0) {
+    issues.push({
+      title: `${brokenLinks.length} broken link${brokenLinks.length > 1 ? 's' : ''} found`,
+      severity: brokenLinks.length > 3 ? 'high' : 'medium',
+      technicalExplanation: `Found ${brokenLinks.length} links that return errors`,
+      plainLanguageExplanation: 'Broken links frustrate visitors and hurt your site\'s reputation. Visitors clicking broken links will see error pages.',
+      suggestedFix: 'Fix or remove the broken links. Check each link to make sure it goes to a working page.',
+      evidence: {
+        found: brokenLinks,
+        actual: `${brokenLinks.length} broken links`,
+        expected: 'All links should work',
+        count: brokenLinks.length,
+        details: { brokenLinks: brokenLinks.slice(0, 5) }, // Limit to first 5 for display
+      },
+    })
+    score -= Math.min(20, brokenLinks.length * 5)
+  }
+
   const summary = score >= 80
     ? 'Search engines should be able to find your pages easily. Make sure you have a sitemap.xml file.'
     : score >= 60
@@ -1141,6 +1197,8 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     evidence: {
       robotsTxtContent: robotsContent,
       internalLinksCount: internalLinks,
+      totalLinksChecked: linkUrls.length > 0 ? Math.min(10, linkUrls.length) : 0,
+      brokenLinksCount: brokenLinks.length,
       sitemapExists: false, // Will be set if sitemap check passes
     },
   }

@@ -209,6 +209,15 @@ export async function generateReport(auditResult: {
     isHttps?: boolean
     title?: string | null
     metaDescription?: string | null
+    h1Text?: string | null
+    h1Count?: number
+    h2Count?: number
+    wordCount?: number
+    totalImages?: number
+    missingAltText?: number
+    internalLinks?: number
+    externalLinks?: number
+    isIndexable?: boolean
   }
   modules: Array<{
     moduleKey: string
@@ -272,6 +281,12 @@ Page Analysis:
 - Page Size: ${auditResult.pageAnalysis.pageSize || 'unknown'}
 - Has Redirect: ${auditResult.pageAnalysis.hasRedirect ? 'Yes' : 'No'}
 - Uses HTTPS: ${auditResult.pageAnalysis.isHttps ? 'Yes' : 'No'}
+- Title: ${auditResult.pageAnalysis.title || 'Not found'}
+- Meta Description: ${auditResult.pageAnalysis.metaDescription || 'Not found'}
+- H1 Heading: ${auditResult.pageAnalysis.h1Text || 'Not found'}
+- Word Count: ${auditResult.pageAnalysis.wordCount || 0}
+- Images: ${auditResult.pageAnalysis.totalImages || 0} total, ${auditResult.pageAnalysis.missingAltText || 0} missing alt text
+- Links: ${auditResult.pageAnalysis.internalLinks || 0} internal, ${auditResult.pageAnalysis.externalLinks || 0} external
 ` : ''
 
   const prompt = `You write ultra-simple, beginner-friendly website reports for small business owners who have 1-10 page websites. They want quick fixes, not technical education.
@@ -348,10 +363,14 @@ Respond with ONLY valid JSON in this exact format:
 {
   "pageInfo": {
     "url": "The audited URL",
-    "httpStatus": 200,
-    "contentType": "text/html",
-    "pageSize": "Size in KB",
-    "hasRedirect": false,
+    "title": "Actual page title found",
+    "metaDescription": "Actual description found",
+    "h1Text": "Actual H1 heading text",
+    "wordCount": 500,
+    "totalImages": 10,
+    "missingAltText": 3,
+    "internalLinks": 8,
+    "externalLinks": 5,
     "isHttps": true
   },
   "executiveSummary": ["bullet point 1", "bullet point 2", "bullet point 3"],
@@ -685,6 +704,25 @@ function generateHTMLReport(reportData: any, url: string): string {
       color: #0369a1;
       font-size: 1em;
     }
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .container {
+        box-shadow: none;
+        padding: 20px;
+      }
+      a[href^="/"] {
+        display: none;
+      }
+      .action, .issue {
+        page-break-inside: avoid;
+      }
+      h1, h2 {
+        page-break-after: avoid;
+      }
+    }
   </style>
 </head>
 <body>
@@ -701,15 +739,18 @@ function generateHTMLReport(reportData: any, url: string): string {
     </div>
 
     ${reportData.pageInfo ? `
-  <h2>Page Information</h2>
+  <h2>Page Breakdown</h2>
   <div class="evidence-section">
     <table class="evidence-table">
-      <tr><th>URL</th><td>${reportData.pageInfo.url || domain}</td></tr>
+      <tr><th>Page URL</th><td>${reportData.pageInfo.url || domain}</td></tr>
       ${reportData.pageInfo.finalUrl && reportData.pageInfo.finalUrl !== reportData.pageInfo.url ? `<tr><th>Final URL (after redirect)</th><td>${reportData.pageInfo.finalUrl}</td></tr>` : ''}
-      <tr><th>HTTP Status</th><td>${reportData.pageInfo.httpStatus || 200}</td></tr>
-      <tr><th>Content Type</th><td>${reportData.pageInfo.contentType || 'unknown'}</td></tr>
-      ${reportData.pageInfo.pageSize ? `<tr><th>Page Size</th><td>${reportData.pageInfo.pageSize}</td></tr>` : ''}
-      <tr><th>HTTPS</th><td>${reportData.pageInfo.isHttps ? 'Yes ✓' : 'No ✗'}</tr>
+      <tr><th>Page Title</th><td>${reportData.pageInfo.title || 'Not found'}</td></tr>
+      <tr><th>Page Description</th><td>${reportData.pageInfo.metaDescription || 'Not found'}</td></tr>
+      <tr><th>Main Heading (H1)</th><td>${reportData.pageInfo.h1Text || 'Not found'}</td></tr>
+      <tr><th>Word Count</th><td>${reportData.pageInfo.wordCount || 0} words</td></tr>
+      <tr><th>Images</th><td>${reportData.pageInfo.totalImages || 0} total${reportData.pageInfo.missingAltText ? `, ${reportData.pageInfo.missingAltText} missing descriptions` : ''}</td></tr>
+      <tr><th>Links</th><td>${reportData.pageInfo.internalLinks || 0} internal, ${reportData.pageInfo.externalLinks || 0} external</td></tr>
+      <tr><th>HTTPS</th><td>${reportData.pageInfo.isHttps ? 'Yes ✓' : 'No ✗'}</td></tr>
       ${reportData.pageInfo.hasRedirect ? `<tr><th>Redirect</th><td>Yes (redirected from ${reportData.pageInfo.url} to ${reportData.pageInfo.finalUrl || reportData.pageInfo.url})</td></tr>` : ''}
     </table>
   </div>

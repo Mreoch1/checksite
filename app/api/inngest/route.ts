@@ -30,6 +30,17 @@ const processAuditFunction = inngest.createFunction(
         console.log(`[Inngest] Audit ${auditId} completed successfully`)
         return { success: true, auditId }
       } catch (error) {
+        // Log the raw error immediately to see what we're actually getting
+        console.error(`[Inngest] Raw error caught:`, error)
+        console.error(`[Inngest] Error type:`, typeof error)
+        console.error(`[Inngest] Error constructor:`, error?.constructor?.name)
+        if (error instanceof Error) {
+          console.error(`[Inngest] Error.message:`, error.message)
+          console.error(`[Inngest] Error.name:`, error.name)
+          console.error(`[Inngest] Error.stack:`, error.stack)
+        } else {
+          console.error(`[Inngest] Error stringified:`, JSON.stringify(error))
+        }
         // Ensure error is caught and audit is marked as failed
         // The error might not reach processAudit's catch block if it happens here
         const errorMessage = error instanceof Error ? error.message : String(error)
@@ -111,14 +122,21 @@ const processAuditFunction = inngest.createFunction(
         }
         
         // Create a more descriptive error that Inngest can display
-        // Include the error message in the error name to ensure it's visible
+        // Put the actual error message in the Error message itself (most important)
+        const errorMsg = errorMessage || 'An unknown error occurred'
         const descriptiveError = new Error(
-          `[${errorName}] Audit ${auditId} failed: ${errorMessage}`
+          `Audit ${auditId} failed: ${errorMsg}`
         )
-        descriptiveError.name = `AuditError_${errorName}`
+        descriptiveError.name = errorName || 'Error'
         if (errorStack) {
           descriptiveError.stack = errorStack
         }
+        
+        // Attach additional properties that Inngest might serialize
+        ;(descriptiveError as any).errorMessage = errorMsg
+        ;(descriptiveError as any).errorType = errorName || 'Error'
+        ;(descriptiveError as any).auditId = auditId
+        
         throw descriptiveError
       }
     })
