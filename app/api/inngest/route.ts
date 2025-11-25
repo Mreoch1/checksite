@@ -92,14 +92,43 @@ const processAuditFunction = inngest.createFunction(
         }, null, 2)
         
         try {
+          // Check if error_log already exists - don't overwrite original error
+          const { data: existingAudit } = await supabase
+            .from('audits')
+            .select('error_log')
+            .eq('id', auditId)
+            .single()
+          
+          // Only update error_log if it doesn't exist or is empty
+          // This preserves the original error from processAudit
+          const updateData: any = { status: 'failed' }
+          if (!existingAudit?.error_log) {
+            updateData.error_log = errorLog
+            console.log(`[Inngest] ✅ Storing verification error log for audit ${auditId}`)
+          } else {
+            // Append verification error to existing log
+            try {
+              const existingLog = typeof existingAudit.error_log === 'string' 
+                ? JSON.parse(existingAudit.error_log) 
+                : existingAudit.error_log
+              const combinedLog = {
+                ...existingLog,
+                verificationError: JSON.parse(errorLog),
+                verificationTimestamp: new Date().toISOString(),
+              }
+              updateData.error_log = JSON.stringify(combinedLog, null, 2)
+              console.log(`[Inngest] ✅ Appending verification error to existing log for audit ${auditId}`)
+            } catch {
+              // If parsing fails, keep original
+              console.log(`[Inngest] ⚠️  Could not parse existing error log, keeping original`)
+            }
+          }
+          
           await supabase
             .from('audits')
-            .update({ 
-              status: 'failed',
-              error_log: errorLog,
-            } as any)
+            .update(updateData)
             .eq('id', auditId)
-          console.log(`[Inngest] ✅ Marked audit ${auditId} as failed and stored error log`)
+          console.log(`[Inngest] ✅ Marked audit ${auditId} as failed`)
         } catch (updateError) {
           console.error(`[Inngest] Could not update audit status:`, updateError)
           // Try without error_log if column doesn't exist
