@@ -4,11 +4,14 @@
  */
 
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
 
-// Only validate at runtime when actually used
-if (!DEEPSEEK_API_KEY && typeof window === 'undefined') {
-  console.warn('DEEPSEEK_API_KEY environment variable is not set - LLM features will not work')
+// Get API key at runtime, not at module load time
+function getDeepSeekApiKey(): string {
+  const key = process.env.DEEPSEEK_API_KEY
+  if (!key) {
+    throw new Error('DEEPSEEK_API_KEY environment variable is required')
+  }
+  return key
 }
 
 interface DeepSeekMessage {
@@ -36,6 +39,7 @@ export async function callDeepSeek(
   }, 150000) // 2.5 minutes
 
   try {
+    const apiKey = getDeepSeekApiKey()
     console.log('Calling DeepSeek API...')
     const startTime = Date.now()
     
@@ -44,7 +48,7 @@ export async function callDeepSeek(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
