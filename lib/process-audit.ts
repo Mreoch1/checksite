@@ -272,11 +272,19 @@ export async function processAudit(auditId: string) {
     }
 
     // Store error details in database for retrieval
+    // Include full error details to help diagnose issues
     const errorLog = JSON.stringify({
       errorName,
       errorMessage,
       errorStack: errorStack ? errorStack.substring(0, 5000) : 'No stack trace', // Limit stack trace size
       timestamp: new Date().toISOString(),
+      auditId,
+      url: audit?.url,
+      stage: 'processAudit',
+      // Include additional context
+      hasRawResults: !!audit?.raw_result_json,
+      hasFormattedReport: !!audit?.formatted_report_html,
+      moduleCount: auditResult?.modules?.length || 0,
     }, null, 2)
 
     // Mark audit as failed and store error log
