@@ -12,9 +12,9 @@ function getStripe(): Stripe {
     if (!stripeSecretKey) {
       throw new Error('STRIPE_SECRET_KEY environment variable is required')
     }
-    stripeInstance = new Stripe(stripeSecretKey, {
-      apiVersion: '2024-06-20.acacia',
-    })
+      stripeInstance = new Stripe(stripeSecretKey, {
+        apiVersion: '2023-10-16',
+      })
   }
   return stripeInstance
 }
