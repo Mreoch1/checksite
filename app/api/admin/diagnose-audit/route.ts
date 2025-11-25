@@ -16,24 +16,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get full audit details
+    // Get full audit details (including error_log if column exists)
     const { data: audit, error: auditError } = await supabase
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
       .single()
     
-    // Try to get error_log if column exists
+    // Extract error_log if it exists (graceful if column doesn't exist)
     let errorLog = null
     try {
-      const { data: auditWithError } = await supabase
-        .from('audits')
-        .select('error_log')
-        .eq('id', auditId)
-        .single()
-      errorLog = auditWithError?.error_log || null
+      errorLog = (audit as any)?.error_log || null
+      if (errorLog && typeof errorLog === 'string') {
+        errorLog = JSON.parse(errorLog)
+      }
     } catch {
-      // Column doesn't exist yet, that's okay
+      // error_log column doesn't exist or invalid JSON, that's okay
+      errorLog = null
     }
 
     if (auditError || !audit) {
