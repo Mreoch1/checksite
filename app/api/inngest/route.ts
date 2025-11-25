@@ -17,19 +17,63 @@ const processAuditFunction = inngest.createFunction(
     return await step.run('process-audit', async () => {
       console.log(`[Inngest] Processing audit ${auditId} at ${new Date().toISOString()}`)
       
-      // Add timeout wrapper (5 minutes)
-      const processPromise = processAudit(auditId)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Inngest function timeout: Audit processing took longer than 5 minutes'))
-        }, 300000) // 5 minutes
-      })
-      
       try {
+        // Add timeout wrapper (5 minutes)
+        const processPromise = processAudit(auditId)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('Inngest function timeout: Audit processing took longer than 5 minutes'))
+          }, 300000) // 5 minutes
+        })
+        
         const result = await Promise.race([processPromise, timeoutPromise])
         console.log(`[Inngest] Audit ${auditId} completed successfully`)
         return { success: true, auditId }
       } catch (error) {
+        // Ensure error is caught and audit is marked as failed
+        // The error might not reach processAudit's catch block if it happens here
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+        const errorName = error instanceof Error ? error.name : 'Unknown'
+        
+        console.error(`[Inngest] ❌ Error in step.run for audit ${auditId}:`)
+        console.error(`[Inngest] Error name: ${errorName}`)
+        console.error(`[Inngest] Error message: ${errorMessage}`)
+        console.error(`[Inngest] Error stack: ${errorStack}`)
+        
+        // Try to mark audit as failed and store error log
+        // Import supabase here to avoid circular dependencies
+        const { supabase } = await import('@/lib/supabase')
+        
+        const errorLog = JSON.stringify({
+          errorName,
+          errorMessage,
+          errorStack: errorStack ? errorStack.substring(0, 5000) : 'No stack trace',
+          timestamp: new Date().toISOString(),
+          source: 'Inngest step.run',
+        }, null, 2)
+        
+        try {
+          await supabase
+            .from('audits')
+            .update({ 
+              status: 'failed',
+              error_log: errorLog,
+            } as any)
+            .eq('id', auditId)
+          console.log(`[Inngest] ✅ Marked audit ${auditId} as failed and stored error log`)
+        } catch (updateError) {
+          console.error(`[Inngest] Could not update audit status:`, updateError)
+          // Try without error_log if column doesn't exist
+          try {
+            await supabase
+              .from('audits')
+              .update({ status: 'failed' })
+              .eq('id', auditId)
+          } catch (statusError) {
+            console.error(`[Inngest] Could not update audit status at all:`, statusError)
+          }
+        }
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorStack = error instanceof Error ? error.stack : 'No stack trace'
         const errorName = error instanceof Error ? error.name : 'Unknown'
