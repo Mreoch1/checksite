@@ -17,6 +17,7 @@ interface SiteData {
   finalUrl?: string
   contentType?: string
   contentLength?: number
+  isHttps?: boolean
 }
 
 /**
@@ -57,6 +58,18 @@ export async function fetchSite(url: string): Promise<SiteData> {
     const description = $('meta[name="description"]').attr('content') || 
                        $('meta[property="og:description"]').attr('content') || ''
 
+    // Parse content type safely
+    const contentTypeHeader = headers['content-type'] || ''
+    const contentType = contentTypeHeader.split(';')[0].trim() || 'unknown'
+    
+    // Parse content length safely
+    const contentLengthStr = headers['content-length'] || '0'
+    const contentLength = parseInt(contentLengthStr, 10) || 0
+    
+    // Determine if HTTPS
+    const finalUrl = response.url || url
+    const isHttps = finalUrl.startsWith('https://') || url.startsWith('https://')
+
     return {
       url,
       html,
@@ -65,9 +78,10 @@ export async function fetchSite(url: string): Promise<SiteData> {
       description,
       headers,
       httpStatus: response.status,
-      finalUrl: response.url || url,
-      contentType: headers['content-type'] || 'unknown',
-      contentLength: parseInt(headers['content-length'] || '0'),
+      finalUrl,
+      contentType,
+      contentLength,
+      isHttps,
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -1095,8 +1109,15 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     score -= 10
   }
 
-  // Check for internal links (heuristic)
-  const internalLinks = siteData.$('a[href^="/"], a[href*="' + new URL(siteData.url).hostname + '"]').length
+  // Check for internal links (heuristic) - safely extract hostname
+  let internalLinks = 0
+  try {
+    const hostname = new URL(siteData.url).hostname
+    internalLinks = siteData.$('a[href^="/"], a[href*="' + hostname + '"]').length
+  } catch (urlError) {
+    // If URL is invalid, just count absolute paths
+    internalLinks = siteData.$('a[href^="/"]').length
+  }
   if (internalLinks < 5) {
     issues.push({
       title: 'Few internal links found',
@@ -1118,9 +1139,30 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   const linkUrls: string[] = []
   allLinks.each((_, el) => {
     const href = siteData.$(el).attr('href')
-    if (href && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+    if (href && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('javascript:')) {
       try {
-        const linkUrl = new URL(href, siteData.url).toString()
+        // Handle relative URLs and absolute URLs
+        let linkUrl: string
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          linkUrl = href
+        } else if (href.startsWith('/')) {
+          // Absolute path on same domain
+          try {
+            const baseUrl = new URL(siteData.url)
+            linkUrl = `${baseUrl.protocol}//${baseUrl.host}${href}`
+          } catch {
+            // Invalid base URL, skip
+            return
+          }
+        } else {
+          // Relative URL
+          try {
+            linkUrl = new URL(href, siteData.url).toString()
+          } catch {
+            // Invalid URL, skip
+            return
+          }
+        }
         linkUrls.push(linkUrl)
       } catch {
         // Invalid URL, skip
@@ -1134,19 +1176,39 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   for (const linkUrl of linksToCheck) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000) // 5 second timeout per link
-      const response = await fetch(linkUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
-        signal: controller.signal,
-        method: 'HEAD', // Use HEAD to check without downloading
-      })
-      clearTimeout(timeout)
+      const timeout = setTimeout(() => {
+        controller.abort()
+      }, 5000) // 5 second timeout per link
       
-      if (!response.ok && response.status !== 405) { // 405 = Method Not Allowed is OK
-        brokenLinks.push(linkUrl)
+      try {
+        const response = await fetch(linkUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+          signal: controller.signal,
+          method: 'HEAD', // Use HEAD to check without downloading
+          redirect: 'follow',
+        })
+        
+        clearTimeout(timeout)
+        
+        // 405 = Method Not Allowed means HEAD isn't supported, but GET might work
+        // 429 = Too Many Requests is temporary, not broken
+        if (!response.ok && response.status !== 405 && response.status !== 429) {
+          brokenLinks.push(linkUrl)
+        }
+      } catch (fetchError) {
+        clearTimeout(timeout)
+        // Check if it's an abort error (timeout) or actual error
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          // Timeout - consider it potentially broken but don't count as definitely broken
+          console.warn(`Link check timeout for ${linkUrl}`)
+        } else {
+          // Other error - likely broken
+          brokenLinks.push(linkUrl)
+        }
       }
     } catch (error) {
-      // Link is broken or unreachable
+      // Unexpected error - mark as broken
+      console.error(`Error checking link ${linkUrl}:`, error)
       brokenLinks.push(linkUrl)
     }
   }
@@ -1212,7 +1274,17 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
   let score = 75 // Default score since we can't do full competitor analysis
 
   // Extract domain to suggest competitors
-  const domain = new URL(siteData.url).hostname.replace('www.', '')
+  // Safely extract domain
+  let domain = siteData.url
+  try {
+    domain = new URL(siteData.url).hostname.replace('www.', '')
+  } catch (urlError) {
+    // If URL parsing fails, try to extract domain manually
+    const match = siteData.url.match(/https?:\/\/([^\/]+)/)
+    if (match) {
+      domain = match[1].replace('www.', '')
+    }
+  }
   const domainParts = domain.split('.')
   const businessName = domainParts[0] // First part of domain
 
