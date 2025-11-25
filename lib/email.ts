@@ -27,10 +27,13 @@ function getTransporter(): nodemailer.Transporter {
       },
       tls: {
         rejectUnauthorized: false, // Zoho sometimes has certificate issues
+        ciphers: 'SSLv3',
       },
-      connectionTimeout: 10000, // 10 seconds
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+      debug: true, // Enable debug logging
+      logger: true, // Enable logger
     })
   }
   return transporterInstance
@@ -58,7 +61,11 @@ export async function sendAuditReportEmail(
   const domain = new URL(url).hostname
   const transporter = getEmailTransporter()
 
-  await transporter.sendMail({
+  console.log(`Attempting to send email to ${email} via ${process.env.SMTP_HOST || 'smtppro.zoho.com'}`)
+  console.log(`From: ${process.env.FROM_EMAIL || 'contact@seoauditpro.net'}`)
+
+  try {
+    const info = await transporter.sendMail({
     from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
     to: email,
     subject: `Your SEO CheckSite Report for ${domain} is Ready!`,
