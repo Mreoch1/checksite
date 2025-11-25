@@ -254,9 +254,9 @@ export async function generateReport(auditResult: {
     score: m.score,
     evidence: m.evidence || {}, // Include module-level evidence
     // Limit to first 5 issues per module (was 10)
-    issues: m.issues.slice(0, 5).map(i => ({
-      title: i.title.substring(0, 100), // Limit title length
-      severity: i.severity,
+    issues: (m.issues || []).slice(0, 5).map(i => ({
+      title: (i.title || 'Issue').substring(0, 100), // Limit title length
+      severity: i.severity || 'low',
       // Truncate to 150 chars (was 200) to keep prompt smaller
       why: (i.plainLanguageExplanation || '').substring(0, 150),
       how: (i.suggestedFix || '').substring(0, 150),
