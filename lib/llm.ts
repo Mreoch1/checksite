@@ -872,12 +872,23 @@ function generateHTMLReport(reportData: any, url: string): string {
           <div class="evidence-section" style="margin-top: 15px;">
             <h4>Evidence:</h4>
             <table class="evidence-table">
-              ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => `
+              ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
+                const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                let safeValue = ''
+                if (typeof value === 'string' && value.length > 300) {
+                  safeValue = `<div class="evidence-code">${value.substring(0, 300).replace(/</g, '&lt;').replace(/>/g, '&gt;')}...</div>`
+                } else if (typeof value === 'object') {
+                  safeValue = `<div class="evidence-code">${JSON.stringify(value, null, 2).substring(0, 500).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+                } else {
+                  safeValue = String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                }
+                return `
                 <tr>
-                  <th>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</th>
-                  <td>${typeof value === 'string' && value.length > 300 ? `<div class="evidence-code">${value.substring(0, 300).replace(/</g, '&lt;').replace(/>/g, '&gt;')}...</div>` : typeof value === 'object' ? `<div class="evidence-code">${JSON.stringify(value, null, 2).substring(0, 500).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
+                  <th>${safeKey}</th>
+                  <td>${safeValue}</td>
                 </tr>
-              `).join('')}
+              `
+              }).join('')}
             </table>
           </div>
         ` : ''}
