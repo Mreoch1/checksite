@@ -42,8 +42,7 @@ export async function POST(request: NextRequest) {
       if (response.ok) {
         const html = await response.text()
         // Dynamically import cheerio to avoid build-time analysis
-        const cheerioModule = await import('cheerio')
-        const cheerio = cheerioModule.default || cheerioModule
+        const cheerio = await import('cheerio') as typeof import('cheerio')
         const $ = cheerio.load(html)
         
         siteSummary = {
