@@ -805,17 +805,17 @@ function generateHTMLReport(reportData: any, url: string): string {
 
   <h2>Executive Summary</h2>
   <div class="summary">
-      ${reportData.executiveSummary ? reportData.executiveSummary.map((point: string) => `<p>${point}</p>`).join('') : '<p>Your website audit is complete. Review the sections below for detailed findings.</p>'}
+      ${reportData.executiveSummary && Array.isArray(reportData.executiveSummary) ? (reportData.executiveSummary || []).map((point: string) => `<p>${(point || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`).join('') : '<p>Your website audit is complete. Review the sections below for detailed findings.</p>'}
   </div>
 
     ${reportData.quickFixChecklist && reportData.quickFixChecklist.length > 0 ? `
   <h2>Quick Fix Checklist</h2>
   <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
     <ul style="list-style: none; padding-left: 0;">
-      ${reportData.quickFixChecklist.map((item: string) => `
+      ${(reportData.quickFixChecklist || []).map((item: string) => `
         <li style="margin: 10px 0; padding-left: 30px; position: relative;">
           <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-          ${item}
+          ${(item || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
         </li>
       `).join('')}
     </ul>
@@ -824,18 +824,18 @@ function generateHTMLReport(reportData: any, url: string): string {
     ` : ''}
 
   <h2>Start Here: Top Priority Actions</h2>
-    ${reportData.topActions && reportData.topActions.length > 0 ? reportData.topActions.map((action: any, idx: number) => `
-    <div class="action ${action.severity || 'high'}">
-      <h3>${idx + 1}. ${action.title}</h3>
-      <p><strong>Why this matters:</strong> ${action.why}</p>
-      <p><strong>How to fix it:</strong> ${action.how}</p>
+    ${reportData.topActions && reportData.topActions.length > 0 ? (reportData.topActions || []).map((action: any, idx: number) => `
+    <div class="action ${(action?.severity || 'high')}">
+      <h3>${idx + 1}. ${(action?.title || 'Action').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
+      <p><strong>Why this matters:</strong> ${(action?.why || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+      <p><strong>How to fix it:</strong> ${(action?.how || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
     </div>
     `).join('') : '<p>Review the detailed sections below for specific recommendations.</p>'}
 
     ${reportData.modules && reportData.modules.length > 0 ? reportData.modules.map((module: any) => `
       <div class="module-section">
-    <h2>${module.moduleName}</h2>
-        <p style="margin-bottom: 15px;">${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
+    <h2>${(module?.moduleName || 'Module').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h2>
+        <p style="margin-bottom: 15px;">${(module?.overview || `This section checks ${(module?.moduleName || 'module').toLowerCase()}.`).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
         ${module.evidence && Object.keys(module.evidence).length > 0 ? `
           <div class="evidence-section">
             <h4>What We Found:</h4>
@@ -849,12 +849,12 @@ function generateHTMLReport(reportData: any, url: string): string {
             </table>
           </div>
         ` : ''}
-        ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
-          <div class="issue ${issue.severity}">
-        <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
-            <h3 style="margin-top: 10px;">${issue.title}</h3>
-        <p><strong>Why this matters:</strong> ${issue.why}</p>
-        <p><strong>How to fix it:</strong> ${issue.how}</p>
+        ${module.issues && Array.isArray(module.issues) && module.issues.length > 0 ? (module.issues || []).map((issue: any) => `
+          <div class="issue ${(issue?.severity || 'low')}">
+        <span class="severity ${(issue?.severity || 'low')}">${(issue?.severity || 'low').toUpperCase()}</span>
+            <h3 style="margin-top: 10px;">${(issue?.title || 'Issue').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
+        <p><strong>Why this matters:</strong> ${(issue?.why || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        <p><strong>How to fix it:</strong> ${(issue?.how || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
         ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
           <div class="evidence-section" style="margin-top: 15px;">
             <h4>Evidence:</h4>
