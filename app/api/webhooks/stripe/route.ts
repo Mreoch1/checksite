@@ -65,9 +65,44 @@ export async function POST(request: NextRequest) {
 
     // Start audit in background (don't await)
     console.log(`Starting audit processing for audit_id: ${auditId}`)
-    processAudit(auditId).catch((error) => {
+    
+    // Add timeout wrapper - mark as failed if takes too long
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Audit processing timeout after 5 minutes'))
+      }, 5 * 60 * 1000) // 5 minutes
+    })
+    
+    Promise.race([
+      processAudit(auditId),
+      timeoutPromise
+    ]).catch(async (error) => {
       console.error('Error processing audit:', error)
       console.error('Error details:', error instanceof Error ? error.message : String(error))
+      
+      // Mark audit as failed
+      await supabase
+        .from('audits')
+        .update({ status: 'failed' })
+        .eq('id', auditId)
+      
+      // Try to send failure email
+      try {
+        const { data: audit } = await supabase
+          .from('audits')
+          .select('*, customers(*)')
+          .eq('id', auditId)
+          .single()
+        
+        if (audit) {
+          const customer = audit.customers as any
+          if (customer?.email) {
+            await sendAuditFailureEmail(customer.email, audit.url)
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending failure email:', emailError)
+      }
     })
   }
 
