@@ -164,25 +164,22 @@ export async function processAudit(auditId: string) {
     }, null, 2)
 
     // Mark audit as failed and store error log
-    await supabase
-      .from('audits')
-      .update({ 
-        status: 'failed',
-        // Store error log (will work once migration is applied)
-        // For now, we'll try to store it even if column doesn't exist
-      })
-      .eq('id', auditId)
-    
-    // Try to update error_log if column exists (graceful if it doesn't)
+    // Try to include error_log - will work once migration is applied
     try {
-      await supabase.rpc('update_audit_error', {
-        audit_id: auditId,
-        error_log_text: errorLog
-      }).catch(() => {
-        // RPC doesn't exist, that's okay - we'll add migration
-      })
-    } catch {
-      // Column doesn't exist yet, that's okay
+      await supabase
+        .from('audits')
+        .update({ 
+          status: 'failed',
+          error_log: errorLog,
+        } as any) // Type assertion since column might not exist yet
+        .eq('id', auditId)
+    } catch (updateError) {
+      // If error_log column doesn't exist, just update status
+      console.error('Could not store error_log (column may not exist):', updateError)
+      await supabase
+        .from('audits')
+        .update({ status: 'failed' })
+        .eq('id', auditId)
     }
 
     // Send failure email
