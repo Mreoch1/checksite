@@ -71,6 +71,7 @@ function getResendClient(): Resend {
 
 /**
  * Send email via Resend API
+ * Uses free tier with onboarding@resend.dev (no custom domain needed)
  */
 async function sendViaResend(options: {
   to: string
@@ -80,16 +81,12 @@ async function sendViaResend(options: {
 }): Promise<void> {
   const resend = getResendClient()
   
-  // Try custom domain first, fallback to Resend default if not verified
-  let from = RESEND_FROM
-  let fromFormatted = `"${FROM_NAME}" <${from}>`
-  
-  // Check if using custom domain (not resend.dev)
-  const isCustomDomain = from.includes('@') && !from.includes('resend.dev')
+  // Always use Resend free tier domain (no custom domain verification needed)
+  const from = 'onboarding@resend.dev'
+  const fromFormatted = `"${FROM_NAME}" <${from}>`
   
   try {
-    // Try with custom domain first
-    let result = await Promise.race([
+    const result = await Promise.race([
       resend.emails.send({
         from: fromFormatted,
         to: options.to,
@@ -103,30 +100,6 @@ async function sendViaResend(options: {
       )
     ]) as any
     
-    // If custom domain not verified, retry with Resend default
-    if (result?.error && isCustomDomain && 
-        (result.error.message?.includes('not verified') || 
-         result.error.message?.includes('domain') ||
-         result.error.message?.includes('unauthorized'))) {
-      console.warn('Custom domain not verified, retrying with Resend default domain')
-      from = 'onboarding@resend.dev'
-      fromFormatted = `"${FROM_NAME}" <${from}>`
-      
-      result = await Promise.race([
-        resend.emails.send({
-          from: fromFormatted,
-          to: options.to,
-          reply_to: from,
-          subject: options.subject,
-          html: options.html,
-          text: options.text,
-        }),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Resend timeout')), 30000)
-        )
-      ]) as any
-    }
-    
     if (result?.error) {
       const errorMsg = result.error.message || JSON.stringify(result.error)
       console.error('Resend API error details:', result.error)
@@ -138,7 +111,7 @@ async function sendViaResend(options: {
       throw new Error('Resend API returned no message ID')
     }
     
-    console.log('Email sent successfully via Resend:', {
+    console.log('Email sent successfully via Resend (free tier):', {
       messageId: result.id,
       to: options.to,
       from: from,
