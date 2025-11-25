@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { MODULE_DISPLAY_NAMES, ModuleKey } from '@/lib/types'
 
 export default function SuccessClient() {
@@ -35,6 +36,27 @@ export default function SuccessClient() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center py-12">
       <div className="max-w-2xl mx-auto px-4">
+        <div className="mb-4">
+          <Link
+            href="/"
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mb-6">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
