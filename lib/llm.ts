@@ -495,6 +495,25 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
       reportData.quickFixChecklist = []
     }
     
+    // Ensure pageInfo is included if pageAnalysis exists
+    if (auditResult.pageAnalysis && !reportData.pageInfo) {
+      console.warn('⚠️  Report data missing pageInfo, adding from pageAnalysis...')
+      reportData.pageInfo = {
+        url: auditResult.pageAnalysis.url || auditResult.url,
+        finalUrl: auditResult.pageAnalysis.finalUrl || auditResult.pageAnalysis.url || auditResult.url,
+        title: auditResult.pageAnalysis.title || null,
+        metaDescription: auditResult.pageAnalysis.metaDescription || null,
+        h1Text: auditResult.pageAnalysis.h1Text || null,
+        wordCount: auditResult.pageAnalysis.wordCount || 0,
+        totalImages: auditResult.pageAnalysis.totalImages || 0,
+        missingAltText: auditResult.pageAnalysis.missingAltText || 0,
+        internalLinks: auditResult.pageAnalysis.internalLinks || 0,
+        externalLinks: auditResult.pageAnalysis.externalLinks || 0,
+        isHttps: auditResult.pageAnalysis.isHttps || false,
+        hasRedirect: auditResult.pageAnalysis.hasRedirect || false,
+      }
+    }
+    
   } catch (parseError) {
     console.error('❌ JSON parse error:', parseError)
     console.error('JSON string preview:', jsonMatch[0].substring(0, 500))
