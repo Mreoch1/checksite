@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recommendModules } from '@/lib/llm'
-import * as cheerio from 'cheerio'
 
 // Force dynamic rendering - this route cannot be statically analyzed
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const fetchCache = 'force-no-store'
+export const revalidate = 0
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,9 @@ export async function POST(request: NextRequest) {
 
       if (response.ok) {
         const html = await response.text()
+        // Dynamically import cheerio to avoid build-time analysis
+        const cheerioModule = await import('cheerio')
+        const cheerio = cheerioModule.default || cheerioModule
         const $ = cheerio.load(html)
         
         siteSummary = {
