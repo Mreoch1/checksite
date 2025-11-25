@@ -48,7 +48,7 @@ export async function createCheckoutSession(
           currency: 'usd',
           product_data: {
             name: 'Website Audit',
-            description: `Complete audit for ${data.url}\n\nYour report will be available at: ${reportUrl}\n\n(Report will be ready in a few minutes after payment)`,
+            description: `Complete audit for ${data.url}`,
           },
           unit_amount: data.totalPriceCents,
         },
@@ -60,7 +60,7 @@ export async function createCheckoutSession(
     cancel_url: cancelUrl,
     customer_email: data.email,
     payment_intent_data: {
-      description: `Website Audit for ${data.url}\n\nView your report: ${reportUrl}`,
+      description: `Website Audit for ${data.url}`,
       metadata: {
         audit_id: data.auditId,
         report_url: reportUrl,
