@@ -129,34 +129,25 @@ export async function recommendModules(
   competitor_overview: boolean
   reasons: Record<string, string>
 }> {
-  const prompt = `You are an SEO expert helping a non-technical website owner understand what SEO checks they need.
+  // Optimized prompt - shorter and more focused for faster response
+  const contentSample = (siteSummary.content || '').substring(0, 300) // Reduced from 500
+  const prompt = `Analyze this website and recommend optional SEO checks.
 
-Website URL: ${url}
+URL: ${url}
 Title: ${siteSummary.title || 'Not found'}
 Description: ${siteSummary.description || 'Not found'}
-Content sample: ${(siteSummary.content || '').substring(0, 500)}
+Content: ${contentSample}
 
-Analyze this website and determine which optional SEO modules would be valuable. For EACH module, provide a clear explanation:
+For each module, set true if recommended, false if not needed, and provide a one-sentence reason:
 
-1. local - Does this appear to be a local business (restaurant, service, store, local service provider)?
-2. accessibility - Should accessibility be checked? (Important for all sites, but especially if serving diverse audiences)
-3. security - Should security be verified? (Important for all sites, especially if handling any user data)
-4. schema - Would structured data help this business? (Helps search engines understand business info)
-5. social - Would social media sharing optimization help? (Important if site content is shared on social platforms)
-6. competitor_overview - Would competitor analysis be valuable? (Useful for businesses in competitive markets)
+1. local - Is this a local business (restaurant, service, store with location)?
+2. accessibility - Should accessibility be checked? (Usually yes)
+3. security - Should security be verified? (Usually yes)
+4. schema - Would structured data help? (Usually yes for businesses)
+5. social - Would social sharing optimization help? (If content is shareable)
+6. competitor_overview - Would competitor analysis help? (For competitive markets)
 
-CRITICAL: For each module, provide a clear explanation:
-- If RECOMMENDED (true): Explain WHY it's valuable for this specific site (e.g., "Your site appears to be a local business, so local SEO will help customers find you in local search results.")
-- If NOT RECOMMENDED (false): Explain WHY it's not needed. MUST start with "Your site doesn't appear to need [module name] because..." (e.g., "Your site doesn't appear to need a local SEO audit because it's an online-only business without a physical location or local service area.")
-
-IMPORTANT: Be accurate with your recommendations:
-- Set local to FALSE if the site is purely digital/online with no physical location or local service area
-- Set local to TRUE only if there's evidence of a physical location, local service area, or local business model
-- Be consistent: if your explanation says the site doesn't need something, set that module to FALSE
-
-Be specific and helpful. The user needs to understand why you're making each recommendation.
-
-Respond with ONLY valid JSON in this exact format:
+Respond with ONLY valid JSON:
 {
   "local": true/false,
   "accessibility": true/false,
@@ -165,19 +156,19 @@ Respond with ONLY valid JSON in this exact format:
   "social": true/false,
   "competitor_overview": true/false,
   "reasons": {
-    "local": "Clear explanation - if false, start with 'Your site doesn't appear to need a local SEO audit because...'",
-    "accessibility": "Clear explanation - if false, start with 'Your site doesn't appear to need an accessibility audit because...'",
-    "security": "Clear explanation - if false, start with 'Your site doesn't appear to need a security audit because...'",
-    "schema": "Clear explanation - if false, start with 'Your site doesn't appear to need schema markup because...'",
-    "social": "Clear explanation - if false, start with 'Your site doesn't appear to need social metadata optimization because...'",
-    "competitor_overview": "Clear explanation - if false, start with 'Your site doesn't appear to need competitor analysis because...'"
+    "local": "One sentence explanation",
+    "accessibility": "One sentence explanation",
+    "security": "One sentence explanation",
+    "schema": "One sentence explanation",
+    "social": "One sentence explanation",
+    "competitor_overview": "One sentence explanation"
   }
 }`
 
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are an SEO expert who helps non-technical website owners understand what checks they need. Always respond with valid JSON only.',
+      content: 'You are an SEO expert. Analyze websites and recommend optional SEO checks. Always respond with valid JSON only, no markdown.',
     },
     {
       role: 'user',
@@ -185,15 +176,43 @@ Respond with ONLY valid JSON in this exact format:
     },
   ]
 
+  console.log(`[recommendModules] Calling DeepSeek for ${url}`)
   const response = await callDeepSeek(messages, 0.3)
+  console.log(`[recommendModules] DeepSeek response received: ${response.length} chars`)
   
-  // Extract JSON from response (handle markdown code blocks)
-  const jsonMatch = response.match(/\{[\s\S]*\}/)
+  // Extract JSON from response (handle markdown code blocks and whitespace)
+  let jsonText = response.trim()
+  
+  // Remove markdown code blocks if present
+  if (jsonText.startsWith('```')) {
+    jsonText = jsonText.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '')
+  }
+  
+  // Find JSON object
+  const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
+    console.error('[recommendModules] No JSON found in response:', response.substring(0, 200))
     throw new Error('Invalid JSON response from DeepSeek')
   }
 
-  return JSON.parse(jsonMatch[0])
+  try {
+    const parsed = JSON.parse(jsonMatch[0])
+    
+    // Validate structure
+    const requiredKeys = ['local', 'accessibility', 'security', 'schema', 'social', 'competitor_overview', 'reasons']
+    const missingKeys = requiredKeys.filter(key => !(key in parsed))
+    if (missingKeys.length > 0) {
+      console.error('[recommendModules] Missing keys in response:', missingKeys)
+      throw new Error(`Invalid response structure: missing ${missingKeys.join(', ')}`)
+    }
+    
+    console.log(`[recommendModules] Successfully parsed recommendations`)
+    return parsed
+  } catch (parseError) {
+    console.error('[recommendModules] JSON parse error:', parseError)
+    console.error('[recommendModules] Response text:', jsonMatch[0].substring(0, 500))
+    throw new Error(`Failed to parse recommendations: ${parseError instanceof Error ? parseError.message : String(parseError)}`)
+  }
 }
 
 /**
