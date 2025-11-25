@@ -193,8 +193,8 @@ export async function processAudit(auditId: string) {
       let timeoutHandle: NodeJS.Timeout | null = null
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutHandle = setTimeout(() => {
-          reject(new Error('Report generation timeout: Took longer than 3 minutes'))
-        }, 180000) // 3 minutes total timeout (reduced from 4 to catch issues faster)
+          reject(new Error('Report generation timeout: Took longer than 4 minutes'))
+        }, 240000) // 4 minutes total timeout (allows 3 min for API + 1 min for processing)
       })
       
       try {
