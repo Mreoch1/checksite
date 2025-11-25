@@ -242,8 +242,9 @@ export async function processAudit(auditId: string) {
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError)
       console.error('Email error details:', emailError instanceof Error ? emailError.message : String(emailError))
-      // Email is required - mark audit as failed if email fails
-      throw new Error(`Failed to send email: ${emailError instanceof Error ? emailError.message : String(emailError)}`)
+      // Log email failure but don't fail the audit - report is still available via URL
+      // The audit is marked as completed, customer can access report via link
+      console.warn('⚠️  Audit completed but email failed. Report is available at /report/' + auditId)
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
