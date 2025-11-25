@@ -13,14 +13,26 @@ const processAuditFunction = inngest.createFunction(
   async ({ event, step }) => {
     const { auditId } = event.data
 
-    // Use Inngest step timeout feature (5 minutes)
+    // Use Inngest step with timeout wrapper
     return await step.run('process-audit', async () => {
       console.log(`[Inngest] Processing audit ${auditId} at ${new Date().toISOString()}`)
-      await processAudit(auditId)
-      console.log(`[Inngest] Audit ${auditId} completed successfully`)
-      return { success: true, auditId }
-    }, {
-      timeout: '5m', // Inngest step timeout
+      
+      // Add timeout wrapper (5 minutes)
+      const processPromise = processAudit(auditId)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Inngest function timeout: Audit processing took longer than 5 minutes'))
+        }, 300000) // 5 minutes
+      })
+      
+      try {
+        await Promise.race([processPromise, timeoutPromise])
+        console.log(`[Inngest] Audit ${auditId} completed successfully`)
+        return { success: true, auditId }
+      } catch (error) {
+        console.error(`[Inngest] Error processing audit ${auditId}:`, error)
+        throw error
+      }
     })
   }
 )
