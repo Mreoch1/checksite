@@ -50,6 +50,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if email was already sent (prevent duplicates)
+    if (audit.email_sent_at) {
+      return NextResponse.json({
+        success: false,
+        message: 'Email already sent for this audit',
+        auditId,
+        email: customer.email,
+        emailSentAt: audit.email_sent_at,
+        note: 'To resend, use a different method or clear email_sent_at first',
+      })
+    }
+
     // Send email
     try {
       await sendAuditReportEmail(
@@ -58,6 +70,12 @@ export async function POST(request: NextRequest) {
         auditId,
         audit.formatted_report_html
       )
+
+      // Mark email as sent
+      await supabase
+        .from('audits')
+        .update({ email_sent_at: new Date().toISOString() })
+        .eq('id', auditId)
 
       return NextResponse.json({
         success: true,

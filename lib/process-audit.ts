@@ -232,16 +232,57 @@ export async function processAudit(auditId: string) {
       throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
     }
 
+    // Check if email was already sent (prevent duplicates)
+    const { data: currentAudit } = await supabase
+      .from('audits')
+      .select('email_sent_at')
+      .eq('id', auditId)
+      .single()
+    
+    const emailAlreadySent = currentAudit?.email_sent_at !== null && currentAudit?.email_sent_at !== undefined
+    
     // Update audit with formatted report
     console.log('Updating audit with formatted report...')
+    const updateData: any = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      formatted_report_html: html,
+      formatted_report_plaintext: plaintext,
+    }
+    
+    // Only send email if not already sent
+    const customer = audit.customers as any
+    if (!customer?.email) {
+      console.error('No customer email found for audit', auditId)
+      throw new Error('Customer email is required to send report')
+    }
+    
+    if (!emailAlreadySent) {
+      console.log(`📧 Attempting to send email to ${customer.email} for audit ${auditId}`)
+      try {
+        await sendAuditReportEmail(
+          customer.email,
+          audit.url,
+          auditId,
+          html
+        )
+        console.log(`✅ Email sent successfully to ${customer.email}`)
+        // Mark email as sent
+        updateData.email_sent_at = new Date().toISOString()
+      } catch (emailError) {
+        console.error('❌ Email sending failed:', emailError)
+        console.error('Email error details:', emailError instanceof Error ? emailError.message : String(emailError))
+        // Log email failure but don't fail the audit - report is still available via URL
+        // The audit is marked as completed, customer can access report via link
+        console.warn('⚠️  Audit completed but email failed. Report is available at /report/' + auditId)
+      }
+    } else {
+      console.log(`⚠️  Email already sent for audit ${auditId} at ${currentAudit.email_sent_at}. Skipping duplicate email.`)
+    }
+    
     const { error: reportUpdateError } = await supabase
       .from('audits')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        formatted_report_html: html,
-        formatted_report_plaintext: plaintext,
-      })
+      .update(updateData)
       .eq('id', auditId)
     
     if (reportUpdateError) {
@@ -249,30 +290,6 @@ export async function processAudit(auditId: string) {
       throw new Error(`Failed to update audit with report: ${reportUpdateError.message}`)
     }
     console.log('✅ Audit updated with formatted report')
-
-    // Send email - REQUIRED for customer to receive report
-    const customer = audit.customers as any
-    if (!customer?.email) {
-      console.error('No customer email found for audit', auditId)
-      throw new Error('Customer email is required to send report')
-    }
-    
-    console.log(`📧 Attempting to send email to ${customer.email} for audit ${auditId}`)
-    try {
-      await sendAuditReportEmail(
-        customer.email,
-        audit.url,
-        auditId,
-        html
-      )
-      console.log(`✅ Email sent successfully to ${customer.email}`)
-    } catch (emailError) {
-      console.error('❌ Email sending failed:', emailError)
-      console.error('Email error details:', emailError instanceof Error ? emailError.message : String(emailError))
-      // Log email failure but don't fail the audit - report is still available via URL
-      // The audit is marked as completed, customer can access report via link
-      console.warn('⚠️  Audit completed but email failed. Report is available at /report/' + auditId)
-    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : 'No stack trace'
