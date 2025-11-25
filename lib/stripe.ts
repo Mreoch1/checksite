@@ -65,10 +65,6 @@ export async function createCheckoutSession(
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer_email: data.email,
-    // Add terms and privacy policy links (required for Stripe compliance)
-    consent_collection: {
-      terms_of_service: 'required',
-    },
     payment_intent_data: {
       description: `Website Audit for ${data.url}`,
       metadata: {
