@@ -6,10 +6,7 @@ import { processAudit } from '@/lib/process-audit'
 const processAuditFunction = inngest.createFunction(
   { 
     id: 'process-audit',
-    // Add timeout at function level (5 minutes)
-    timeouts: {
-      function: '5m',
-    },
+    // Timeout is handled via Promise.race wrapper in the step
     retries: 0, // Don't retry on failure
   },
   { event: 'audit/process' },
