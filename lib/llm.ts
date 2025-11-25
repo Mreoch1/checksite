@@ -791,16 +791,16 @@ function generateHTMLReport(reportData: any, url: string): string {
   <h2>Page Breakdown</h2>
   <div class="evidence-section">
     <table class="evidence-table">
-      <tr><th>Page URL</th><td>${reportData.pageInfo.url || domain}</td></tr>
-      ${reportData.pageInfo.finalUrl && reportData.pageInfo.finalUrl !== reportData.pageInfo.url ? `<tr><th>Final URL (after redirect)</th><td>${reportData.pageInfo.finalUrl}</td></tr>` : ''}
-      <tr><th>Page Title</th><td>${reportData.pageInfo.title || 'Not found'}</td></tr>
-      <tr><th>Page Description</th><td>${reportData.pageInfo.metaDescription || 'Not found'}</td></tr>
-      <tr><th>Main Heading (H1)</th><td>${reportData.pageInfo.h1Text || 'Not found'}</td></tr>
+      <tr><th>Page URL</th><td>${(reportData.pageInfo.url || domain).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>
+      ${reportData.pageInfo.finalUrl && reportData.pageInfo.finalUrl !== reportData.pageInfo.url ? `<tr><th>Final URL (after redirect)</th><td>${(reportData.pageInfo.finalUrl || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>` : ''}
+      <tr><th>Page Title</th><td>${(reportData.pageInfo.title || 'Not found').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>
+      <tr><th>Page Description</th><td>${(reportData.pageInfo.metaDescription || 'Not found').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>
+      <tr><th>Main Heading (H1)</th><td>${(reportData.pageInfo.h1Text || 'Not found').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td></tr>
       <tr><th>Word Count</th><td>${reportData.pageInfo.wordCount || 0} words</td></tr>
       <tr><th>Images</th><td>${reportData.pageInfo.totalImages || 0} total${reportData.pageInfo.missingAltText ? `, ${reportData.pageInfo.missingAltText} missing descriptions` : ''}</td></tr>
       <tr><th>Links</th><td>${reportData.pageInfo.internalLinks || 0} internal, ${reportData.pageInfo.externalLinks || 0} external</td></tr>
       <tr><th>HTTPS</th><td>${reportData.pageInfo.isHttps ? 'Yes ✓' : 'No ✗'}</td></tr>
-      ${reportData.pageInfo.hasRedirect ? `<tr><th>Redirect</th><td>Yes (redirected from ${reportData.pageInfo.url} to ${reportData.pageInfo.finalUrl || reportData.pageInfo.url})</td></tr>` : ''}
+      ${reportData.pageInfo.hasRedirect ? `<tr><th>Redirect</th><td>Yes (redirected from ${(reportData.pageInfo.url || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')} to ${(reportData.pageInfo.finalUrl || reportData.pageInfo.url || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')})</td></tr>` : ''}
     </table>
   </div>
     ` : ''}
@@ -842,12 +842,23 @@ function generateHTMLReport(reportData: any, url: string): string {
           <div class="evidence-section">
             <h4>What We Found:</h4>
             <table class="evidence-table">
-              ${Object.entries(module.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => `
+              ${Object.entries(module.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
+                const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                let safeValue = ''
+                if (typeof value === 'string' && value.length > 200) {
+                  safeValue = `<div class="evidence-code">${value.substring(0, 200).replace(/</g, '&lt;').replace(/>/g, '&gt;')}...</div>`
+                } else if (typeof value === 'object') {
+                  safeValue = `<div class="evidence-code">${JSON.stringify(value, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+                } else {
+                  safeValue = String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                }
+                return `
                 <tr>
-                  <th>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</th>
-                  <td>${typeof value === 'string' && value.length > 200 ? `<div class="evidence-code">${value.substring(0, 200)}...</div>` : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}</td>
+                  <th>${safeKey}</th>
+                  <td>${safeValue}</td>
                 </tr>
-              `).join('')}
+              `
+              }).join('')}
             </table>
           </div>
         ` : ''}
@@ -864,7 +875,7 @@ function generateHTMLReport(reportData: any, url: string): string {
               ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => `
                 <tr>
                   <th>${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</th>
-                  <td>${typeof value === 'string' && value.length > 300 ? `<div class="evidence-code">${value.substring(0, 300)}...</div>` : typeof value === 'object' ? `<div class="evidence-code">${JSON.stringify(value, null, 2).substring(0, 500)}</div>` : String(value)}</td>
+                  <td>${typeof value === 'string' && value.length > 300 ? `<div class="evidence-code">${value.substring(0, 300).replace(/</g, '&lt;').replace(/>/g, '&gt;')}...</div>` : typeof value === 'object' ? `<div class="evidence-code">${JSON.stringify(value, null, 2).substring(0, 500).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>
                 </tr>
               `).join('')}
             </table>
@@ -915,30 +926,39 @@ function generatePlaintextReport(reportData: any, url: string): string {
   
   text += `\nSTART HERE: TOP PRIORITY ACTIONS\n`
   text += `${'='.repeat(50)}\n`
-  if (reportData.topActions && reportData.topActions.length > 0) {
-  reportData.topActions.forEach((action: any, idx: number) => {
-    text += `\n${idx + 1}. ${action.title}\n`
-    text += `   Why this matters: ${action.why}\n`
-    text += `   How to fix it: ${action.how}\n`
-  })
+  if (reportData.topActions && Array.isArray(reportData.topActions) && reportData.topActions.length > 0) {
+    (reportData.topActions || []).forEach((action: any, idx: number) => {
+      const title = action?.title || 'Action'
+      const why = action?.why || ''
+      const how = action?.how || ''
+      text += `\n${idx + 1}. ${title}\n`
+      text += `   Why this matters: ${why}\n`
+      text += `   How to fix it: ${how}\n`
+    })
   } else {
     text += `Review the detailed sections below for specific recommendations.\n`
   }
   
   if (reportData.modules && reportData.modules.length > 0) {
   reportData.modules.forEach((module: any) => {
-    text += `\n${module.moduleName.toUpperCase()}\n`
+    const moduleName = (module?.moduleName || 'Module').toUpperCase()
+    const overview = module?.overview || `This section checks ${(module?.moduleName || 'module').toLowerCase()}.`
+    text += `\n${moduleName}\n`
     text += `${'='.repeat(50)}\n`
-      text += `${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}\n\n`
-      if (module.issues && module.issues.length > 0) {
-    module.issues.forEach((issue: any) => {
-      text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
-      text += `Why this matters: ${issue.why}\n`
-      text += `How to fix it: ${issue.how}\n\n`
-    })
-      } else {
-        text += `✓ All checks passed for this category.\n\n`
-      }
+    text += `${overview}\n\n`
+    if (module.issues && Array.isArray(module.issues) && module.issues.length > 0) {
+      (module.issues || []).forEach((issue: any) => {
+        const severity = (issue?.severity || 'low').toUpperCase()
+        const title = issue?.title || 'Issue'
+        const why = issue?.why || ''
+        const how = issue?.how || ''
+        text += `[${severity}] ${title}\n`
+        text += `Why this matters: ${why}\n`
+        text += `How to fix it: ${how}\n\n`
+      })
+    } else {
+      text += `✓ All checks passed for this category.\n\n`
+    }
   })
   }
   
