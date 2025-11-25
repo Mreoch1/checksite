@@ -127,7 +127,11 @@ export async function sendAuditReportEmail(
         </div>
       </div>
     `,
-  })
+    })
+  } catch (error) {
+    console.error('Error sending audit report email:', error)
+    throw error
+  }
 }
 
 /**
