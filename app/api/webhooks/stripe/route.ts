@@ -193,22 +193,27 @@ export async function processAudit(auditId: string) {
       })
       .eq('id', auditId)
 
-    // Send email via Resend (if domain verified)
-    // Note: Stripe receipt email already includes the report link, so this is optional
+    // Send email - REQUIRED for customer to receive report
     const customer = audit.customers as any
+    if (!customer?.email) {
+      console.error('No customer email found for audit', auditId)
+      throw new Error('Customer email is required to send report')
+    }
+    
+    console.log(`📧 Attempting to send email to ${customer.email} for audit ${auditId}`)
     try {
-      console.log(`Attempting to send email to ${customer.email} for audit ${auditId}`)
-    await sendAuditReportEmail(
-      customer.email,
-      audit.url,
-      auditId,
-      html
-    )
-      console.log(`Email sent successfully to ${customer.email}`)
+      await sendAuditReportEmail(
+        customer.email,
+        audit.url,
+        auditId,
+        html
+      )
+      console.log(`✅ Email sent successfully to ${customer.email}`)
     } catch (emailError) {
-      console.error('Resend email failed (Stripe receipt email includes the report link):', emailError)
-      // Don't fail the whole audit if Resend email fails
-      // Stripe receipt email already includes the report link in the description
+      console.error('❌ Email sending failed:', emailError)
+      console.error('Email error details:', emailError instanceof Error ? emailError.message : String(emailError))
+      // Email is required - mark audit as failed if email fails
+      throw new Error(`Failed to send email: ${emailError instanceof Error ? emailError.message : String(emailError)}`)
     }
   } catch (error) {
     console.error('Error processing audit:', error)
