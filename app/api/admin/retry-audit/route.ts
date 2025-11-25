@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
-import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email'
+import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/resend'
 import { ModuleKey } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
