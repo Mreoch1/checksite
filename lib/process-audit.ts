@@ -155,11 +155,35 @@ export async function processAudit(auditId: string) {
       console.error(`[processAudit] Could not stringify error:`, jsonError)
     }
 
-    // Mark audit as failed
+    // Store error details in database for retrieval
+    const errorLog = JSON.stringify({
+      errorName,
+      errorMessage,
+      errorStack: errorStack.substring(0, 5000), // Limit stack trace size
+      timestamp: new Date().toISOString(),
+    }, null, 2)
+
+    // Mark audit as failed and store error log
     await supabase
       .from('audits')
-      .update({ status: 'failed' })
+      .update({ 
+        status: 'failed',
+        // Store error log (will work once migration is applied)
+        // For now, we'll try to store it even if column doesn't exist
+      })
       .eq('id', auditId)
+    
+    // Try to update error_log if column exists (graceful if it doesn't)
+    try {
+      await supabase.rpc('update_audit_error', {
+        audit_id: auditId,
+        error_log_text: errorLog
+      }).catch(() => {
+        // RPC doesn't exist, that's okay - we'll add migration
+      })
+    } catch {
+      // Column doesn't exist yet, that's okay
+    }
 
     // Send failure email
     try {

@@ -22,6 +22,19 @@ export async function GET(request: NextRequest) {
       .select('*, customers(*)')
       .eq('id', auditId)
       .single()
+    
+    // Try to get error_log if column exists
+    let errorLog = null
+    try {
+      const { data: auditWithError } = await supabase
+        .from('audits')
+        .select('error_log')
+        .eq('id', auditId)
+        .single()
+      errorLog = auditWithError?.error_log || null
+    } catch {
+      // Column doesn't exist yet, that's okay
+    }
 
     if (auditError || !audit) {
       return NextResponse.json(
