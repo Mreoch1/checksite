@@ -25,9 +25,9 @@ interface SiteData {
  */
 export async function fetchSite(url: string): Promise<SiteData> {
   try {
-    // Add timeout to fetch (30 seconds)
+    // Add timeout to fetch (15 seconds - reduced for faster audits)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     const response = await fetch(url, {
       headers: {
@@ -1032,7 +1032,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   try {
     const sitemapUrl = new URL('/sitemap.xml', siteData.url).toString()
     const sitemapController = new AbortController()
-    const sitemapTimeout = setTimeout(() => sitemapController.abort(), 10000)
+    const sitemapTimeout = setTimeout(() => sitemapController.abort(), 5000)
     const sitemapResponse = await fetch(sitemapUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
       signal: sitemapController.signal,
@@ -1064,7 +1064,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
     const robotsController = new AbortController()
-    const robotsTimeout = setTimeout(() => robotsController.abort(), 10000)
+    const robotsTimeout = setTimeout(() => robotsController.abort(), 5000)
     const robotsResponse = await fetch(robotsUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
       signal: robotsController.signal,
@@ -1171,14 +1171,14 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   })
 
   const brokenLinks: string[] = []
-  const linksToCheck = linkUrls.slice(0, 10) // Limit to first 10 to avoid timeout
+  const linksToCheck = linkUrls.slice(0, 5) // Limit to first 5 to avoid timeout
   
   for (const linkUrl of linksToCheck) {
     try {
       const controller = new AbortController()
       const timeout = setTimeout(() => {
         controller.abort()
-      }, 5000) // 5 second timeout per link
+      }, 3000) // 3 second timeout per link (reduced for speed)
       
       try {
         const response = await fetch(linkUrl, {
@@ -1357,14 +1357,15 @@ export async function runAuditModules(
     competitor_overview: runCompetitorOverviewModule,
   }
 
-  for (const moduleKey of enabledModules) {
+  // Run modules in parallel for speed (they all use the same siteData)
+  const modulePromises = enabledModules.map(async (moduleKey) => {
     if (moduleMap[moduleKey]) {
       try {
         const result = await moduleMap[moduleKey](siteData)
-        results.push(result)
+        return result
       } catch (error) {
         console.error(`Error running module ${moduleKey}:`, error)
-        results.push({
+        return {
           moduleKey,
           score: 0,
           issues: [
@@ -1377,10 +1378,14 @@ export async function runAuditModules(
             },
           ],
           summary: 'Unable to complete this check.',
-        })
+        }
       }
     }
-  }
+    return null
+  })
+
+  const moduleResults = await Promise.all(modulePromises)
+  results.push(...moduleResults.filter((r): r is ModuleResult => r !== null))
 
   return { results, siteData }
 }
