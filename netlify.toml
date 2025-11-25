@@ -8,6 +8,17 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# Function timeout settings
+# Netlify free tier: 10 seconds default, 26 seconds max
+# Netlify Pro: up to 26 seconds
+# For longer processing, we use background promises that continue after function returns
+[functions]
+  # Note: Netlify has limits on function execution time
+  # Free tier: 10s default, 26s max
+  # Pro tier: up to 26s
+  # Background processing continues after function returns, but may be killed on timeout
+  # Consider using Netlify Background Functions or external queue for long-running tasks
+
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
 # NEXT_PUBLIC_* variables are required at build time
