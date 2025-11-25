@@ -215,18 +215,24 @@ export async function generateReport(auditResult: {
     competitor_overview: 'Competitor Overview',
   }
 
-  // Optimize prompt size - only include essential data
+  // Optimize prompt size - only include essential data, limit issue details
   const optimizedModules = auditResult.modules.map(m => ({
     moduleKey: m.moduleKey,
     score: m.score,
-    summary: m.summary,
-    issues: m.issues.map(i => ({
+    summary: m.summary || `This module checks ${m.moduleKey}.`,
+    // Limit to first 10 issues per module to keep prompt manageable
+    issues: m.issues.slice(0, 10).map(i => ({
       title: i.title,
       severity: i.severity,
-      plainLanguageExplanation: i.plainLanguageExplanation,
-      suggestedFix: i.suggestedFix,
+      // Truncate long explanations to keep prompt size down
+      plainLanguageExplanation: (i.plainLanguageExplanation || '').substring(0, 200),
+      suggestedFix: (i.suggestedFix || '').substring(0, 200),
     })),
   }))
+  
+  console.log(`Optimized modules for prompt: ${optimizedModules.length} modules`)
+  const totalIssues = optimizedModules.reduce((sum, m) => sum + m.issues.length, 0)
+  console.log(`Total issues in prompt: ${totalIssues}`)
 
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
