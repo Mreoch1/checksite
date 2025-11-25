@@ -183,22 +183,35 @@ export async function sendEmail(options: {
   const useResend = EMAIL_PROVIDER === 'resend' || (!EMAIL_PROVIDER && RESEND_API_KEY)
   
   if (useResend) {
+    if (!RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is required but not set. Cannot send email via Resend.')
+    }
+    
     try {
-      console.log('Attempting to send via Resend...')
+      console.log('Attempting to send via Resend (free tier: onboarding@resend.dev)...')
+      console.log(`RESEND_API_KEY present: ${!!RESEND_API_KEY}`)
       await sendViaResend(options)
       console.log('✅ Email sent successfully via Resend')
       return
     } catch (error) {
       console.error('❌ Resend failed:', error)
-      console.warn('Falling back to Zoho SMTP...')
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.error('Resend error details:', errorMsg)
+      
       if (!USE_FALLBACK) {
-        throw error // Don't fallback if disabled
+        throw new Error(`Resend email failed: ${errorMsg}. Fallback disabled.`)
       }
-      // Fall through to Zoho
+      
+      console.warn('Falling back to Zoho SMTP...')
+      // Fall through to Zoho only if fallback enabled
     }
   }
   
   // Use Zoho SMTP (either as primary or fallback)
+  if (!SMTP_PASSWORD) {
+    throw new Error('SMTP_PASSWORD is required but not set. Cannot send email via Zoho SMTP.')
+  }
+  
   console.log('Attempting to send via Zoho SMTP...')
   try {
     await sendViaZoho(options)
