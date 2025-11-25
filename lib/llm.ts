@@ -44,6 +44,8 @@ export async function callDeepSeek(
       model: 'deepseek-chat',
       messages,
       temperature,
+      max_tokens: 8000, // Limit response size to prevent hanging
+      stream: false, // Ensure we get complete response
     }
     const requestBodySize = JSON.stringify(requestBody).length
     
