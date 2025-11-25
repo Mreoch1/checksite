@@ -42,9 +42,11 @@ export async function createCheckoutSession(
 ): Promise<Stripe.Checkout.Session> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const reportUrl = `${siteUrl}/report/${data.auditId}`
-  const stripe = getStripeClient()
   
-  const session = await stripe.checkout.sessions.create({
+  try {
+    const stripe = getStripeClient()
+    
+    const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
       {
@@ -85,9 +87,20 @@ export async function createCheckoutSession(
       card: {
         request_three_d_secure: 'automatic',
       },
-    },
-  })
+    })
 
-  return session
+    return session
+  } catch (error) {
+    console.error('Stripe checkout session creation error:', error)
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('Stripe error details:', {
+        type: error.type,
+        code: error.code,
+        message: error.message,
+        statusCode: error.statusCode,
+      })
+    }
+    throw error
+  }
 }
 
