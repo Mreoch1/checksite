@@ -140,11 +140,12 @@ export async function sendAuditFailureEmail(
   const domain = new URL(url).hostname
   const transporter = getEmailTransporter()
 
-  await transporter.sendMail({
-    from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-    to: email,
-    subject: `Issue with your SEO CheckSite report for ${domain}`,
-    html: `
+  try {
+    await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      to: email,
+      subject: `Issue with your SEO CheckSite report for ${domain}`,
+      html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
         <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <div style="text-align: center; margin-bottom: 30px;">
