@@ -3,6 +3,10 @@ import { createCheckoutSession } from '@/lib/stripe'
 import { supabase } from '@/lib/supabase'
 import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
 
+// Force dynamic rendering - this route cannot be statically analyzed
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const { url, email, name, modules } = await request.json()

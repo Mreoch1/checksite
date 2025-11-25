@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
 import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/resend'
 import { ModuleKey } from '@/lib/types'
+
+// Force dynamic rendering - webhooks must be dynamic
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+function getStripe(): Stripe {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is required')
+  }
+  return new Stripe(stripeSecretKey, {
+    apiVersion: '2023-10-16',
+  })
+}
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
@@ -22,6 +36,7 @@ export async function POST(request: NextRequest) {
   let event
 
   try {
+    const stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
   } catch (err) {
     console.error('Webhook signature verification failed:', err)
