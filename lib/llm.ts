@@ -28,39 +28,52 @@ export async function callDeepSeek(
   messages: DeepSeekMessage[],
   temperature: number = 0.7
 ): Promise<string> {
-  // Add timeout to prevent hanging (2 minutes for LLM response)
+  // Add timeout to prevent hanging (3 minutes for LLM response - increased for large reports)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutes
+  const timeoutId = setTimeout(() => {
+    console.error('DeepSeek API timeout: Request taking longer than 3 minutes, aborting...')
+    controller.abort()
+  }, 180000) // 3 minutes
 
   try {
-  const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages,
-      temperature,
-    }),
+    console.log('Calling DeepSeek API...')
+    const startTime = Date.now()
+    
+    const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages,
+        temperature,
+      }),
       signal: controller.signal,
-  })
+    })
 
     clearTimeout(timeoutId)
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+    console.log(`DeepSeek API response received in ${duration}s`)
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`DeepSeek API error: ${error}`)
-  }
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('DeepSeek API error response:', error)
+      throw new Error(`DeepSeek API error: ${error}`)
+    }
 
-  const data: DeepSeekResponse = await response.json()
-  return data.choices[0]?.message?.content || ''
+    const data: DeepSeekResponse = await response.json()
+    const content = data.choices[0]?.message?.content || ''
+    console.log(`DeepSeek API returned ${content.length} characters`)
+    return content
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
+      console.error('DeepSeek API timeout after 3 minutes')
+      throw new Error('DeepSeek API timeout: Request took longer than 3 minutes')
     }
+    console.error('DeepSeek API error:', error)
     throw error
   }
 }
