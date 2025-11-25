@@ -47,41 +47,41 @@ export async function createCheckoutSession(
     const stripe = getStripeClient()
     
     const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: 'Website Audit',
-            description: `Complete audit for ${data.url}`,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Website Audit',
+              description: `Complete audit for ${data.url}`,
+            },
+            unit_amount: data.totalPriceCents,
           },
-          unit_amount: data.totalPriceCents,
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      customer_email: data.email,
+      payment_intent_data: {
+        description: `Website Audit for ${data.url}`,
+        metadata: {
+          audit_id: data.auditId,
+          report_url: reportUrl,
+        },
       },
-    ],
-    mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    customer_email: data.email,
-    payment_intent_data: {
-      description: `Website Audit for ${data.url}`,
       metadata: {
         audit_id: data.auditId,
+        url: data.url,
+        modules: data.selectedModules.join(','),
         report_url: reportUrl,
       },
-    },
-    metadata: {
-      audit_id: data.auditId,
-      url: data.url,
-      modules: data.selectedModules.join(','),
-      report_url: reportUrl,
-    },
-    // Add terms and privacy links
-    payment_method_options: {
-      card: {
-        request_three_d_secure: 'automatic',
+      payment_method_options: {
+        card: {
+          request_three_d_secure: 'automatic',
+        },
       },
     })
 
