@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
 import { sendAuditFailureEmail } from '@/lib/email-unified'
-import { inngest } from '@/lib/inngest'
 import { processAudit } from '@/lib/process-audit'
 
 // Force dynamic rendering - webhooks must be dynamic
@@ -62,45 +61,13 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', auditId)
 
-    // Trigger Inngest function for background processing
-    // This avoids Netlify function timeout issues
-    console.log(`Triggering Inngest function for audit_id: ${auditId}`)
-    
-    try {
-      await inngest.send({
-        name: 'audit/process',
-        data: { auditId },
-      })
-      console.log(`✅ Inngest event sent for audit ${auditId}`)
-    } catch (error) {
-      console.error('❌ Failed to send Inngest event:', error)
-      // Fallback to direct processing if Inngest fails
-      console.log('Falling back to direct processing...')
-      processAudit(auditId).catch(async (processError) => {
-        console.error('Error processing audit:', processError)
-        await supabase
-          .from('audits')
-          .update({ status: 'failed' })
-          .eq('id', auditId)
-        
-        try {
-          const { data: audit } = await supabase
-            .from('audits')
-            .select('*, customers(*)')
-            .eq('id', auditId)
-            .single()
-          
-          if (audit) {
-            const customer = audit.customers as any
-            if (customer?.email) {
-              await sendAuditFailureEmail(customer.email, audit.url)
-            }
-          }
-        } catch (emailError) {
-          console.error('Error sending failure email:', emailError)
-        }
-      })
-    }
+    // Process audit directly in background (non-blocking)
+    // processAudit handles all error logging and status updates
+    console.log(`Starting audit processing for audit_id: ${auditId}`)
+    processAudit(auditId).catch(async (processError) => {
+      console.error('Error processing audit:', processError)
+      // processAudit already handles error logging and status updates
+    })
   }
 
   return NextResponse.json({ received: true })
