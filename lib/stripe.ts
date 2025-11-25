@@ -37,6 +37,9 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string
 ): Promise<Stripe.Checkout.Session> {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const reportUrl = `${siteUrl}/report/${data.auditId}`
+  
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
@@ -45,7 +48,7 @@ export async function createCheckoutSession(
           currency: 'usd',
           product_data: {
             name: 'Website Audit',
-            description: `Complete audit for ${data.url}`,
+            description: `Complete audit for ${data.url}\n\nYour report will be available at: ${reportUrl}\n\n(Report will be ready in a few minutes after payment)`,
           },
           unit_amount: data.totalPriceCents,
         },
@@ -56,10 +59,18 @@ export async function createCheckoutSession(
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer_email: data.email,
+    payment_intent_data: {
+      description: `Website Audit for ${data.url}\n\nView your report: ${reportUrl}`,
+      metadata: {
+        audit_id: data.auditId,
+        report_url: reportUrl,
+      },
+    },
     metadata: {
       audit_id: data.auditId,
       url: data.url,
       modules: data.selectedModules.join(','),
+      report_url: reportUrl,
     },
   })
 
