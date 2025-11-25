@@ -36,6 +36,16 @@ export const metadata: Metadata = {
   authors: [{ name: 'SEO CheckSite' }],
   creator: 'SEO CheckSite',
   publisher: 'SEO CheckSite',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/logo-icon.svg', type: 'image/svg+xml', sizes: 'any' },
+    ],
+    apple: [
+      { url: '/logo-icon.svg', sizes: '180x180', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.svg',
+  },
   formatDetection: {
     email: false,
     address: false,
@@ -91,6 +101,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/logo-icon.svg" type="image/svg+xml" sizes="any" />
+        <link rel="apple-touch-icon" href="/logo-icon.svg" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
