@@ -5,6 +5,7 @@ import { runAuditModules } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
 import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
 import { ModuleKey } from '@/lib/types'
+import { inngest } from '@/lib/inngest'
 
 // Force dynamic rendering - webhooks must be dynamic
 export const dynamic = 'force-dynamic'
@@ -63,47 +64,45 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', auditId)
 
-    // Start audit in background (don't await)
-    console.log(`Starting audit processing for audit_id: ${auditId}`)
+    // Trigger Inngest function for background processing
+    // This avoids Netlify function timeout issues
+    console.log(`Triggering Inngest function for audit_id: ${auditId}`)
     
-    // Add timeout wrapper - mark as failed if takes too long
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Audit processing timeout after 5 minutes'))
-      }, 5 * 60 * 1000) // 5 minutes
-    })
-    
-    Promise.race([
-      processAudit(auditId),
-      timeoutPromise
-    ]).catch(async (error) => {
-      console.error('Error processing audit:', error)
-      console.error('Error details:', error instanceof Error ? error.message : String(error))
-      
-      // Mark audit as failed
-      await supabase
-        .from('audits')
-        .update({ status: 'failed' })
-        .eq('id', auditId)
-      
-      // Try to send failure email
-      try {
-        const { data: audit } = await supabase
+    try {
+      await inngest.send({
+        name: 'audit/process',
+        data: { auditId },
+      })
+      console.log(`✅ Inngest event sent for audit ${auditId}`)
+    } catch (error) {
+      console.error('❌ Failed to send Inngest event:', error)
+      // Fallback to direct processing if Inngest fails
+      console.log('Falling back to direct processing...')
+      processAudit(auditId).catch(async (processError) => {
+        console.error('Error processing audit:', processError)
+        await supabase
           .from('audits')
-          .select('*, customers(*)')
+          .update({ status: 'failed' })
           .eq('id', auditId)
-          .single()
         
-        if (audit) {
-          const customer = audit.customers as any
-          if (customer?.email) {
-            await sendAuditFailureEmail(customer.email, audit.url)
+        try {
+          const { data: audit } = await supabase
+            .from('audits')
+            .select('*, customers(*)')
+            .eq('id', auditId)
+            .single()
+          
+          if (audit) {
+            const customer = audit.customers as any
+            if (customer?.email) {
+              await sendAuditFailureEmail(customer.email, audit.url)
+            }
           }
+        } catch (emailError) {
+          console.error('Error sending failure email:', emailError)
         }
-      } catch (emailError) {
-        console.error('Error sending failure email:', emailError)
-      }
-    })
+      })
+    }
   }
 
   return NextResponse.json({ received: true })
