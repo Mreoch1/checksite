@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
 import { sendAuditFailureEmail } from '@/lib/email-unified'
-import { processAudit } from '@/lib/process-audit'
+import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 
 // Force dynamic rendering - webhooks must be dynamic
 export const dynamic = 'force-dynamic'
@@ -61,13 +61,25 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', auditId)
 
-    // Process audit directly in background (non-blocking)
-    // processAudit handles all error logging and status updates
-    console.log(`Starting audit processing for audit_id: ${auditId}`)
-    processAudit(auditId).catch(async (processError) => {
-      console.error('Error processing audit:', processError)
-      // processAudit already handles error logging and status updates
-    })
+    // Add to queue instead of processing directly (avoids Netlify timeout)
+    console.log(`Adding audit ${auditId} to processing queue`)
+    const { error: queueError } = await supabase
+      .from('audit_queue')
+      .insert({
+        audit_id: auditId,
+        status: 'pending',
+      })
+
+    if (queueError) {
+      console.error('Error adding audit to queue:', queueError)
+      // Fallback: try direct processing if queue fails
+      console.log('Falling back to direct processing...')
+      processAudit(auditId).catch(async (processError) => {
+        console.error('Error processing audit:', processError)
+      })
+    } else {
+      console.log(`✅ Audit ${auditId} added to queue - will be processed by queue worker`)
+    }
   }
 
   return NextResponse.json({ received: true })
