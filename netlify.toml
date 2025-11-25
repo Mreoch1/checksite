@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Environment variables will be set in Netlify dashboard
+# Make sure to add all variables from .env.local
+# NEXT_PUBLIC_* variables are required at build time
+
