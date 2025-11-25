@@ -64,8 +64,10 @@ export async function POST(request: NextRequest) {
       .eq('id', auditId)
 
     // Start audit in background (don't await)
+    console.log(`Starting audit processing for audit_id: ${auditId}`)
     processAudit(auditId).catch((error) => {
       console.error('Error processing audit:', error)
+      console.error('Error details:', error instanceof Error ? error.message : String(error))
     })
   }
 
@@ -74,6 +76,8 @@ export async function POST(request: NextRequest) {
 
 async function processAudit(auditId: string) {
   try {
+    console.log(`Processing audit ${auditId}`)
+    
     // Get audit details
     const { data: audit, error: auditError } = await supabase
       .from('audits')
@@ -82,8 +86,11 @@ async function processAudit(auditId: string) {
       .single()
 
     if (auditError || !audit) {
-      throw new Error('Audit not found')
+      console.error('Audit not found:', auditError)
+      throw new Error(`Audit not found: ${auditError?.message || 'Unknown error'}`)
     }
+
+    console.log(`Found audit for URL: ${audit.url}, Customer: ${(audit.customers as any)?.email}`)
 
     // Get enabled modules
     const { data: modules, error: modulesError } = await supabase
@@ -97,9 +104,12 @@ async function processAudit(auditId: string) {
     }
 
     const enabledModules = modules.map(m => m.module_key as ModuleKey)
+    console.log(`Running ${enabledModules.length} audit modules:`, enabledModules)
 
     // Run audit modules
+    console.log('Starting audit module execution...')
     const results = await runAuditModules(audit.url, enabledModules)
+    console.log(`Audit modules completed. Results: ${results.length} modules`)
 
     // Calculate overall score
     const overallScore = Math.round(
@@ -133,7 +143,9 @@ async function processAudit(auditId: string) {
     }
 
     // Generate formatted report using DeepSeek
+    console.log('Generating formatted report with DeepSeek...')
     const { html, plaintext } = await generateReport(auditResult)
+    console.log('Report generated successfully')
 
     // Update audit with formatted report
     await supabase
@@ -148,14 +160,24 @@ async function processAudit(auditId: string) {
 
     // Send email
     const customer = audit.customers as any
-    await sendAuditReportEmail(
-      customer.email,
-      audit.url,
-      auditId,
-      html
-    )
+    try {
+      console.log(`Sending email to ${customer.email} for audit ${auditId}`)
+      await sendAuditReportEmail(
+        customer.email,
+        audit.url,
+        auditId,
+        html
+      )
+      console.log(`Email sent successfully to ${customer.email}`)
+    } catch (emailError) {
+      console.error('Error sending email:', emailError)
+      // Don't fail the whole audit if email fails, but log it
+      // The report is still available via the URL
+    }
   } catch (error) {
     console.error('Error processing audit:', error)
+    console.error('Error details:', error instanceof Error ? error.message : String(error))
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
 
     // Mark audit as failed
     await supabase
@@ -164,15 +186,19 @@ async function processAudit(auditId: string) {
       .eq('id', auditId)
 
     // Send failure email
-    const { data: audit } = await supabase
-      .from('audits')
-      .select('*, customers(*)')
-      .eq('id', auditId)
-      .single()
+    try {
+      const { data: audit } = await supabase
+        .from('audits')
+        .select('*, customers(*)')
+        .eq('id', auditId)
+        .single()
 
-    if (audit) {
-      const customer = audit.customers as any
-      await sendAuditFailureEmail(customer.email, audit.url)
+      if (audit) {
+        const customer = audit.customers as any
+        await sendAuditFailureEmail(customer.email, audit.url)
+      }
+    } catch (failureEmailError) {
+      console.error('Error sending failure email:', failureEmailError)
     }
   }
 }
