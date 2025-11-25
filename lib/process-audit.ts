@@ -33,12 +33,22 @@ export async function processAudit(auditId: string) {
       .eq('audit_id', auditId)
       .eq('enabled', true)
 
-    if (modulesError || !modules) {
-      throw new Error('Failed to fetch modules')
+    if (modulesError) {
+      console.error('Error fetching modules:', modulesError)
+      throw new Error(`Failed to fetch modules: ${modulesError.message}`)
+    }
+
+    if (!modules || modules.length === 0) {
+      console.error('No modules found for audit:', auditId)
+      throw new Error('No enabled modules found for this audit')
     }
 
     const enabledModules = modules.map(m => m.module_key as ModuleKey)
     console.log(`Running ${enabledModules.length} audit modules:`, enabledModules)
+    
+    if (enabledModules.length === 0) {
+      throw new Error('No enabled modules to run')
+    }
 
     // Run audit modules
     console.log('Starting audit module execution...')
