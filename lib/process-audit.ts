@@ -178,18 +178,9 @@ export async function processAudit(auditId: string) {
     }
     console.log('✅ Module scores updated')
 
-    // Update status to generating_report
-    console.log('Updating status to generating_report...')
-    const { error: statusUpdateError } = await supabase
-      .from('audits')
-      .update({ status: 'generating_report' })
-      .eq('id', auditId)
-    
-    if (statusUpdateError) {
-      console.error('Error updating status to generating_report:', statusUpdateError)
-      throw new Error(`Failed to update audit status: ${statusUpdateError.message}`)
-    }
-    console.log('✅ Status updated to generating_report')
+          // Keep status as 'running' while generating report
+          // (Database constraint only allows: pending, running, completed, failed)
+          console.log('Generating report (status remains: running)...')
     
     // Generate formatted report using DeepSeek with timeout protection
     console.log('Generating formatted report with DeepSeek...')
