@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { processAudit } from '@/app/api/webhooks/stripe/route'
+import { processAudit } from '@/lib/process-audit'
 import { inngest } from '@/lib/inngest'
 
 export const dynamic = 'force-dynamic'

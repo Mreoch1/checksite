@@ -1,6 +1,6 @@
 import { serve } from 'inngest/next'
 import { inngest } from '@/lib/inngest'
-import { processAudit } from '@/app/api/webhooks/stripe/route'
+import { processAudit } from '@/lib/process-audit'
 
 // Create Inngest function for processing audits
 const processAuditFunction = inngest.createFunction(
