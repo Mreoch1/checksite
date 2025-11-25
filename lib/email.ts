@@ -119,8 +119,21 @@ export async function sendAuditFailureEmail(
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
         <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #0369a1; font-size: 28px; margin: 0 0 10px 0;">SEO CheckSite</h1>
-            <div style="width: 60px; height: 4px; background: linear-gradient(90deg, #0ea5e9, #0369a1); margin: 0 auto; border-radius: 2px;"></div>
+            <div style="display: inline-block; margin-bottom: 15px;">
+              <svg width="180" height="54" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="30" cy="30" r="25" fill="url(#gradient2)" opacity="0.1"/>
+                <circle cx="30" cy="30" r="20" fill="none" stroke="url(#gradient2)" stroke-width="2"/>
+                <path d="M 20 30 L 27 37 L 40 24" stroke="url(#gradient2)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="55" y="25" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#0369a1">SEO</text>
+                <text x="55" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#0ea5e9">CheckSite</text>
+                <defs>
+                  <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#0369a1;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
           </div>
           
           <h2 style="color: #dc2626; font-size: 24px; margin-top: 0;">Report Generation Issue</h2>

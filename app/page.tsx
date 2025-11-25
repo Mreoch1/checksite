@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Logo from '@/components/Logo'
 
 export default function Home() {
   const router = useRouter()
@@ -63,6 +64,9 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
+          <div className="flex justify-center mb-6">
+            <Logo variant="full" />
+          </div>
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
             Get Your Website Checked
           </h1>
