@@ -542,13 +542,14 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
         if (!reportData.modules) reportData.modules = []
         reportData.modules.push({
           moduleName: displayName,
-          overview: moduleResult.summary || `This section checks ${displayName.toLowerCase()}.`,
-          issues: moduleResult.issues.length > 0 
-            ? moduleResult.issues.map(issue => ({
-                title: issue.title,
-                severity: issue.severity,
-                why: issue.plainLanguageExplanation,
-                how: issue.suggestedFix,
+          overview: (moduleResult.summary || `This section checks ${displayName.toLowerCase()}.`).replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+          issues: (moduleResult.issues && moduleResult.issues.length > 0)
+            ? (moduleResult.issues || []).map(issue => ({
+                title: (issue.title || 'Issue').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+                severity: issue.severity || 'low',
+                why: (issue.plainLanguageExplanation || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+                how: (issue.suggestedFix || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
+                evidence: issue.evidence || {},
               }))
             : [{
                 title: 'All checks passed',
@@ -556,6 +557,7 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
                 why: 'This category is in good shape.',
                 how: 'No action needed for this category.',
               }],
+          evidence: moduleResult.evidence || {},
         })
         console.log(`✅ Added missing module: ${displayName}`)
       } else {
