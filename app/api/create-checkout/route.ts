@@ -7,16 +7,25 @@ import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+import { createAuditSchema } from '@/lib/validate-input'
+
 export async function POST(request: NextRequest) {
   try {
-    const { url, email, name, modules } = await request.json()
-
-    if (!url || !email || !Array.isArray(modules)) {
+    const body = await request.json()
+    
+    // Validate input with Zod
+    const validationResult = createAuditSchema.safeParse(body)
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { 
+          error: 'Invalid input',
+          details: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        },
         { status: 400 }
       )
     }
+    
+    const { url, email, name, modules } = validationResult.data
 
     // Validate URL
     let normalizedUrl = url
