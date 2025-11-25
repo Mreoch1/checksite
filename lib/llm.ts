@@ -33,29 +33,29 @@ export async function callDeepSeek(
   const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutes
 
   try {
-    const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-        temperature,
-      }),
+  const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages,
+      temperature,
+    }),
       signal: controller.signal,
-    })
+  })
 
     clearTimeout(timeoutId)
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`DeepSeek API error: ${error}`)
-    }
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`DeepSeek API error: ${error}`)
+  }
 
-    const data: DeepSeekResponse = await response.json()
-    return data.choices[0]?.message?.content || ''
+  const data: DeepSeekResponse = await response.json()
+  return data.choices[0]?.message?.content || ''
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
@@ -80,21 +80,27 @@ export async function recommendModules(
   competitor_overview: boolean
   reasons: Record<string, string>
 }> {
-  const prompt = `You classify what SEO checks a small website owner needs.
+  const prompt = `You are an SEO expert helping a non-technical website owner understand what SEO checks they need.
 
 Website URL: ${url}
 Title: ${siteSummary.title || 'Not found'}
 Description: ${siteSummary.description || 'Not found'}
 Content sample: ${(siteSummary.content || '').substring(0, 500)}
 
-Analyze this website and determine which optional SEO modules would be valuable:
+Analyze this website and determine which optional SEO modules would be valuable. For EACH module, provide a clear explanation:
 
-1. local - Does this appear to be a local business (restaurant, service, store)?
-2. accessibility - Should accessibility be checked?
-3. security - Should security be verified?
-4. schema - Would structured data help this business?
-5. social - Would social media sharing optimization help?
-6. competitor_overview - Would competitor analysis be valuable?
+1. local - Does this appear to be a local business (restaurant, service, store, local service provider)?
+2. accessibility - Should accessibility be checked? (Important for all sites, but especially if serving diverse audiences)
+3. security - Should security be verified? (Important for all sites, especially if handling any user data)
+4. schema - Would structured data help this business? (Helps search engines understand business info)
+5. social - Would social media sharing optimization help? (Important if site content is shared on social platforms)
+6. competitor_overview - Would competitor analysis be valuable? (Useful for businesses in competitive markets)
+
+CRITICAL: For each module, provide a clear explanation:
+- If RECOMMENDED (true): Explain WHY it's valuable for this specific site (e.g., "Your site appears to be a local business, so local SEO will help customers find you in local search results.")
+- If NOT RECOMMENDED (false): Explain WHY it's not needed (e.g., "Your site doesn't appear to need a local SEO audit because it's an online-only business without a physical location or local service area.")
+
+Be specific and helpful. The user needs to understand why you're making each recommendation.
 
 Respond with ONLY valid JSON in this exact format:
 {
@@ -105,12 +111,12 @@ Respond with ONLY valid JSON in this exact format:
   "social": true/false,
   "competitor_overview": true/false,
   "reasons": {
-    "local": "one sentence reason",
-    "accessibility": "one sentence reason",
-    "security": "one sentence reason",
-    "schema": "one sentence reason",
-    "social": "one sentence reason",
-    "competitor_overview": "one sentence reason"
+    "local": "Clear explanation - if false, start with 'Your site doesn't appear to need a local SEO audit because...'",
+    "accessibility": "Clear explanation - if false, start with 'Your site doesn't appear to need an accessibility audit because...'",
+    "security": "Clear explanation - if false, start with 'Your site doesn't appear to need a security audit because...'",
+    "schema": "Clear explanation - if false, start with 'Your site doesn't appear to need schema markup because...'",
+    "social": "Clear explanation - if false, start with 'Your site doesn't appear to need social metadata optimization because...'",
+    "competitor_overview": "Clear explanation - if false, start with 'Your site doesn't appear to need competitor analysis because...'"
   }
 }`
 
@@ -200,16 +206,18 @@ CRITICAL REQUIREMENTS:
    - For each: title, why it matters (one sentence), how to fix it (simple steps)
 
 5. Module-by-Module Sections (MANDATORY - include ALL modules):
-   - For EACH module in the audit results:
-     * Use the correct display name from the mapping above
+   - You MUST include EVERY SINGLE module from the audit results. Count them first.
+   - For EACH module in the audit results (check the moduleKey field):
+     * Use the exact display name from the mapping above (e.g., "on_page" → "On-Page SEO")
      * Provide a brief overview sentence (1-2 sentences)
-     * List ALL issues from the module results (1-3 issues per module)
+     * List ALL issues from the module results (include all issues, not just 1-3)
      * If a module has NO issues, include: "All checks passed for this category."
      * For each issue:
        - Use the exact title from the results
        - Use the severity from results (high/medium/low)
        - Use plainLanguageExplanation as "why this matters"
        - Use suggestedFix as "how to fix it"
+   - Before finishing, verify you have included ALL modules. Count the modules in audit results and ensure your response has the same number.
 
 6. NEVER include:
    - "Coming soon" messages
@@ -286,13 +294,27 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     competitor_overview: 'Competitor Overview',
   }
 
-  // Check if all modules are present, add missing ones
-  const reportedModuleNames = new Set(reportData.modules?.map((m: any) => m.moduleName) || [])
+  // CRITICAL: Check if all modules are present, add missing ones
+  // This ensures customers get everything they paid for
+  const reportedModuleNames = new Set(
+    (reportData.modules || []).map((m: any) => 
+      (m.moduleName || '').toLowerCase().trim()
+    )
+  )
   const auditModuleKeys = auditResult.modules.map(m => m.moduleKey)
+  
+  console.log('Checking for missing modules...')
+  console.log('Audit modules:', auditModuleKeys)
+  console.log('Reported modules:', Array.from(reportedModuleNames))
   
   for (const moduleKey of auditModuleKeys) {
     const displayName = moduleDisplayNames[moduleKey] || moduleKey
-    if (!reportedModuleNames.has(displayName)) {
+    const displayNameLower = displayName.toLowerCase().trim()
+    
+    // Check if module is missing (case-insensitive)
+    if (!reportedModuleNames.has(displayNameLower)) {
+      console.log(`⚠️  Missing module detected: ${displayName} (${moduleKey}) - adding it`)
+      
       // Module missing from report, add it
       const moduleResult = auditResult.modules.find(m => m.moduleKey === moduleKey)
       if (moduleResult) {
@@ -314,9 +336,22 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
                 how: 'No action needed for this category.',
               }],
         })
+        console.log(`✅ Added missing module: ${displayName}`)
+      } else {
+        console.error(`❌ Module result not found for ${moduleKey}`)
       }
     }
   }
+  
+  // Final verification
+  const finalModuleCount = reportData.modules?.length || 0
+  const expectedModuleCount = auditModuleKeys.length
+  if (finalModuleCount !== expectedModuleCount) {
+    console.error(`❌ Module count mismatch! Expected ${expectedModuleCount}, got ${finalModuleCount}`)
+    throw new Error(`Report is missing modules. Expected ${expectedModuleCount} modules, but only ${finalModuleCount} are in the report.`)
+  }
+  
+  console.log(`✅ All ${expectedModuleCount} modules verified in report`)
 
   // Generate HTML report
   const html = generateHTMLReport(reportData, auditResult.url)
@@ -448,40 +483,40 @@ function generateHTMLReport(reportData: any, url: string): string {
     
     <h1 style="margin-top: 20px;">Website Report</h1>
     <div class="meta-info">
-      <p><strong>Website:</strong> ${domain}</p>
-      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+  <p><strong>Website:</strong> ${domain}</p>
+  <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
     </div>
 
-    <h2>Executive Summary</h2>
-    <div class="summary">
+  <h2>Executive Summary</h2>
+  <div class="summary">
       ${reportData.executiveSummary ? reportData.executiveSummary.map((point: string) => `<p>${point}</p>`).join('') : '<p>Your website audit is complete. Review the sections below for detailed findings.</p>'}
-    </div>
+  </div>
 
-    <h2>Start Here: Top Priority Actions</h2>
+  <h2>Start Here: Top Priority Actions</h2>
     ${reportData.topActions && reportData.topActions.length > 0 ? reportData.topActions.map((action: any, idx: number) => `
-      <div class="action ${action.severity || 'high'}">
-        <h3>${idx + 1}. ${action.title}</h3>
-        <p><strong>Why this matters:</strong> ${action.why}</p>
-        <p><strong>How to fix it:</strong> ${action.how}</p>
-      </div>
+    <div class="action ${action.severity || 'high'}">
+      <h3>${idx + 1}. ${action.title}</h3>
+      <p><strong>Why this matters:</strong> ${action.why}</p>
+      <p><strong>How to fix it:</strong> ${action.how}</p>
+    </div>
     `).join('') : '<p>Review the detailed sections below for specific recommendations.</p>'}
 
     ${reportData.modules && reportData.modules.length > 0 ? reportData.modules.map((module: any) => `
       <div class="module-section">
-        <h2>${module.moduleName}</h2>
+    <h2>${module.moduleName}</h2>
         <p style="margin-bottom: 15px;">${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
         ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
           <div class="issue ${issue.severity}">
-            <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
+        <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
             <h3 style="margin-top: 10px;">${issue.title}</h3>
-            <p><strong>Why this matters:</strong> ${issue.why}</p>
-            <p><strong>How to fix it:</strong> ${issue.how}</p>
+        <p><strong>Why this matters:</strong> ${issue.why}</p>
+        <p><strong>How to fix it:</strong> ${issue.how}</p>
           </div>
         `).join('') : '<div class="no-issues">✓ All checks passed for this category.</div>'}
       </div>
     `).join('') : '<p>No module data available.</p>'}
 
-    <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
+  <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
     <p style="color: #6b7280; font-size: 0.9em; text-align: center;">
       This report was generated by SEO CheckSite. For questions, contact support.
     </p>
@@ -501,9 +536,9 @@ function generatePlaintextReport(reportData: any, url: string): string {
   text += `EXECUTIVE SUMMARY\n`
   text += `${'='.repeat(50)}\n`
   if (reportData.executiveSummary && reportData.executiveSummary.length > 0) {
-    reportData.executiveSummary.forEach((point: string) => {
-      text += `• ${point}\n`
-    })
+  reportData.executiveSummary.forEach((point: string) => {
+    text += `• ${point}\n`
+  })
   } else {
     text += `Your website audit is complete. Review the sections below for detailed findings.\n`
   }
@@ -511,30 +546,30 @@ function generatePlaintextReport(reportData: any, url: string): string {
   text += `\nSTART HERE: TOP PRIORITY ACTIONS\n`
   text += `${'='.repeat(50)}\n`
   if (reportData.topActions && reportData.topActions.length > 0) {
-    reportData.topActions.forEach((action: any, idx: number) => {
-      text += `\n${idx + 1}. ${action.title}\n`
-      text += `   Why this matters: ${action.why}\n`
-      text += `   How to fix it: ${action.how}\n`
-    })
+  reportData.topActions.forEach((action: any, idx: number) => {
+    text += `\n${idx + 1}. ${action.title}\n`
+    text += `   Why this matters: ${action.why}\n`
+    text += `   How to fix it: ${action.how}\n`
+  })
   } else {
     text += `Review the detailed sections below for specific recommendations.\n`
   }
   
   if (reportData.modules && reportData.modules.length > 0) {
-    reportData.modules.forEach((module: any) => {
-      text += `\n${module.moduleName.toUpperCase()}\n`
-      text += `${'='.repeat(50)}\n`
+  reportData.modules.forEach((module: any) => {
+    text += `\n${module.moduleName.toUpperCase()}\n`
+    text += `${'='.repeat(50)}\n`
       text += `${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}\n\n`
       if (module.issues && module.issues.length > 0) {
-        module.issues.forEach((issue: any) => {
-          text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
-          text += `Why this matters: ${issue.why}\n`
-          text += `How to fix it: ${issue.how}\n\n`
-        })
+    module.issues.forEach((issue: any) => {
+      text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
+      text += `Why this matters: ${issue.why}\n`
+      text += `How to fix it: ${issue.how}\n\n`
+    })
       } else {
         text += `✓ All checks passed for this category.\n\n`
       }
-    })
+  })
   }
   
   text += `\n${'='.repeat(50)}\n`
@@ -542,4 +577,5 @@ function generatePlaintextReport(reportData: any, url: string): string {
   
   return text
 }
+
 
