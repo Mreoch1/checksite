@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { runAuditModules } from '@/lib/audit/modules'
-import { generateReport } from '@/lib/llm'
-import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
-import { ModuleKey } from '@/lib/types'
+import { processAudit } from '@/app/api/webhooks/stripe/route'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -41,7 +38,29 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', auditId)
 
-    try {
+    // Process audit in background (don't wait for completion - same as webhook)
+    processAudit(auditId).catch((error) => {
+      console.error('Background audit processing failed:', error)
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Audit retry started in background',
+      auditId,
+      status: 'running',
+    })
+  } catch (error) {
+    console.error('Error in retry endpoint:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to retry audit',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    )
+  }
+}
+
       // Get enabled modules
       const { data: modules, error: modulesError } = await supabase
         .from('audit_modules')
