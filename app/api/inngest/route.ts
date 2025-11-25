@@ -28,7 +28,33 @@ const processAuditFunction = inngest.createFunction(
         })
         
         const result = await Promise.race([processPromise, timeoutPromise])
+        
+        // processAudit doesn't return a value, so result will be undefined
+        // But if we get here without an error, the audit completed
         console.log(`[Inngest] Audit ${auditId} completed successfully`)
+        console.log(`[Inngest] processAudit returned:`, result)
+        
+        // Verify the audit was actually completed by checking the database
+        const { supabase } = await import('@/lib/supabase')
+        const { data: auditCheck } = await supabase
+          .from('audits')
+          .select('status, completed_at, formatted_report_html')
+          .eq('id', auditId)
+          .single()
+        
+        if (!auditCheck) {
+          throw new Error(`Audit ${auditId} not found after processing`)
+        }
+        
+        if (auditCheck.status !== 'completed') {
+          throw new Error(`Audit ${auditId} status is ${auditCheck.status}, expected 'completed'`)
+        }
+        
+        if (!auditCheck.formatted_report_html) {
+          throw new Error(`Audit ${auditId} completed but has no formatted report`)
+        }
+        
+        console.log(`[Inngest] Verified audit ${auditId} is completed with report`)
         return { success: true, auditId }
       } catch (error) {
         // Log the raw error immediately to see what we're actually getting
