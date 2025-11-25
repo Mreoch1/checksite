@@ -28,26 +28,41 @@ export async function callDeepSeek(
   messages: DeepSeekMessage[],
   temperature: number = 0.7
 ): Promise<string> {
-  const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages,
-      temperature,
-    }),
-  })
+  // Add timeout to prevent hanging (2 minutes for LLM response)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutes
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`DeepSeek API error: ${error}`)
+  try {
+    const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages,
+        temperature,
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`DeepSeek API error: ${error}`)
+    }
+
+    const data: DeepSeekResponse = await response.json()
+    return data.choices[0]?.message?.content || ''
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
+    }
+    throw error
   }
-
-  const data: DeepSeekResponse = await response.json()
-  return data.choices[0]?.message?.content || ''
 }
 
 /**
