@@ -61,7 +61,7 @@ const processAuditFunction = inngest.createFunction(
               auditId,
               errorName,
               errorMessage,
-              errorStack: errorStack.substring(0, 1000), // Limit stack trace size
+              errorStack: errorStack ? errorStack.substring(0, 1000) : 'No stack trace', // Limit stack trace size
               timestamp: new Date().toISOString(),
             },
           })
