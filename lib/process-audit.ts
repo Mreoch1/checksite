@@ -159,7 +159,7 @@ export async function processAudit(auditId: string) {
     const errorLog = JSON.stringify({
       errorName,
       errorMessage,
-      errorStack: errorStack.substring(0, 5000), // Limit stack trace size
+      errorStack: errorStack ? errorStack.substring(0, 5000) : 'No stack trace', // Limit stack trace size
       timestamp: new Date().toISOString(),
     }, null, 2)
 
