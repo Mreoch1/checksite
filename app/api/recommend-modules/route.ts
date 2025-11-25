@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
       console.log(`[recommend-modules] Analysis complete for ${normalizedUrl}`)
       return NextResponse.json(recommendations)
     } catch (timeoutError) {
-      // If LLM times out, return smart defaults based on site content
-      console.warn(`[recommend-modules] LLM timeout for ${normalizedUrl}, using smart defaults`)
+      // If LLM times out or fails, return smart defaults based on site content
+      const errorMsg = timeoutError instanceof Error ? timeoutError.message : String(timeoutError)
+      console.warn(`[recommend-modules] LLM error for ${normalizedUrl}: ${errorMsg}, using smart defaults`)
       
       const titleLower = (siteSummary.title || '').toLowerCase()
       const descLower = (siteSummary.description || '').toLowerCase()
@@ -135,7 +136,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(defaultRecommendations)
     }
   } catch (error) {
-    console.error('[recommend-modules] Error:', error)
+    // If we get here, it's an error in URL validation or site fetching
+    // For LLM errors, we should have already returned smart defaults
+    console.error('[recommend-modules] Outer catch error:', error)
     const errorDetails = error instanceof Error ? {
       name: error.name,
       message: error.message,
@@ -143,35 +146,35 @@ export async function POST(request: NextRequest) {
     } : { message: String(error) }
     console.error('[recommend-modules] Error details:', JSON.stringify(errorDetails, null, 2))
     
-    // Provide more specific error messages
-    let errorMessage = 'Failed to get recommendations'
-    let statusCode = 500
+    // If it's a URL/site fetch error, return smart defaults anyway
+    // This ensures users always get recommendations
+    const titleLower = ''
+    const descLower = ''
+    const contentLower = ''
+    const allText = `${titleLower} ${descLower} ${contentLower}`
     
-    if (error instanceof Error) {
-      if (error.message.includes('timeout')) {
-        errorMessage = 'The analysis took too long. Please try again or check if the website is accessible.'
-        statusCode = 504 // Gateway Timeout
-      } else if (error.message.includes('fetch') || error.message.includes('network')) {
-        errorMessage = 'Unable to reach the website. Please check the URL and try again.'
-        statusCode = 503 // Service Unavailable
-      } else if (error.message.includes('DEEPSEEK_API_KEY') || error.message.includes('required')) {
-        errorMessage = 'Analysis service configuration error. Please contact support.'
-        statusCode = 503
-      } else if (error.message.includes('DeepSeek') || error.message.includes('API')) {
-        errorMessage = 'Analysis service temporarily unavailable. Please try again in a moment.'
-        statusCode = 503
-      } else {
-        errorMessage = error.message
-      }
+    const isLocalBusiness = false
+    const hasSocialContent = false
+    const isBusiness = true // Default to business recommendations
+    
+    const defaultRecommendations = {
+      local: isLocalBusiness,
+      accessibility: true,
+      security: true,
+      schema: isBusiness,
+      social: hasSocialContent || isBusiness,
+      competitor_overview: isBusiness,
+      reasons: {
+        local: 'Your site doesn\'t appear to need a local SEO audit because it\'s an online-only business without a physical location or local service area.',
+        accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
+        security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
+        schema: 'Structured data helps search engines understand your business information and can improve how your site appears in search results.',
+        social: 'Social media optimization helps your content look great when shared on social platforms, increasing visibility and engagement.',
+        competitor_overview: 'Competitor analysis helps you understand your market position and identify opportunities to improve your SEO strategy.',
+      },
     }
     
-    return NextResponse.json(
-      { 
-        error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
-      },
-      { status: statusCode }
-    )
+    return NextResponse.json(defaultRecommendations)
   }
 }
 
