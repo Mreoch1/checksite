@@ -210,10 +210,13 @@ export async function sendEmail(options: {
   
   if (useResend) {
     try {
+      console.log('Attempting to send via Resend...')
       await sendViaResend(options)
+      console.log('✅ Email sent successfully via Resend')
       return
     } catch (error) {
-      console.warn('Resend failed, falling back to Zoho SMTP:', error)
+      console.error('❌ Resend failed:', error)
+      console.warn('Falling back to Zoho SMTP...')
       if (!USE_FALLBACK) {
         throw error // Don't fallback if disabled
       }
@@ -222,7 +225,14 @@ export async function sendEmail(options: {
   }
   
   // Use Zoho SMTP (either as primary or fallback)
-  await sendViaZoho(options)
+  console.log('Attempting to send via Zoho SMTP...')
+  try {
+    await sendViaZoho(options)
+    console.log('✅ Email sent successfully via Zoho SMTP')
+  } catch (error) {
+    console.error('❌ Zoho SMTP also failed:', error)
+    throw error
+  }
 }
 
 /**
