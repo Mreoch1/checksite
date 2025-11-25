@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/app/api/webhooks/stripe/route'
+import { inngest } from '@/lib/inngest'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -38,10 +39,22 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', auditId)
 
-    // Process audit in background (don't wait for completion - same as webhook)
-    processAudit(auditId).catch((error) => {
-      console.error('Background audit processing failed:', error)
-    })
+    // Trigger Inngest function for background processing
+    console.log(`Retrying audit via Inngest: ${auditId}`)
+    
+    try {
+      await inngest.send({
+        name: 'audit/process',
+        data: { auditId },
+      })
+      console.log(`✅ Inngest event sent for retry of audit ${auditId}`)
+    } catch (error) {
+      console.error('❌ Failed to send Inngest event:', error)
+      // Fallback to direct processing
+      processAudit(auditId).catch((processError) => {
+        console.error('Background audit processing failed:', processError)
+      })
+    }
 
     return NextResponse.json({
       success: true,

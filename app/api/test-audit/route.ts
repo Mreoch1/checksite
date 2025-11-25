@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/app/api/webhooks/stripe/route'
+import { inngest } from '@/lib/inngest'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -76,24 +77,27 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', audit.id)
 
-    // Process audit in background with timeout (don't await - let it run)
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Audit processing timeout after 5 minutes'))
-      }, 5 * 60 * 1000) // 5 minutes
-    })
+    // Trigger Inngest function for background processing
+    console.log(`Triggering Inngest function for test audit: ${audit.id}`)
     
-    Promise.race([
-      processAudit(audit.id),
-      timeoutPromise
-    ]).catch(async (error) => {
-      console.error('Error processing test audit:', error)
-      // Mark as failed
-      await supabase
-        .from('audits')
-        .update({ status: 'failed' })
-        .eq('id', audit.id)
-    })
+    try {
+      await inngest.send({
+        name: 'audit/process',
+        data: { auditId: audit.id },
+      })
+      console.log(`✅ Inngest event sent for audit ${audit.id}`)
+    } catch (error) {
+      console.error('❌ Failed to send Inngest event:', error)
+      // Fallback to direct processing if Inngest fails
+      console.log('Falling back to direct processing...')
+      processAudit(audit.id).catch(async (processError) => {
+        console.error('Error processing test audit:', processError)
+        await supabase
+          .from('audits')
+          .update({ status: 'failed' })
+          .eq('id', audit.id)
+      })
+    }
 
     return NextResponse.json({
       success: true,
