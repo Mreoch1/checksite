@@ -204,6 +204,10 @@ export async function sendAuditFailureEmail(
         </div>
       </div>
     `,
-  })
+    })
+  } catch (error) {
+    console.error('Error sending audit failure email:', error)
+    throw error
+  }
 }
 
