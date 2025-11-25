@@ -81,21 +81,43 @@ export async function processAudit(auditId: string) {
     console.log(`Overall score calculated: ${overallScore}`)
 
     // Collect detailed page-level analysis
-    const h1Text = siteData.$('h1').first().text().trim() || null
+    // Get H1 text - handle multiple H1s by joining with space
+    const h1Elements = siteData.$('h1')
+    let h1Text: string | null = null
+    if (h1Elements.length > 0) {
+      const h1Texts: string[] = []
+      h1Elements.each((_, el) => {
+        const text = siteData.$(el).text().trim()
+        if (text) h1Texts.push(text)
+      })
+      h1Text = h1Texts.join(' ') || null
+    }
     const h1Count = siteData.$('h1').length
     const h2Count = siteData.$('h2').length
     const textContent = siteData.$('body').text().replace(/\s+/g, ' ').trim()
     const wordCount = textContent.split(' ').filter(w => w.length > 0).length
+    // Count images - include both img tags and Next.js Image components (which may use different attributes)
     const images = siteData.$('img')
+    const nextImages = siteData.$('[data-next-image], [class*="next-image"]') // Next.js Image components
+    const allImageElements = images.length + nextImages.length
     let missingAltCount = 0
     images.each((_, el) => {
       const alt = siteData.$(el).attr('alt')
       const src = siteData.$(el).attr('src')
-      if (src && !src.startsWith('data:') && alt === undefined) {
+      // Also check for Next.js Image alt attribute
+      const nextAlt = siteData.$(el).attr('data-alt') || siteData.$(el).attr('aria-label')
+      if (src && !src.startsWith('data:') && alt === undefined && !nextAlt) {
         missingAltCount++
       }
     })
-    const totalImages = images.length
+    // Check Next.js images too
+    nextImages.each((_, el) => {
+      const alt = siteData.$(el).attr('alt') || siteData.$(el).attr('data-alt') || siteData.$(el).attr('aria-label')
+      if (!alt) {
+        missingAltCount++
+      }
+    })
+    const totalImages = allImageElements || images.length // Use combined count or fallback to img tags
     
     // Safely extract hostname for link counting
     let hostname = ''

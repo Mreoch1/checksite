@@ -1082,11 +1082,14 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       score -= 10
     } else {
       const robotsContent = await robotsResponse.text()
-      if (robotsContent.toLowerCase().includes('disallow: /')) {
+      // Check for "Disallow: /" as a standalone directive (not "Disallow: /api/" or similar)
+      // Use regex to match "Disallow: /" followed by whitespace or end of line
+      const blockingPattern = /disallow:\s*\/\s*$/mi
+      if (blockingPattern.test(robotsContent)) {
         issues.push({
           title: 'Robots.txt may be blocking search engines',
           severity: 'high',
-          technicalExplanation: 'robots.txt contains "Disallow: /"',
+          technicalExplanation: 'robots.txt contains "Disallow: /" which blocks all pages',
           plainLanguageExplanation: 'Your robots.txt file might be preventing search engines from finding your pages.',
           suggestedFix: 'Check your robots.txt file and make sure it\'s not blocking all pages. Remove "Disallow: /" unless you want to block search engines.',
           evidence: {
@@ -1118,7 +1121,9 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     // If URL is invalid, just count absolute paths
     internalLinks = siteData.$('a[href^="/"]').length
   }
-  if (internalLinks < 5) {
+  // More lenient for small sites - only flag if very few links (less than 3)
+  // Small 1-3 page sites may legitimately have fewer links
+  if (internalLinks < 3) {
     issues.push({
       title: 'Few internal links found',
       severity: 'low',
@@ -1128,10 +1133,10 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       evidence: {
         found: `${internalLinks} internal links`,
         actual: `${internalLinks} links`,
-        expected: 'At least 5-10 internal links per page',
+        expected: internalLinks === 0 ? 'At least 1-2 internal links per page' : 'Consider adding more internal links (3+ recommended)',
       },
     })
-    score -= 10
+    score -= 5 // Reduced penalty for small sites
   }
 
   // Check for broken links (sample up to 10 links to avoid timeout)

@@ -90,16 +90,28 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     executiveSummary.push(`Found ${mediumIssues} medium-priority issue${mediumIssues > 1 ? 's' : ''} to address.`)
   }
   
-  // Quick fix checklist - top 5 high priority issues
+  // Quick fix checklist - top 5 high priority issues (deduplicated by title)
   const quickFixChecklist: string[] = []
   const allIssues = auditResult.modules.flatMap((m: any) => m.issues.map((i: any) => ({ ...i, module: m.moduleKey })))
   const highPriorityIssues = allIssues.filter(i => i.severity === 'high').slice(0, 5)
+  const seenTitles = new Set<string>()
   highPriorityIssues.forEach(issue => {
-    quickFixChecklist.push(issue.title)
+    if (!seenTitles.has(issue.title)) {
+      seenTitles.add(issue.title)
+      quickFixChecklist.push(issue.title)
+    }
   })
   
-  // Top actions - first 5 issues
-  const topActions = allIssues.slice(0, 5).map((issue: any) => ({
+  // Top actions - first 5 unique issues (deduplicated)
+  const uniqueIssues: any[] = []
+  const seenActionTitles = new Set<string>()
+  for (const issue of allIssues) {
+    if (!seenActionTitles.has(issue.title) && uniqueIssues.length < 5) {
+      seenActionTitles.add(issue.title)
+      uniqueIssues.push(issue)
+    }
+  }
+  const topActions = uniqueIssues.map((issue: any) => ({
     title: issue.title,
     why: issue.plainLanguageExplanation || 'This affects your website\'s performance.',
     how: issue.suggestedFix || 'Review and fix this issue.',

@@ -2,15 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createCheckoutSession } from '@/lib/stripe'
 import { supabase } from '@/lib/supabase'
 import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
+import { createAuditSchema } from '@/lib/validate-input'
+import { rateLimit, getClientId } from '@/lib/rate-limit'
 
 // Force dynamic rendering - this route cannot be statically analyzed
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-import { createAuditSchema } from '@/lib/validate-input'
-
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting: 10 requests per minute per IP
+    const clientId = getClientId(request)
+    const rateLimitResult = rateLimit(`checkout:${clientId}`, 10, 60000)
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Too many requests',
+          message: 'Please wait a moment before trying again',
+          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
+        },
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetAt.toString(),
+            'Retry-After': Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000).toString(),
+          },
+        }
+      )
+    }
+    
     const body = await request.json()
     
     // Validate input with Zod
