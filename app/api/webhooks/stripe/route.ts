@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
-import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/resend'
+import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email'
 import { ModuleKey } from '@/lib/types'
 
 // Force dynamic rendering - webhooks must be dynamic
