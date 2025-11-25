@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         likely_issue: isStuck 
           ? 'Audit is stuck - likely timeout or error in processing'
           : audit.status === 'failed'
-          ? 'Audit failed - check server logs for error details'
+          ? 'Audit failed - check error_log below for details'
           : 'No obvious issues detected',
         recommendations: isStuck
           ? [
@@ -136,12 +136,13 @@ export async function GET(request: NextRequest) {
             ]
           : audit.status === 'failed'
           ? [
-              'Check Netlify function logs for the exact error',
+              'Check error_log below for the exact error',
               'Verify all environment variables are set',
               'Check if external APIs (DeepSeek, email) are accessible',
             ]
           : [],
       },
+      errorLog: errorLog,
     })
   } catch (error) {
     console.error('Error diagnosing audit:', error)
