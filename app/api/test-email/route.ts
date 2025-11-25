@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAuditReportEmail } from '@/lib/resend'
+import { sendAuditReportEmail } from '@/lib/email-unified'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
