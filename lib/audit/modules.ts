@@ -831,10 +831,13 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   // Check for sitemap.xml
   try {
     const sitemapUrl = new URL('/sitemap.xml', siteData.url).toString()
+    const sitemapController = new AbortController()
+    const sitemapTimeout = setTimeout(() => sitemapController.abort(), 10000)
     const sitemapResponse = await fetch(sitemapUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
-      signal: AbortSignal.timeout(10000),
+      signal: sitemapController.signal,
     })
+    clearTimeout(sitemapTimeout)
     
     if (!sitemapResponse.ok) {
       issues.push({
@@ -860,10 +863,13 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   // Check for robots.txt
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
+    const robotsController = new AbortController()
+    const robotsTimeout = setTimeout(() => robotsController.abort(), 10000)
     const robotsResponse = await fetch(robotsUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)' },
-      signal: AbortSignal.timeout(10000),
+      signal: robotsController.signal,
     })
+    clearTimeout(robotsTimeout)
     
     if (!robotsResponse.ok) {
       issues.push({
