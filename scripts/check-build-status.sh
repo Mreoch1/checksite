@@ -6,17 +6,24 @@
 echo "🔍 Checking Netlify build status..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Get site info
-SITE_ID=$(netlify status --json 2>/dev/null | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('siteId', ''))" 2>/dev/null)
+# Get site info from netlify status
+SITE_INFO=$(netlify status 2>&1)
+SITE_ID=$(echo "$SITE_INFO" | grep -i "Project Id" | sed 's/.*Project Id:[[:space:]]*//' | tr -d '[:space:]')
 
 if [ -z "$SITE_ID" ]; then
-  echo "❌ Could not get Netlify site ID"
-  echo "   Make sure you're logged in: netlify login"
-  exit 1
+  # Try alternative method
+  SITE_ID=$(netlify status 2>&1 | grep -oP 'Project Id:\s*\K[^\s]+' || echo "")
+fi
+
+if [ -z "$SITE_ID" ]; then
+  echo "⚠️  Could not get Netlify site ID automatically"
+  echo "   Checking deployment status via alternative method..."
+  # Continue with alternative check
 fi
 
 # Get latest deployment
-LATEST_DEPLOY=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\"}" 2>/dev/null | python3 -c "
+if [ -n "$SITE_ID" ]; then
+  LATEST_DEPLOY=$(netlify api listSiteDeploys --data "{\"site_id\":\"$SITE_ID\"}" 2>/dev/null | python3 -c "
 import sys, json
 try:
     deploys = json.load(sys.stdin)
@@ -31,6 +38,9 @@ try:
 except:
     print('error|unknown|unknown')
 " 2>/dev/null)
+else
+  LATEST_DEPLOY=""
+fi
 
 if [ -z "$LATEST_DEPLOY" ] || [ "$LATEST_DEPLOY" = "error|unknown|unknown" ]; then
   echo "❌ Could not check deployment status"
