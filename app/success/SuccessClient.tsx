@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MODULE_DISPLAY_NAMES, ModuleKey } from '@/lib/types'
 
 interface AuditStatus {
@@ -100,6 +101,14 @@ export default function SuccessClient() {
         </div>
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mb-6">
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/logo.svg"
+                alt="SEO CheckSite"
+                width={160}
+                height={48}
+              />
+            </div>
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 className="w-8 h-8 text-green-600"

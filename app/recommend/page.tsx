@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ModuleKey, MODULE_DISPLAY_NAMES, MODULE_DESCRIPTIONS, PRICING_CONFIG, CORE_MODULES } from '@/lib/types'
 
 interface ModuleOption {
@@ -162,7 +163,15 @@ export default function RecommendPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12">
       <div className="max-w-4xl mx-auto px-4">
-        <div className="mb-4">
+        <div className="mb-6 flex items-center justify-between">
+          <Link href="/">
+            <Image
+              src="/logo.svg"
+              alt="SEO CheckSite"
+              width={160}
+              height={48}
+            />
+          </Link>
           <Link
             href="/"
             className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
