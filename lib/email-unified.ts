@@ -127,12 +127,20 @@ async function sendViaResend(options: {
     }
     
     if (result?.error) {
-      throw new Error(`Resend API error: ${result.error.message}`)
+      const errorMsg = result.error.message || JSON.stringify(result.error)
+      console.error('Resend API error details:', result.error)
+      throw new Error(`Resend API error: ${errorMsg}`)
+    }
+    
+    if (!result?.id) {
+      console.warn('Resend returned no message ID:', result)
+      throw new Error('Resend API returned no message ID')
     }
     
     console.log('Email sent successfully via Resend:', {
-      messageId: result?.id,
+      messageId: result.id,
       to: options.to,
+      from: from,
     })
   } catch (error) {
     console.error('Resend email failed:', error)
