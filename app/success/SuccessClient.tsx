@@ -106,15 +106,33 @@ export default function SuccessClient() {
               <strong>What happens next?</strong>
             </p>
             <p className="text-blue-800 mt-2">
-              We'll email your complete report to you when it's ready (usually within a few minutes).
+              Your report is being generated (usually within a few minutes).
               The report will include actionable recommendations in plain language.
             </p>
+            {auditId && (
+              <div className="mt-4">
+                <p className="text-blue-900 font-medium mb-2">Your Report Link:</p>
+                <div className="bg-white rounded p-3 border border-blue-200">
+                  <code className="text-sm text-blue-800 break-all">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/report/${auditId}` : `/report/${auditId}`}
+                  </code>
+                </div>
+                <p className="text-sm text-blue-700 mt-2">
+                  Bookmark this link or check back in a few minutes. Your report will be available here when ready.
+                </p>
+              </div>
+            )}
           </div>
 
           {auditId && (
-            <p className="text-sm text-gray-500">
-              Audit ID: {auditId}
-            </p>
+            <div className="mt-4">
+              <Link
+                href={`/report/${auditId}`}
+                className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                View Report (when ready)
+              </Link>
+            </div>
           )}
         </div>
       </div>
