@@ -104,9 +104,13 @@ export async function POST(request: NextRequest) {
       const allText = `${titleLower} ${descLower} ${contentLower}`
       
       // Smart defaults based on content analysis
-      const isLocalBusiness = /restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|location|address|phone|hours|menu|services|local/i.test(allText)
-      const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram/i.test(allText)
-      const isBusiness = /business|company|services|products|about|contact/i.test(allText)
+      // Local business detection - must have strong indicators, not just generic terms
+      const hasLocalIndicators = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|location|address|phone number|visit us|come in|walk-in|appointment|booking)/i.test(allText)
+      const hasOnlineOnlyIndicators = /(online|digital|software|saas|platform|tool|service|audit|consulting|agency|freelance|remote|virtual|web-based|cloud|app|software|api|integration)/i.test(allText)
+      const isLocalBusiness = hasLocalIndicators && !hasOnlineOnlyIndicators
+      
+      const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
+      const isBusiness = /business|company|services|products|about|contact|pricing|plans/i.test(allText)
       
       const defaultRecommendations = {
         local: isLocalBusiness,
@@ -153,6 +157,7 @@ export async function POST(request: NextRequest) {
     const contentLower = ''
     const allText = `${titleLower} ${descLower} ${contentLower}`
     
+    // Default to false for local - most sites are online-only
     const isLocalBusiness = false
     const hasSocialContent = false
     const isBusiness = true // Default to business recommendations
