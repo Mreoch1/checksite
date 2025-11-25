@@ -57,7 +57,7 @@ export async function processAudit(auditId: string) {
       httpStatus: siteData.httpStatus || 200,
       contentType: siteData.contentType || 'unknown',
       pageSize: siteData.contentLength ? `${(siteData.contentLength / 1024).toFixed(1)} KB` : null,
-      hasRedirect: siteData.finalUrl !== audit.url && siteData.finalUrl,
+      hasRedirect: siteData.finalUrl !== audit.url && !!siteData.finalUrl ? true : false,
       isHttps: audit.url.startsWith('https://'),
       title: siteData.title || null,
       metaDescription: siteData.description || null,

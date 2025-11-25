@@ -1,4 +1,4 @@
-# SiteCheck - Website Audit Tool
+# SEO CheckSite - Website Audit Tool
 
 A production-ready, beginner-friendly website audit tool built for non-technical website and small business owners. Get clear, actionable insights about your website without the jargon.
 
@@ -197,7 +197,7 @@ export async function crawlSite(url: string, maxPages: number = 100) {
 ## Project Structure
 
 ```
-sitecheck/
+seo-checksite/
 ├── app/
 │   ├── api/
 │   │   ├── recommend-modules/    # AI module recommendation

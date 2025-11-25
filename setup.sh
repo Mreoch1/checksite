@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up SiteCheck..."
+echo "🚀 Setting up SEO CheckSite..."
 echo ""
 
 # Check Node.js
