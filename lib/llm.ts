@@ -28,18 +28,19 @@ export async function callDeepSeek(
   messages: DeepSeekMessage[],
   temperature: number = 0.7
 ): Promise<string> {
-  // Add timeout to prevent hanging (3 minutes for LLM response - increased for large reports)
+  // Add timeout to prevent hanging (2.5 minutes for LLM response)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => {
-    console.error('DeepSeek API timeout: Request taking longer than 3 minutes, aborting...')
+    console.error('DeepSeek API timeout: Request taking longer than 2.5 minutes, aborting...')
     controller.abort()
-  }, 180000) // 3 minutes
+  }, 150000) // 2.5 minutes
 
   try {
     console.log('Calling DeepSeek API...')
     const startTime = Date.now()
     
-    const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+    // Use Promise.race to ensure timeout works even if fetch hangs
+    const fetchPromise = fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,7 +54,17 @@ export async function callDeepSeek(
       signal: controller.signal,
     })
 
+    // Race between fetch and timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        controller.abort()
+        reject(new Error('DeepSeek API timeout: Request took longer than 2.5 minutes'))
+      }, 150000)
+    })
+
+    const response = await Promise.race([fetchPromise, timeoutPromise])
     clearTimeout(timeoutId)
+    
     const duration = ((Date.now() - startTime) / 1000).toFixed(1)
     console.log(`DeepSeek API response received in ${duration}s`)
 
@@ -69,9 +80,9 @@ export async function callDeepSeek(
     return content
   } catch (error) {
     clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('DeepSeek API timeout after 3 minutes')
-      throw new Error('DeepSeek API timeout: Request took longer than 3 minutes')
+    if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
+      console.error('DeepSeek API timeout after 2.5 minutes')
+      throw new Error('DeepSeek API timeout: Request took longer than 2.5 minutes')
     }
     console.error('DeepSeek API error:', error)
     throw error
