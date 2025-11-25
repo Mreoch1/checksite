@@ -139,66 +139,102 @@ export async function generateReport(auditResult: {
     summary: string
   }>
 }): Promise<{ html: string; plaintext: string }> {
+  // Map module keys to display names
+  const MODULE_DISPLAY_NAMES: Record<string, string> = {
+    performance: 'Performance',
+    crawl_health: 'Crawl Health',
+    on_page: 'On-Page SEO',
+    mobile: 'Mobile Optimization',
+    local: 'Local SEO',
+    accessibility: 'Accessibility',
+    security: 'Security',
+    schema: 'Schema Markup',
+    social: 'Social Metadata',
+    competitor_overview: 'Competitor Overview',
+  }
+
   const prompt = `You write clear, plain language SEO reports for non-technical business owners.
 
 Website URL: ${auditResult.url}
 
-Audit Results:
+Audit Results (ALL modules that were checked):
 ${JSON.stringify(auditResult.modules, null, 2)}
 
-Write a comprehensive SEO report with these requirements:
+CRITICAL REQUIREMENTS:
+1. You MUST include EVERY module from the audit results in your report. Do not skip any.
+2. For each module, use the exact moduleKey to map to the display name:
+   - "performance" → "Performance"
+   - "crawl_health" → "Crawl Health"
+   - "on_page" → "On-Page SEO"
+   - "mobile" → "Mobile Optimization"
+   - "local" → "Local SEO"
+   - "accessibility" → "Accessibility"
+   - "security" → "Security"
+   - "schema" → "Schema Markup"
+   - "social" → "Social Metadata"
+   - "competitor_overview" → "Competitor Overview"
 
-1. Executive Summary (3-5 bullet points)
-   - Overall health of the website
-   - Main strengths and weaknesses
-   - Priority actions
+3. Executive Summary (3-5 bullet points):
+   - Overall health assessment
+   - 3 main strengths
+   - 3 main weaknesses
+   - Top priorities in plain language
 
-2. "Start Here" Section
-   - Top 5 most important fixes
-   - Why each matters in plain language
-   - Simple step-by-step instructions
+4. "Start Here: Top Priority Actions" Section:
+   - Exactly 5 most important fixes (prioritize High severity issues)
+   - For each: title, why it matters (one sentence), how to fix it (simple steps)
 
-3. Module-by-Module Sections
-   - For each module, provide:
-     * A brief overview sentence
-     * 3-7 key issues (prioritized: High, Medium, Low)
+5. Module-by-Module Sections (MANDATORY - include ALL modules):
+   - For EACH module in the audit results:
+     * Use the correct display name from the mapping above
+     * Provide a brief overview sentence (1-2 sentences)
+     * List ALL issues from the module results (1-3 issues per module)
+     * If a module has NO issues, include: "All checks passed for this category."
      * For each issue:
-       - Plain language title
-       - "Why this matters" (one sentence)
-       - "How to fix it" (short steps a normal person can follow or hand to a web designer)
+       - Use the exact title from the results
+       - Use the severity from results (high/medium/low)
+       - Use plainLanguageExplanation as "why this matters"
+       - Use suggestedFix as "how to fix it"
 
-Constraints:
-- Avoid SEO jargon. If you must use technical terms, explain them simply.
-- Use short sentences.
-- Write as if explaining to a friend who owns a small business.
-- Group issues by priority: High, Medium, Low.
-- Be encouraging and actionable.
+6. NEVER include:
+   - "Coming soon" messages
+   - Empty sections
+   - Placeholder text
+   - Technical jargon without explanation
 
-Respond with JSON in this format:
+7. If a module has no issues, still include it with:
+   - Overview sentence
+   - "All checks passed for this category."
+
+Tone: Simple, friendly, encouraging. Write as if explaining to a friend who owns a small business.
+
+Respond with ONLY valid JSON in this exact format:
 {
-  "executiveSummary": ["bullet point 1", "bullet point 2", ...],
+  "executiveSummary": ["bullet point 1", "bullet point 2", "bullet point 3", "bullet point 4", "bullet point 5"],
   "topActions": [
     {
       "title": "Fix title",
-      "why": "Why this matters",
-      "how": "Step-by-step instructions"
+      "why": "Why this matters in one sentence",
+      "how": "Simple step-by-step instructions"
     }
   ],
   "modules": [
     {
       "moduleName": "Performance",
-      "overview": "One sentence overview",
+      "overview": "One sentence about what this category checks",
       "issues": [
         {
-          "title": "Plain language title",
-          "severity": "high/medium/low",
+          "title": "Issue title from results",
+          "severity": "high",
           "why": "Why this matters",
           "how": "How to fix it"
         }
       ]
     }
   ]
-}`
+}
+
+IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
 
   const messages: DeepSeekMessage[] = [
     {
@@ -220,6 +256,52 @@ Respond with JSON in this format:
   }
 
   const reportData = JSON.parse(jsonMatch[0])
+
+  // Ensure all modules from audit are included
+  const moduleDisplayNames: Record<string, string> = {
+    performance: 'Performance',
+    crawl_health: 'Crawl Health',
+    on_page: 'On-Page SEO',
+    mobile: 'Mobile Optimization',
+    local: 'Local SEO',
+    accessibility: 'Accessibility',
+    security: 'Security',
+    schema: 'Schema Markup',
+    social: 'Social Metadata',
+    competitor_overview: 'Competitor Overview',
+  }
+
+  // Check if all modules are present, add missing ones
+  const reportedModuleNames = new Set(reportData.modules?.map((m: any) => m.moduleName) || [])
+  const auditModuleKeys = auditResult.modules.map(m => m.moduleKey)
+  
+  for (const moduleKey of auditModuleKeys) {
+    const displayName = moduleDisplayNames[moduleKey] || moduleKey
+    if (!reportedModuleNames.has(displayName)) {
+      // Module missing from report, add it
+      const moduleResult = auditResult.modules.find(m => m.moduleKey === moduleKey)
+      if (moduleResult) {
+        if (!reportData.modules) reportData.modules = []
+        reportData.modules.push({
+          moduleName: displayName,
+          overview: moduleResult.summary || `This section checks ${displayName.toLowerCase()}.`,
+          issues: moduleResult.issues.length > 0 
+            ? moduleResult.issues.map(issue => ({
+                title: issue.title,
+                severity: issue.severity,
+                why: issue.plainLanguageExplanation,
+                how: issue.suggestedFix,
+              }))
+            : [{
+                title: 'All checks passed',
+                severity: 'low',
+                why: 'This category is in good shape.',
+                how: 'No action needed for this category.',
+              }],
+        })
+      }
+    }
+  }
 
   // Generate HTML report
   const html = generateHTMLReport(reportData, auditResult.url)
@@ -279,15 +361,15 @@ function generateHTMLReport(reportData: any, url: string): string {
 
   ${reportData.modules.map((module: any) => `
     <h2>${module.moduleName}</h2>
-    <p>${module.overview}</p>
-    ${module.issues.map((issue: any) => `
+    <p>${module.overview || 'This section checks ' + module.moduleName.toLowerCase() + '.'}</p>
+    ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
       <div class="issue">
         <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
         <h3>${issue.title}</h3>
         <p><strong>Why this matters:</strong> ${issue.why}</p>
         <p><strong>How to fix it:</strong> ${issue.how}</p>
       </div>
-    `).join('')}
+    `).join('') : '<p style="color: #10b981; font-weight: 600;">✓ All checks passed for this category.</p>'}
   `).join('')}
 
   <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
