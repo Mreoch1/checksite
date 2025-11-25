@@ -44,7 +44,7 @@ export async function callDeepSeek(
       model: 'deepseek-chat',
       messages,
       temperature,
-      max_tokens: 8000, // Limit response size to prevent hanging
+      max_tokens: 6000, // Reduced from 8000 to speed up response
       stream: false, // Ensure we get complete response
     }
     const requestBodySize = JSON.stringify(requestBody).length
@@ -251,18 +251,31 @@ export async function generateReport(auditResult: {
   }
 
   // Aggressively optimize prompt size - limit issues and truncate text
+  // Further reduce to prevent timeouts
   const optimizedModules = auditResult.modules.map(m => ({
     key: m.moduleKey,
     score: m.score,
-    evidence: m.evidence || {}, // Include module-level evidence
-    // Limit to first 5 issues per module (was 10)
-    issues: (m.issues || []).slice(0, 5).map(i => ({
-      title: (i.title || 'Issue').substring(0, 100), // Limit title length
+    // Only include essential evidence, limit size
+    evidence: m.evidence ? Object.fromEntries(
+      Object.entries(m.evidence).slice(0, 3).map(([k, v]) => [
+        k, 
+        typeof v === 'string' ? v.substring(0, 100) : v
+      ])
+    ) : {},
+    // Limit to first 3 issues per module to reduce prompt size
+    issues: (m.issues || []).slice(0, 3).map(i => ({
+      title: (i.title || 'Issue').substring(0, 80), // Further limit title length
       severity: i.severity || 'low',
-      // Truncate to 150 chars (was 200) to keep prompt smaller
-      why: (i.plainLanguageExplanation || '').substring(0, 150),
-      how: (i.suggestedFix || '').substring(0, 150),
-      evidence: i.evidence || {}, // Include issue-level evidence
+      // Truncate to 100 chars to keep prompt smaller
+      why: (i.plainLanguageExplanation || '').substring(0, 100),
+      how: (i.suggestedFix || '').substring(0, 100),
+      // Limit evidence size
+      evidence: i.evidence ? Object.fromEntries(
+        Object.entries(i.evidence).slice(0, 2).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v.substring(0, 50) : (Array.isArray(v) ? v.slice(0, 2) : v)
+        ])
+      ) : {},
     })),
   }))
   
