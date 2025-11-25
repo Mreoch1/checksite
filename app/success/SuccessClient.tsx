@@ -5,11 +5,18 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { MODULE_DISPLAY_NAMES, ModuleKey } from '@/lib/types'
 
+interface AuditStatus {
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  created_at?: string
+}
+
 export default function SuccessClient() {
   const searchParams = useSearchParams()
   const [auditId, setAuditId] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const [modules, setModules] = useState<ModuleKey[]>([])
+  const [auditStatus, setAuditStatus] = useState<AuditStatus | null>(null)
+  const [checkingStatus, setCheckingStatus] = useState(false)
 
   useEffect(() => {
     // Get audit ID from URL or sessionStorage
@@ -20,6 +27,13 @@ export default function SuccessClient() {
     if (id) {
       setAuditId(id)
       sessionStorage.setItem('lastAuditId', id)
+      // Check audit status
+      checkAuditStatus(id)
+      // Poll every 10 seconds if not completed
+      const interval = setInterval(() => {
+        checkAuditStatus(id)
+      }, 10000)
+      return () => clearInterval(interval)
     }
     if (auditUrl) {
       setUrl(auditUrl)
@@ -32,6 +46,33 @@ export default function SuccessClient() {
       }
     }
   }, [searchParams])
+
+  const checkAuditStatus = async (id: string) => {
+    if (checkingStatus) return
+    setCheckingStatus(true)
+    try {
+      const response = await fetch(`/api/check-audit-status?id=${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAuditStatus(data)
+      }
+    } catch (error) {
+      console.error('Error checking audit status:', error)
+    } finally {
+      setCheckingStatus(false)
+    }
+  }
+
+  const getETA = (createdAt?: string): string => {
+    if (!createdAt) return '5 minutes'
+    const created = new Date(createdAt).getTime()
+    const now = Date.now()
+    const elapsed = (now - created) / 1000 / 60 // minutes
+    const estimatedTotal = 5 // 5 minutes estimated
+    const remaining = Math.max(0, estimatedTotal - elapsed)
+    if (remaining < 1) return 'any moment now'
+    return `${Math.ceil(remaining)} minutes`
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center py-12">
@@ -101,27 +142,62 @@ export default function SuccessClient() {
             )}
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-blue-900">
-              <strong>What happens next?</strong>
-            </p>
-            <p className="text-blue-800 mt-2">
-              Your report is being generated (usually within a few minutes).
-              The report will include actionable recommendations in plain language.
-            </p>
-            {auditId && (
-              <div className="mt-4">
-                <p className="text-blue-900 font-medium mb-2">Your Report Link:</p>
-                <div className="bg-white rounded p-3 border border-blue-200">
-                  <code className="text-sm text-blue-800 break-all">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/report/${auditId}` : `/report/${auditId}`}
-                  </code>
-                </div>
-                <p className="text-sm text-blue-700 mt-2">
-                  Bookmark this link or check back in a few minutes. Your report will be available here when ready.
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-blue-900 mb-4">How to View Your Report</h2>
+            
+            <div className="space-y-4 text-left">
+              <div>
+                <p className="font-semibold text-blue-900 mb-2">📧 Option 1: Check Your Email</p>
+                <p className="text-blue-800 text-sm">
+                  You'll receive a <strong>Stripe receipt email</strong> with your payment confirmation. 
+                  The email includes a link to your report in the product description.
+                </p>
+                <p className="text-blue-700 text-xs mt-1 italic">
+                  Check your inbox (and spam folder) for an email from Stripe.
                 </p>
               </div>
-            )}
+
+              <div>
+                <p className="font-semibold text-blue-900 mb-2">🔗 Option 2: Use This Direct Link</p>
+                {auditId && (
+                  <div className="bg-white rounded p-3 border border-blue-200 mb-2">
+                    <code className="text-sm text-blue-800 break-all">
+                      {typeof window !== 'undefined' ? `${window.location.origin}/report/${auditId}` : `/report/${auditId}`}
+                    </code>
+                  </div>
+                )}
+                <p className="text-blue-800 text-sm">
+                  Bookmark this link or click the button below to view your report.
+                </p>
+              </div>
+
+              {auditStatus?.status === 'completed' ? (
+                <div className="bg-green-50 border border-green-200 rounded p-3 mt-4">
+                  <p className="text-green-900 font-semibold">✅ Your report is ready!</p>
+                  <p className="text-green-800 text-sm mt-1">Click the button below to view it now.</p>
+                </div>
+              ) : auditStatus?.status === 'running' ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-4">
+                  <p className="text-yellow-900 font-semibold">⏳ Report is being generated...</p>
+                  <p className="text-yellow-800 text-sm mt-1">
+                    Estimated time remaining: <strong>{getETA(auditStatus.created_at)}</strong>
+                  </p>
+                  <p className="text-yellow-700 text-xs mt-1">
+                    Check back in a few minutes or refresh this page.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
+                  <p className="text-blue-900 font-semibold">⏱️ Report Processing</p>
+                  <p className="text-blue-800 text-sm mt-1">
+                    Your report is being generated. Estimated time: <strong>{getETA()}</strong>
+                  </p>
+                  <p className="text-blue-700 text-xs mt-1">
+                    The report typically takes 2-5 minutes to complete. You can check back using the link above.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {auditId && (
@@ -130,7 +206,7 @@ export default function SuccessClient() {
                 href={`/report/${auditId}`}
                 className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
               >
-                View Report (when ready)
+                {auditStatus?.status === 'completed' ? 'View Your Report' : 'Check Report Status'}
               </Link>
             </div>
           )}
