@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { processAudit } from '@/lib/process-audit'
+import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -76,12 +76,25 @@ export async function POST(request: NextRequest) {
       .update({ status: 'running' })
       .eq('id', audit.id)
 
-    // Process audit directly in background (non-blocking)
-    console.log(`Starting audit processing for audit ${audit.id}`)
-    processAudit(audit.id).catch(async (processError) => {
-      console.error('Error processing audit:', processError)
-      // processAudit already handles error logging and status updates
-    })
+    // Add to queue instead of processing directly (avoids Netlify timeout)
+    console.log(`Adding audit ${audit.id} to processing queue`)
+    const { error: queueError } = await supabase
+      .from('audit_queue')
+      .insert({
+        audit_id: audit.id,
+        status: 'pending',
+      })
+
+    if (queueError) {
+      console.error('Error adding audit to queue:', queueError)
+      // Fallback: try direct processing if queue fails
+      console.log('Falling back to direct processing...')
+      processAudit(audit.id).catch(async (processError) => {
+        console.error('Error processing audit:', processError)
+      })
+    } else {
+      console.log(`✅ Audit ${audit.id} added to queue - will be processed by queue worker`)
+    }
 
     return NextResponse.json({
       success: true,
