@@ -6,14 +6,14 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get all stuck audits (running for more than 10 minutes)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+    // Get all stuck audits (running for more than 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
     const { data: stuckAudits, error } = await supabase
       .from('audits')
       .select('id, url, status, created_at, customers(email)')
       .in('status', ['running', 'pending'])
-      .lt('created_at', tenMinutesAgo)
+      .lt('created_at', fiveMinutesAgo)
       .order('created_at', { ascending: false })
 
     if (error) {
