@@ -42,7 +42,7 @@ export async function processAudit(auditId: string) {
 
     // Run audit modules
     console.log('Starting audit module execution...')
-    const results = await runAuditModules(audit.url, enabledModules)
+    const { results, siteData } = await runAuditModules(audit.url, enabledModules)
     console.log(`Audit modules completed. Results: ${results.length} modules`)
 
     // Calculate overall score
@@ -50,9 +50,23 @@ export async function processAudit(auditId: string) {
       results.reduce((sum, r) => sum + r.score, 0) / results.length
     )
 
+    // Collect page-level analysis
+    const pageAnalysis = {
+      url: audit.url,
+      finalUrl: siteData.finalUrl || audit.url,
+      httpStatus: siteData.httpStatus || 200,
+      contentType: siteData.contentType || 'unknown',
+      pageSize: siteData.contentLength ? `${(siteData.contentLength / 1024).toFixed(1)} KB` : null,
+      hasRedirect: siteData.finalUrl !== audit.url && siteData.finalUrl,
+      isHttps: audit.url.startsWith('https://'),
+      title: siteData.title || null,
+      metaDescription: siteData.description || null,
+    }
+
     // Store raw results
     const auditResult = {
       url: audit.url,
+      pageAnalysis,
       modules: results,
       overallScore,
     }

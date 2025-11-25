@@ -5,8 +5,9 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 ## Features
 
 - **Automated Website Analysis**: Checks performance, SEO, mobile optimization, accessibility, security, and more
+- **Evidence-Based Reports**: Shows actual values found (title tags, meta descriptions, robots.txt content, etc.) with data tables
 - **AI-Powered Recommendations**: Uses DeepSeek LLM to recommend which checks you need
-- **Plain Language Reports**: Reports written in simple, non-technical language
+- **Plain Language Reports**: Reports written in simple, non-technical language with actionable insights
 - **Stripe Integration**: Secure payment processing
 - **Email Delivery**: Reports sent via Resend
 - **Modular Architecture**: Easy to extend with new audit modules
@@ -126,10 +127,10 @@ Quick steps:
 ## Audit Modules
 
 ### Core Modules (Always Included)
-- **Performance**: Page speed and performance metrics
-- **Crawl Health**: Search engine crawlability (stubbed for v1)
-- **On-Page SEO**: Titles, descriptions, headings, content quality
-- **Mobile Optimization**: Mobile responsiveness and usability
+- **Performance**: Page speed and performance metrics (basic checks; Lighthouse integration available)
+- **Crawl Health**: Search engine crawlability - checks sitemap.xml, robots.txt content, internal links
+- **On-Page SEO**: Titles, descriptions, headings, content quality - shows actual values found
+- **Mobile Optimization**: Mobile responsiveness and usability checks
 
 ### Optional Modules
 - **Local SEO**: Business address, phone, Google Business Profile
@@ -142,18 +143,18 @@ Quick steps:
 ## Module Implementation Status
 
 ### Fully Implemented
-- Performance (basic checks)
-- On-Page SEO
-- Mobile Optimization
-- Local SEO
-- Accessibility
-- Security
-- Schema Markup
-- Social Metadata
+- **Performance**: Basic checks (HTTPS, image optimization, script blocking detection)
+- **On-Page SEO**: Complete with evidence collection (title, meta description, H1/H2/H3 counts, word count, alt text)
+- **Mobile Optimization**: Viewport checks, responsive design validation, touch target sizes
+- **Crawl Health**: Sitemap.xml detection, robots.txt content analysis, internal link counting
+- **Local SEO**: Address/phone detection, LocalBusiness schema validation, Google Maps integration
+- **Accessibility**: Alt text, form labels, heading hierarchy, color contrast checks
+- **Security**: HTTPS validation, mixed content detection
+- **Schema Markup**: JSON-LD detection and validation, Organization/LocalBusiness schema checks
+- **Social Metadata**: Open Graph and Twitter Card validation
 
-### Stubbed (TODO)
-- Crawl Health - Requires full site crawler
-- Competitor Overview - Requires competitor URL crawling
+### Partially Implemented
+- **Competitor Overview**: Basic content analysis (full competitor crawling not yet implemented)
 
 ## Adding Real Crawlers and Lighthouse
 
@@ -269,11 +270,30 @@ To adjust pricing, modify the `PRICING_CONFIG` object.
 - Rate limiting recommended for production (add via middleware)
 - Consider adding authentication for report viewing
 
+## Report Features
+
+### Evidence Collection
+All audit modules now collect and display evidence:
+- **On-Page SEO**: Shows actual title tag text, meta description, H1 heading, heading counts, word count
+- **Crawl Health**: Displays actual robots.txt content when issues are found
+- **Issues**: Each issue includes evidence showing what was found vs. what should be there
+- **Data Tables**: Evidence is displayed in easy-to-read tables in the HTML report
+
+### Report Structure
+- Executive Summary with overall health assessment
+- Top Priority Actions (5 most important fixes)
+- Module-by-Module breakdown with:
+  - Evidence tables showing actual values found
+  - Issue details with severity levels
+  - Plain language explanations
+  - Step-by-step fix instructions
+
 ## Future Enhancements
 
-- [ ] Real Lighthouse integration for performance metrics
-- [ ] Full site crawler implementation
-- [ ] Competitor analysis implementation
+- [ ] Real Lighthouse integration for Core Web Vitals (LCP, CLS, FID)
+- [ ] Full site crawler for multi-page analysis
+- [ ] Page-level breakdown (URL analysis, HTTP status codes, redirect chains)
+- [ ] Performance metrics dashboard (actual load times, bundle sizes)
 - [ ] PDF report generation
 - [ ] User dashboard to view past audits
 - [ ] Email authentication for report access
