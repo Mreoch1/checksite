@@ -445,9 +445,19 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     throw new Error('DeepSeek returned empty response')
   }
   
-  // Extract JSON
+  // Extract JSON - try multiple patterns
   console.log('Extracting JSON from response...')
-  const jsonMatch = response.match(/\{[\s\S]*\}/)
+  let jsonMatch = response.match(/\{[\s\S]*\}/)
+  
+  // If no match, try to find JSON in code blocks
+  if (!jsonMatch) {
+    const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+    if (codeBlockMatch) {
+      jsonMatch = [codeBlockMatch[1], codeBlockMatch[1]]
+      console.log('Found JSON in code block')
+    }
+  }
+  
   if (!jsonMatch) {
     console.error('❌ No JSON found in response')
     console.error('Response preview (first 1000 chars):', response.substring(0, 1000))
@@ -459,6 +469,32 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
   try {
     reportData = JSON.parse(jsonMatch[0])
     console.log('✅ JSON parsed successfully')
+    
+    // Validate required fields and initialize if missing
+    if (!reportData) {
+      throw new Error('Parsed JSON is null or undefined')
+    }
+    
+    if (!reportData.modules || !Array.isArray(reportData.modules)) {
+      console.warn('⚠️  Report data missing modules array, initializing...')
+      reportData.modules = []
+    }
+    
+    if (!reportData.executiveSummary || !Array.isArray(reportData.executiveSummary)) {
+      console.warn('⚠️  Report data missing executiveSummary, initializing...')
+      reportData.executiveSummary = []
+    }
+    
+    if (!reportData.topActions || !Array.isArray(reportData.topActions)) {
+      console.warn('⚠️  Report data missing topActions, initializing...')
+      reportData.topActions = []
+    }
+    
+    if (!reportData.quickFixChecklist || !Array.isArray(reportData.quickFixChecklist)) {
+      console.warn('⚠️  Report data missing quickFixChecklist, initializing...')
+      reportData.quickFixChecklist = []
+    }
+    
   } catch (parseError) {
     console.error('❌ JSON parse error:', parseError)
     console.error('JSON string preview:', jsonMatch[0].substring(0, 500))
@@ -548,7 +584,18 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
 }
 
 function generateHTMLReport(reportData: any, url: string): string {
-  const domain = new URL(url).hostname
+  // Safely extract domain from URL
+  let domain = url
+  try {
+    domain = new URL(url).hostname
+  } catch (urlError) {
+    console.warn('Invalid URL for HTML report, using URL as-is:', url, urlError)
+    // Try to extract domain manually
+    const match = url.match(/https?:\/\/([^\/]+)/)
+    if (match) {
+      domain = match[1]
+    }
+  }
   
   return `<!DOCTYPE html>
 <html>
@@ -836,7 +883,18 @@ function generateHTMLReport(reportData: any, url: string): string {
 }
 
 function generatePlaintextReport(reportData: any, url: string): string {
-  const domain = new URL(url).hostname
+  // Safely extract domain from URL
+  let domain = url
+  try {
+    domain = new URL(url).hostname
+  } catch (urlError) {
+    console.warn('Invalid URL for plaintext report, using URL as-is:', url, urlError)
+    // Try to extract domain manually
+    const match = url.match(/https?:\/\/([^\/]+)/)
+    if (match) {
+      domain = match[1]
+    }
+  }
   
   let text = `SEO CHECKSITE - WEBSITE REPORT\n`
   text += `${'='.repeat(50)}\n\n`

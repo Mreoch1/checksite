@@ -271,7 +271,18 @@ export async function sendAuditReportEmail(
   auditId: string,
   reportHtml: string
 ): Promise<void> {
-  const domain = new URL(url).hostname
+  // Safely extract domain from URL
+  let domain = url
+  try {
+    domain = new URL(url).hostname
+  } catch (urlError) {
+    console.warn('Invalid URL for email, using URL as-is:', url, urlError)
+    // Try to extract domain manually
+    const match = url.match(/https?:\/\/([^\/]+)/)
+    if (match) {
+      domain = match[1]
+    }
+  }
   
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
