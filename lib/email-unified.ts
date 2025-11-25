@@ -6,8 +6,10 @@ import nodemailer from 'nodemailer'
 import { Resend } from 'resend'
 
 // Configuration
-const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || 'resend' // 'resend' or 'smtp'
-const USE_FALLBACK = process.env.EMAIL_USE_FALLBACK !== 'false' // Default: true
+// Force Resend as primary if API key is present
+const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || (RESEND_API_KEY ? 'resend' : 'smtp') // 'resend' or 'smtp'
+const USE_FALLBACK = process.env.EMAIL_USE_FALLBACK === 'true' // Default: false (don't fallback to Zoho)
 
 // Zoho SMTP Configuration
 const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com'
@@ -16,8 +18,7 @@ const SMTP_USER = process.env.SMTP_USER || 'contact@seoauditpro.net'
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || ''
 const SMTP_FROM = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
 
-// Resend Configuration
-const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+// Resend Configuration (RESEND_API_KEY moved up)
 const RESEND_FROM = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
 const FROM_NAME = process.env.FROM_NAME || 'SEO CheckSite'
 
@@ -180,7 +181,8 @@ export async function sendEmail(options: {
   html: string
   text?: string
 }): Promise<void> {
-  const useResend = EMAIL_PROVIDER === 'resend' || (!EMAIL_PROVIDER && RESEND_API_KEY)
+  // Always prefer Resend if API key is available
+  const useResend = EMAIL_PROVIDER === 'resend' || (EMAIL_PROVIDER !== 'smtp' && RESEND_API_KEY)
   
   if (useResend) {
     if (!RESEND_API_KEY) {
@@ -188,8 +190,9 @@ export async function sendEmail(options: {
     }
     
     try {
-      console.log('Attempting to send via Resend (free tier: onboarding@resend.dev)...')
+      console.log('📧 Attempting to send via Resend (free tier: onboarding@resend.dev)...')
       console.log(`RESEND_API_KEY present: ${!!RESEND_API_KEY}`)
+      console.log(`RESEND_API_KEY length: ${RESEND_API_KEY.length}`)
       await sendViaResend(options)
       console.log('✅ Email sent successfully via Resend')
       return
@@ -198,26 +201,35 @@ export async function sendEmail(options: {
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.error('Resend error details:', errorMsg)
       
-      if (!USE_FALLBACK) {
-        throw new Error(`Resend email failed: ${errorMsg}. Fallback disabled.`)
+      // Only fallback to Zoho if explicitly enabled
+      if (USE_FALLBACK && SMTP_PASSWORD) {
+        console.warn('Falling back to Zoho SMTP...')
+        try {
+          await sendViaZoho(options)
+          console.log('✅ Email sent successfully via Zoho SMTP (fallback)')
+          return
+        } catch (zohoError) {
+          console.error('❌ Zoho SMTP fallback also failed:', zohoError)
+          throw new Error(`Both Resend and Zoho failed. Resend: ${errorMsg}, Zoho: ${zohoError instanceof Error ? zohoError.message : String(zohoError)}`)
+        }
       }
       
-      console.warn('Falling back to Zoho SMTP...')
-      // Fall through to Zoho only if fallback enabled
+      // No fallback - throw the Resend error
+      throw new Error(`Resend email failed: ${errorMsg}. ${USE_FALLBACK ? 'Zoho fallback disabled or not configured.' : 'Fallback disabled.'}`)
     }
   }
   
-  // Use Zoho SMTP (either as primary or fallback)
+  // Use Zoho SMTP as primary (only if EMAIL_PROVIDER is explicitly 'smtp')
   if (!SMTP_PASSWORD) {
     throw new Error('SMTP_PASSWORD is required but not set. Cannot send email via Zoho SMTP.')
   }
   
-  console.log('Attempting to send via Zoho SMTP...')
+  console.log('Attempting to send via Zoho SMTP (primary)...')
   try {
     await sendViaZoho(options)
     console.log('✅ Email sent successfully via Zoho SMTP')
   } catch (error) {
-    console.error('❌ Zoho SMTP also failed:', error)
+    console.error('❌ Zoho SMTP failed:', error)
     throw error
   }
 }
