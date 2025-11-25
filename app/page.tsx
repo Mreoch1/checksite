@@ -86,7 +86,11 @@ export default function Home() {
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div 
+                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded"
+                role="alert"
+                aria-live="polite"
+              >
                 {error}
               </div>
             )}
@@ -98,54 +102,75 @@ export default function Home() {
               <input
                 type="text"
                 id="url"
+                name="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="example.com or https://example.com"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
+                aria-required="true"
+                aria-describedby="url-description"
               />
+              <p id="url-description" className="sr-only">
+                Enter the website URL you want to audit
+              </p>
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Your Email Address *
+                Your Email Address <span className="text-red-600" aria-label="required">*</span>
               </label>
               <input
                 type="email"
                 id="email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
                 disabled={loading}
+                aria-required="true"
+                aria-describedby="email-description"
+                autoComplete="email"
               />
-              <p className="mt-1 text-sm text-gray-500">
+              <p id="email-description" className="mt-1 text-sm text-gray-500">
                 We'll email your report here when it's ready
               </p>
             </div>
 
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Your Name (Optional)
+                Your Name <span className="text-gray-500 text-sm font-normal">(Optional)</span>
               </label>
               <input
                 type="text"
                 id="name"
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}
+                aria-required="false"
+                autoComplete="name"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-busy={loading}
             >
-              {loading ? 'Checking your site...' : 'Check My Site'}
+              {loading ? (
+                <>
+                  <span className="sr-only">Processing your request</span>
+                  Checking your site...
+                </>
+              ) : (
+                'Check My Site'
+              )}
             </button>
           </form>
         </div>

@@ -202,12 +202,12 @@ export async function processAudit(auditId: string) {
     
     console.log(`📧 Attempting to send email to ${customer.email} for audit ${auditId}`)
     try {
-      await sendAuditReportEmail(
-        customer.email,
-        audit.url,
-        auditId,
-        html
-      )
+    await sendAuditReportEmail(
+      customer.email,
+      audit.url,
+      auditId,
+      html
+    )
       console.log(`✅ Email sent successfully to ${customer.email}`)
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError)

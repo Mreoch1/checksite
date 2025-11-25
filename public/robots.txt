@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /api/
+Disallow: /admin/
+
+# Allow public pages
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+Allow: /recommend
+Allow: /success
+Allow: /report/
+
+# Sitemap
+Sitemap: https://seochecksite.netlify.app/sitemap.xml
+

@@ -324,9 +324,14 @@ export async function sendAuditReportEmail(
         </div>
       </div>
       
-      <div style="text-align: center; margin-top: 20px;">
-        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+      <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
           <a href="${SITE_URL}" style="color: #0ea5e9; text-decoration: none;">seochecksite.netlify.app</a>
+        </p>
+        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
+          <a href="${SITE_URL}/privacy" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Privacy Policy</a> |
+          <a href="${SITE_URL}/terms" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Terms of Service</a> |
+          <a href="${SITE_URL}/refund" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Refund Policy</a>
         </p>
       </div>
     </div>
@@ -382,9 +387,14 @@ export async function sendAuditFailureEmail(
         </p>
       </div>
       
-      <div style="text-align: center; margin-top: 20px;">
-        <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+      <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
           <a href="${SITE_URL}" style="color: #0ea5e9; text-decoration: none;">seochecksite.netlify.app</a>
+        </p>
+        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
+          <a href="${SITE_URL}/privacy" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Privacy Policy</a> |
+          <a href="${SITE_URL}/terms" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Terms of Service</a> |
+          <a href="${SITE_URL}/refund" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Refund Policy</a>
         </p>
       </div>
     </div>
