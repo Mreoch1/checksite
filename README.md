@@ -110,25 +110,16 @@ For production, configure webhooks in Stripe Dashboard:
 
 ## Deployment to Netlify
 
-1. **Build the project**:
-   ```bash
-   npm run build
-   ```
+See `NETLIFY_DEPLOY.md` for detailed deployment instructions.
 
-2. **Connect to Netlify**:
-   - Push your code to GitHub/GitLab
-   - Connect your repository to Netlify
-   - Or use Netlify CLI: `netlify deploy --prod`
-
-3. **Set environment variables**:
-   - Go to Netlify Dashboard → Site Settings → Environment Variables
-   - Add all environment variables from `.env.local`
-
-4. **Configure build settings**:
-   - Build command: `npm run build`
-   - Publish directory: `.next`
-
-5. **Set up Stripe webhook**:
+Quick steps:
+1. **Push to GitHub**: Your code should be in a GitHub repository
+2. **Connect to Netlify**: 
+   - Go to [Netlify Dashboard](https://app.netlify.com)
+   - Click "Add new site" → "Import an existing project"
+   - Connect your GitHub repository
+3. **Set environment variables**: Use `scripts/set-netlify-env-secure.sh` or set manually in Netlify Dashboard
+4. **Configure Stripe webhook**: 
    - In Stripe Dashboard, add webhook endpoint: `https://yourdomain.netlify.app/api/webhooks/stripe`
    - Copy the webhook signing secret to Netlify environment variables
 
