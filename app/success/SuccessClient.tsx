@@ -30,16 +30,18 @@ export default function SuccessClient() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center py-12">
       <div className="max-w-2xl mx-auto px-4">
-        <div className="mb-4">
+        <nav aria-label="Breadcrumb">
           <Link
             href="/"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+            aria-label="Back to homepage"
           >
             <svg
               className="w-5 h-5 mr-2"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -50,23 +52,29 @@ export default function SuccessClient() {
             </svg>
             Back to Home
           </Link>
-        </div>
+        </nav>
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mb-6">
             <div className="flex justify-center mb-4">
               <Image
                 src="/logo.svg"
-                alt="SEO CheckSite"
+                alt="SEO CheckSite - Website Audit for Small Business Owners"
                 width={240}
                 height={72}
+                priority
               />
             </div>
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div 
+              className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
+              role="img"
+              aria-label="Success checkmark"
+            >
               <svg
                 className="w-8 h-8 text-green-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -84,8 +92,8 @@ export default function SuccessClient() {
             </p>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-            <h2 className="font-semibold text-gray-900 mb-3">Audit Summary</h2>
+          <section aria-labelledby="audit-summary-heading" className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+            <h2 id="audit-summary-heading" className="font-semibold text-gray-900 mb-3">Audit Summary</h2>
             {url && (
               <p className="text-gray-600 mb-2">
                 <span className="font-medium">Website:</span> {url}
@@ -101,15 +109,16 @@ export default function SuccessClient() {
                 </ul>
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <section aria-labelledby="email-notice-heading" className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <div className="flex items-start justify-center mb-4">
               <svg
                 className="w-8 h-8 text-blue-600 mr-3 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -119,7 +128,7 @@ export default function SuccessClient() {
                 />
               </svg>
               <div className="text-left">
-                <h2 className="text-xl font-bold text-blue-900 mb-2">
+                <h2 id="email-notice-heading" className="text-xl font-bold text-blue-900 mb-2">
                   Check Your Email
                 </h2>
                 <p className="text-blue-800 mb-3">

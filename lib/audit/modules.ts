@@ -922,7 +922,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     : score >= 60
     ? 'Your crawl health needs improvement. Create a sitemap.xml file to help search engines find all your pages.'
     : 'Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.'
-
+  
   return {
     moduleKey: 'crawl_health',
     score: Math.max(0, score),
@@ -980,7 +980,7 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     : score >= 60
     ? 'Research your competitors and identify opportunities to improve your content and online presence.'
     : 'Your site needs more content to compete effectively. Research competitors and create more detailed, helpful content.'
-
+  
   return {
     moduleKey: 'competitor_overview',
     score: Math.max(0, score),

@@ -201,7 +201,11 @@ export default function RecommendPage() {
           </p>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+            <div 
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6"
+              role="alert"
+              aria-live="polite"
+            >
               {error}
             </div>
           )}
@@ -232,10 +236,13 @@ export default function RecommendPage() {
                     <input
                       type="checkbox"
                       id={module.key}
+                      name={`module-${module.key}`}
                       checked={isSelected}
                       onChange={() => toggleModule(module.key)}
                       disabled={isCore}
-                      className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="mt-1 h-5 w-5 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 border-gray-300 rounded"
+                      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${MODULE_DISPLAY_NAMES[module.key]} module`}
+                      aria-describedby={`${module.key}-description`}
                     />
                     <div className="ml-3 flex-1">
                       <div className="flex items-center gap-2">
@@ -261,13 +268,17 @@ export default function RecommendPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-600 mt-1">{MODULE_DESCRIPTIONS[module.key]}</p>
+                      <p id={`${module.key}-description`} className="text-gray-600 mt-1">{MODULE_DESCRIPTIONS[module.key]}</p>
                       {module.reason && (
-                        <div className={`mt-2 p-2 rounded border-l-4 ${
-                          module.recommended 
-                            ? 'bg-blue-50 border-blue-400' 
-                            : 'bg-gray-100 border-gray-400'
-                        }`}>
+                        <div 
+                          className={`mt-2 p-2 rounded border-l-4 ${
+                            module.recommended 
+                              ? 'bg-blue-50 border-blue-400' 
+                              : 'bg-gray-100 border-gray-400'
+                          }`}
+                          role="note"
+                          aria-label={module.recommended ? 'Recommendation reason' : 'Not recommended reason'}
+                        >
                           <p className={`text-sm ${
                             module.recommended 
                               ? 'text-blue-800' 
@@ -314,9 +325,18 @@ export default function RecommendPage() {
             <button
               onClick={handleContinue}
               disabled={processing}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-busy={processing}
+              aria-label={processing ? 'Processing your request' : 'Continue to payment'}
             >
-              {processing ? 'Processing...' : 'Continue to Payment'}
+              {processing ? (
+                <>
+                  <span className="sr-only">Processing</span>
+                  Processing...
+                </>
+              ) : (
+                'Continue to Payment'
+              )}
             </button>
           </div>
         </div>

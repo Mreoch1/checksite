@@ -53,10 +53,10 @@ export async function sendAuditReportEmail(
           </p>
           
           <div style="margin: 30px 0; text-align: center;">
-            <a href="${SITE_URL}/report/${auditId}" 
+          <a href="${SITE_URL}/report/${auditId}" 
                style="background: linear-gradient(135deg, #0ea5e9, #0369a1); color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600; font-size: 16px; box-shadow: 0 2px 4px rgba(14, 165, 233, 0.3);">
-              View Your Report
-            </a>
+            View Your Report
+          </a>
           </div>
           
           <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 20px 0; border-radius: 4px;">
@@ -140,7 +140,7 @@ export async function sendAuditFailureEmail(
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
             <p style="color: #6b7280; font-size: 14px; margin: 0; line-height: 1.5;">
               We apologize for the inconvenience and appreciate your patience.
-            </p>
+        </p>
             <p style="color: #9ca3af; font-size: 12px; margin: 15px 0 0 0;">
               — The SEO CheckSite Team
             </p>

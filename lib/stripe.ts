@@ -59,6 +59,11 @@ export async function createCheckoutSession(
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer_email: data.email,
+    // Add terms and privacy policy links (required for Stripe compliance)
+    consent_collection: {
+      terms_of_service: 'required',
+    },
+    terms_of_service_url: `${siteUrl}/terms`,
     payment_intent_data: {
       description: `Website Audit for ${data.url}`,
       metadata: {
@@ -71,6 +76,12 @@ export async function createCheckoutSession(
       url: data.url,
       modules: data.selectedModules.join(','),
       report_url: reportUrl,
+    },
+    // Add terms and privacy links
+    payment_method_options: {
+      card: {
+        request_three_d_secure: 'automatic',
+      },
     },
   })
 
