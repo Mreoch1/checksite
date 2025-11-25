@@ -132,7 +132,7 @@ export default function SuccessClient() {
                   Check Your Email
                 </h2>
                 <p className="text-blue-800 mb-3">
-                  Your report will be sent to your email address within <strong>5-10 minutes</strong>.
+                  Your report will be sent to your email address within <strong>10 minutes</strong>.
                 </p>
                 <p className="text-blue-700 text-sm">
                   Look for an email from <strong>SEO CheckSite</strong> with your complete audit report and recommendations.

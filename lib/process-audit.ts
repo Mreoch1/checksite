@@ -42,15 +42,46 @@ export async function processAudit(auditId: string) {
 
     // Run audit modules
     console.log('Starting audit module execution...')
-    const { results, siteData } = await runAuditModules(audit.url, enabledModules)
-    console.log(`Audit modules completed. Results: ${results.length} modules`)
+    let results, siteData
+    try {
+      const moduleResult = await runAuditModules(audit.url, enabledModules)
+      results = moduleResult.results
+      siteData = moduleResult.siteData
+      console.log(`Audit modules completed. Results: ${results.length} modules`)
+    } catch (moduleError) {
+      console.error('❌ Error running audit modules:', moduleError)
+      console.error('Module error details:', moduleError instanceof Error ? moduleError.message : String(moduleError))
+      throw new Error(`Failed to run audit modules: ${moduleError instanceof Error ? moduleError.message : String(moduleError)}`)
+    }
 
     // Calculate overall score
+    if (!results || results.length === 0) {
+      throw new Error('No audit results returned from modules')
+    }
     const overallScore = Math.round(
       results.reduce((sum, r) => sum + r.score, 0) / results.length
     )
+    console.log(`Overall score calculated: ${overallScore}`)
 
-    // Collect page-level analysis
+    // Collect detailed page-level analysis
+    const h1Text = siteData.$('h1').first().text().trim() || null
+    const h1Count = siteData.$('h1').length
+    const h2Count = siteData.$('h2').length
+    const textContent = siteData.$('body').text().replace(/\s+/g, ' ').trim()
+    const wordCount = textContent.split(' ').filter(w => w.length > 0).length
+    const images = siteData.$('img')
+    let missingAltCount = 0
+    images.each((_, el) => {
+      const alt = siteData.$(el).attr('alt')
+      const src = siteData.$(el).attr('src')
+      if (src && !src.startsWith('data:') && alt === undefined) {
+        missingAltCount++
+      }
+    })
+    const totalImages = images.length
+    const internalLinks = siteData.$('a[href^="/"], a[href*="' + new URL(siteData.url).hostname + '"]').length
+    const externalLinks = siteData.$('a[href^="http"]').not(`a[href*="${new URL(siteData.url).hostname}"]`).length
+
     const pageAnalysis = {
       url: audit.url,
       finalUrl: siteData.finalUrl || audit.url,
@@ -61,6 +92,15 @@ export async function processAudit(auditId: string) {
       isHttps: audit.url.startsWith('https://'),
       title: siteData.title || null,
       metaDescription: siteData.description || null,
+      h1Text: h1Text,
+      h1Count: h1Count,
+      h2Count: h2Count,
+      wordCount: wordCount,
+      totalImages: totalImages,
+      missingAltText: missingAltCount,
+      internalLinks: internalLinks,
+      externalLinks: externalLinks,
+      isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
 
     // Store raw results
@@ -71,12 +111,24 @@ export async function processAudit(auditId: string) {
       overallScore,
     }
 
-    await supabase
-      .from('audits')
-      .update({
-        raw_result_json: auditResult,
-      })
-      .eq('id', auditId)
+    console.log(`Storing raw results for audit ${auditId}...`)
+    try {
+      const { error: updateError } = await supabase
+        .from('audits')
+        .update({
+          raw_result_json: auditResult,
+        })
+        .eq('id', auditId)
+      
+      if (updateError) {
+        console.error('Error storing raw results:', updateError)
+        throw new Error(`Failed to store raw results: ${updateError.message}`)
+      }
+      console.log('✅ Raw results stored successfully')
+    } catch (storeError) {
+      console.error('❌ Error storing raw results:', storeError)
+      throw storeError
+    }
 
     // Update module scores
     for (const result of results) {
