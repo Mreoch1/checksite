@@ -79,8 +79,22 @@ export async function processAudit(auditId: string) {
       }
     })
     const totalImages = images.length
-    const internalLinks = siteData.$('a[href^="/"], a[href*="' + new URL(siteData.url).hostname + '"]').length
-    const externalLinks = siteData.$('a[href^="http"]').not(`a[href*="${new URL(siteData.url).hostname}"]`).length
+    
+    // Safely extract hostname for link counting
+    let hostname = ''
+    try {
+      hostname = new URL(siteData.url).hostname
+    } catch (urlError) {
+      console.warn('Invalid URL for link counting:', siteData.url, urlError)
+      hostname = ''
+    }
+    
+    const internalLinks = hostname 
+      ? siteData.$('a[href^="/"], a[href*="' + hostname + '"]').length
+      : siteData.$('a[href^="/"]').length
+    const externalLinks = hostname
+      ? siteData.$('a[href^="http"]').not(`a[href*="${hostname}"]`).length
+      : siteData.$('a[href^="http"]').length
 
     const pageAnalysis = {
       url: audit.url,
@@ -131,22 +145,41 @@ export async function processAudit(auditId: string) {
     }
 
     // Update module scores
+    console.log(`Updating module scores for ${results.length} modules...`)
     for (const result of results) {
-      await supabase
-        .from('audit_modules')
-        .update({
-          raw_score: result.score,
-          raw_issues_json: result.issues,
-        })
-        .eq('audit_id', auditId)
-        .eq('module_key', result.moduleKey)
+      try {
+        const { error: moduleUpdateError } = await supabase
+          .from('audit_modules')
+          .update({
+            raw_score: result.score,
+            raw_issues_json: result.issues,
+          })
+          .eq('audit_id', auditId)
+          .eq('module_key', result.moduleKey)
+        
+        if (moduleUpdateError) {
+          console.error(`Error updating module ${result.moduleKey}:`, moduleUpdateError)
+          // Continue with other modules, but log the error
+        }
+      } catch (moduleError) {
+        console.error(`Exception updating module ${result.moduleKey}:`, moduleError)
+        // Continue with other modules
+      }
     }
+    console.log('✅ Module scores updated')
 
     // Update status to generating_report
-    await supabase
+    console.log('Updating status to generating_report...')
+    const { error: statusUpdateError } = await supabase
       .from('audits')
       .update({ status: 'generating_report' })
       .eq('id', auditId)
+    
+    if (statusUpdateError) {
+      console.error('Error updating status to generating_report:', statusUpdateError)
+      throw new Error(`Failed to update audit status: ${statusUpdateError.message}`)
+    }
+    console.log('✅ Status updated to generating_report')
     
     // Generate formatted report using DeepSeek with timeout protection
     console.log('Generating formatted report with DeepSeek...')
@@ -172,7 +205,8 @@ export async function processAudit(auditId: string) {
     }
 
     // Update audit with formatted report
-    await supabase
+    console.log('Updating audit with formatted report...')
+    const { error: reportUpdateError } = await supabase
       .from('audits')
       .update({
         status: 'completed',
@@ -181,6 +215,12 @@ export async function processAudit(auditId: string) {
         formatted_report_plaintext: plaintext,
       })
       .eq('id', auditId)
+    
+    if (reportUpdateError) {
+      console.error('Error updating audit with report:', reportUpdateError)
+      throw new Error(`Failed to update audit with report: ${reportUpdateError.message}`)
+    }
+    console.log('✅ Audit updated with formatted report')
 
     // Send email - REQUIRED for customer to receive report
     const customer = audit.customers as any
@@ -232,20 +272,43 @@ export async function processAudit(auditId: string) {
     // Mark audit as failed and store error log
     // Try to include error_log - will work once migration is applied
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('audits')
         .update({ 
           status: 'failed',
           error_log: errorLog,
         } as any) // Type assertion since column might not exist yet
         .eq('id', auditId)
+      
+      if (updateError) {
+        console.error('Could not store error_log (column may not exist):', updateError)
+        // Try without error_log if column doesn't exist
+        const { error: statusError } = await supabase
+          .from('audits')
+          .update({ status: 'failed' })
+          .eq('id', auditId)
+        
+        if (statusError) {
+          console.error('Could not update audit status at all:', statusError)
+        }
+      } else {
+        console.log('✅ Audit marked as failed with error log')
+      }
     } catch (updateError) {
       // If error_log column doesn't exist, just update status
-      console.error('Could not store error_log (column may not exist):', updateError)
-      await supabase
-        .from('audits')
-        .update({ status: 'failed' })
-        .eq('id', auditId)
+      console.error('Exception updating audit status:', updateError)
+      try {
+        const { error: statusError } = await supabase
+          .from('audits')
+          .update({ status: 'failed' })
+          .eq('id', auditId)
+        
+        if (statusError) {
+          console.error('Could not update audit status:', statusError)
+        }
+      } catch (statusException) {
+        console.error('Exception updating audit status:', statusException)
+      }
     }
 
     // Send failure email
