@@ -31,12 +31,12 @@ export async function callDeepSeek(
   messages: DeepSeekMessage[],
   temperature: number = 0.7
 ): Promise<string> {
-  // Add timeout to prevent hanging (2.5 minutes for LLM response)
+  // Add timeout to prevent hanging (2 minutes for LLM response - reduced for faster failure)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => {
-    console.error('DeepSeek API timeout: Request taking longer than 2.5 minutes, aborting...')
+    console.error('DeepSeek API timeout: Request taking longer than 2 minutes, aborting...')
     controller.abort()
-  }, 150000) // 2.5 minutes
+  }, 120000) // 2 minutes (reduced from 2.5 to fail faster)
 
   try {
     const apiKey = getDeepSeekApiKey()
@@ -44,7 +44,7 @@ export async function callDeepSeek(
       model: 'deepseek-chat',
       messages,
       temperature,
-      max_tokens: 6000, // Reduced from 8000 to speed up response
+      max_tokens: 4000, // Further reduced to speed up response and reduce costs
       stream: false, // Ensure we get complete response
     }
     const requestBodySize = JSON.stringify(requestBody).length
@@ -69,8 +69,8 @@ export async function callDeepSeek(
     const timeoutPromise = new Promise<never>((_, reject) => {
       const timeout = setTimeout(() => {
         controller.abort()
-        reject(new Error('DeepSeek API timeout: Request took longer than 3 minutes'))
-      }, 180000) // 3 minutes (increased from 2.5)
+        reject(new Error('DeepSeek API timeout: Request took longer than 2 minutes'))
+      }, 120000) // 2 minutes (reduced for faster failure detection)
       // Store timeout ID for cleanup if needed
       ;(timeoutPromise as any)._timeout = timeout
     })
@@ -84,7 +84,7 @@ export async function callDeepSeek(
       clearTimeout(timeoutId)
       if (raceError instanceof Error && (raceError.name === 'AbortError' || raceError.message.includes('timeout'))) {
         console.error('❌ DeepSeek API timeout or abort')
-        throw new Error('DeepSeek API timeout: Request took longer than 2.5 minutes')
+        throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
       }
       console.error('❌ DeepSeek API Promise.race error:', raceError)
       throw new Error(`DeepSeek API call failed: ${raceError instanceof Error ? raceError.message : String(raceError)}`)
@@ -106,8 +106,8 @@ export async function callDeepSeek(
   } catch (error) {
     clearTimeout(timeoutId)
       if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
-        console.error('DeepSeek API timeout after 3 minutes')
-        throw new Error('DeepSeek API timeout: Request took longer than 3 minutes')
+        console.error('DeepSeek API timeout after 2 minutes')
+        throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
     }
     console.error('DeepSeek API error:', error)
     throw error
@@ -311,68 +311,15 @@ ${pageInfo}
 Audit Results (${optimizedModules.length} modules checked):
 ${JSON.stringify(optimizedModules, null, 1)}
 
-CRITICAL REQUIREMENTS FOR SMALL BUSINESS AUDIENCE:
-
-1. KEEP IT SHORT: Maximum 2-3 pages. Small business owners won't read long reports.
-
-2. USE PLAIN ENGLISH ONLY - NO JARGON:
-   - ❌ DON'T SAY: "JSON-LD validation", "H1/H2 hierarchy", "viewport meta tag", "structured data"
-   - ✅ DO SAY: "Your site works well on phones", "Your page needs a headline", "Your description is missing", "We found 6 images without alt text"
-
-3. "FIX IN ONE SENTENCE" APPROACH:
-   Every issue must have:
-   - What needs fixing (simple title)
-   - Why it matters (one sentence)
-   - How to fix it (ONE SENTENCE - tell them exactly what to do)
-   - What we found (show the evidence)
-
-4. REPORT STRUCTURE (in this exact order):
-   a) Executive Summary (3-4 short bullet points max)
-   b) Quick Fix Checklist (simple checkbox list of top 5-7 fixes)
-   c) Top Priority Actions (5 most important - each with one-sentence fix)
-   d) Module sections (brief, evidence-focused)
-
-5. QUICK FIX CHECKLIST:
-   Create a simple checklist like:
-   - [ ] Add a page description
-   - [ ] Fix robots.txt blocking
-   - [ ] Add alt text to 6 images
-   - [ ] Enable HTTPS
-   - [ ] Add a main heading
-   
-   Keep it to 5-7 items max. Use simple language.
-
-6. Module Display Names (use these exact simple names):
-   - "performance" → "Page Speed"
-   - "crawl_health" → "Search Engine Access"
-   - "on_page" → "Page Content"
-   - "mobile" → "Mobile Friendly"
-   - "local" → "Local Business Info"
-   - "accessibility" → "Accessibility"
-   - "security" → "Security"
-   - "schema" → "Business Information"
-   - "social" → "Social Sharing"
-   - "competitor_overview" → "Competitor Tips"
-
-   IMPORTANT: Use these simple names, NOT technical terms like "On-Page SEO" or "Crawl Health"
-
-7. For each module:
-   - One sentence overview (what this checks)
-   - List issues with: Title, Why (one sentence), How to fix (ONE SENTENCE), Evidence (what we found)
-   - If no issues: "All good! ✓"
-
-8. NEVER include:
-   - Technical terms (LCP, CLS, HTTP headers, JSON-LD, etc.)
-   - Long explanations
-   - Professional SEO terminology
-   - Complex instructions
-
-9. ALWAYS include:
-   - Evidence tables showing what was actually found
-   - One-sentence fixes
-   - Simple severity badges (High/Medium/Low only)
-
-Tone: Friendly, encouraging, like helping a friend. Assume they know nothing about websites.
+REQUIREMENTS:
+- Keep it SHORT (2-3 pages max)
+- Use plain English, no jargon
+- One-sentence fixes only
+- Structure: Executive Summary → Quick Fix Checklist → Top Actions → Modules
+- Quick Fix Checklist: 5-7 simple items
+- Module names: "Page Speed", "Search Engine Access", "Page Content", "Mobile Friendly", etc.
+- For each issue: Title, Why (one sentence), How to fix (one sentence), Evidence
+- Tone: Friendly, like helping a friend
 
 Respond with ONLY valid JSON in this exact format:
 {
@@ -482,7 +429,14 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
   console.log('Parsing JSON response...')
   let reportData: any
   try {
-    reportData = JSON.parse(jsonMatch[0])
+    // Clean up the JSON string - remove any trailing text or incomplete JSON
+    let jsonString = jsonMatch[0]
+    // Try to find the closing brace to ensure we have complete JSON
+    const lastBrace = jsonString.lastIndexOf('}')
+    if (lastBrace > 0) {
+      jsonString = jsonString.substring(0, lastBrace + 1)
+    }
+    reportData = JSON.parse(jsonString)
     console.log('✅ JSON parsed successfully')
     
     // Validate required fields and initialize if missing
