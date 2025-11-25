@@ -108,8 +108,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ checkoutUrl: session.url })
   } catch (error) {
     console.error('Error in create-checkout:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('Error details:', { errorMessage, errorStack })
     return NextResponse.json(
-      { error: 'Failed to create checkout session' },
+      { 
+        error: 'Failed to create checkout session',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     )
   }
