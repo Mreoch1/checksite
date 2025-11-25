@@ -331,7 +331,7 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
   const smallButtons = buttons.filter((_, el) => {
     const style = siteData.$(el).attr('style') || ''
     const height = style.match(/height:\s*(\d+)px/)
-    return height && parseInt(height[1]) < 44
+    return !!(height && parseInt(height[1]) < 44)
   }).length
 
   if (smallButtons > 0) {
