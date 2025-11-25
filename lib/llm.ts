@@ -407,7 +407,7 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     throw new Error('DeepSeek returned empty response')
   }
   
-  // Extract JSON - try multiple patterns
+  // Extract JSON - try multiple patterns with better error handling
   console.log('Extracting JSON from response...')
   let jsonMatch = response.match(/\{[\s\S]*\}/)
   
@@ -420,9 +420,19 @@ IMPORTANT: Include ALL modules from the audit results. Do not skip any.`
     }
   }
   
+  // Try to find JSON after common prefixes
+  if (!jsonMatch) {
+    const prefixMatch = response.match(/(?:Here'?s?|Here is|The report|JSON):?\s*(\{[\s\S]*\})/i)
+    if (prefixMatch) {
+      jsonMatch = [prefixMatch[1], prefixMatch[1]]
+      console.log('Found JSON after prefix')
+    }
+  }
+  
   if (!jsonMatch) {
     console.error('❌ No JSON found in response')
     console.error('Response preview (first 1000 chars):', response.substring(0, 1000))
+    console.error('Response length:', response.length)
     throw new Error('Invalid JSON response from DeepSeek - no JSON found in response')
   }
 

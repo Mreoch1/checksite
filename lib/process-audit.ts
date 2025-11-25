@@ -10,21 +10,26 @@ import { ModuleKey } from '@/lib/types'
  * This function is used by both webhooks and Inngest
  */
 export async function processAudit(auditId: string) {
+  // Store audit data at function scope for error handling
+  let audit: any = null
+  let auditResult: any = null
+  
   try {
     console.log(`[processAudit] Starting audit ${auditId} at ${new Date().toISOString()}`)
     
     // Get audit details
-    const { data: audit, error: auditError } = await supabase
+    const { data: auditData, error: auditError } = await supabase
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
       .single()
 
-    if (auditError || !audit) {
+    if (auditError || !auditData) {
       console.error('Audit not found:', auditError)
       throw new Error(`Audit not found: ${auditError?.message || 'Unknown error'}`)
     }
 
+    audit = auditData
     console.log(`Found audit for URL: ${audit.url}, Customer: ${(audit.customers as any)?.email}`)
 
     // Get enabled modules
@@ -129,7 +134,7 @@ export async function processAudit(auditId: string) {
     }
 
     // Store raw results
-    const auditResult = {
+    auditResult = {
       url: audit.url,
       pageAnalysis,
       modules: results,
