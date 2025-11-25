@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
-import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
+import { sendAuditReportEmail } from '@/lib/email-unified'
+// sendAuditFailureEmail disabled to preserve Resend quota
 import { ModuleKey } from '@/lib/types'
 
 /**
