@@ -158,7 +158,8 @@ async function processAudit(auditId: string) {
       })
       .eq('id', auditId)
 
-    // Send email (optional - fails gracefully if domain not verified)
+    // Send email via Resend (if domain verified)
+    // Note: Stripe receipt email already includes the report link, so this is optional
     const customer = audit.customers as any
     try {
       console.log(`Attempting to send email to ${customer.email} for audit ${auditId}`)
@@ -170,10 +171,9 @@ async function processAudit(auditId: string) {
       )
       console.log(`Email sent successfully to ${customer.email}`)
     } catch (emailError) {
-      console.error('Email sending failed (this is okay - report is still available via URL):', emailError)
-      // Don't fail the whole audit if email fails
-      // The report is still available via the URL shown on the success page
-      // This allows the system to work even without email domain verification
+      console.error('Resend email failed (Stripe receipt email includes the report link):', emailError)
+      // Don't fail the whole audit if Resend email fails
+      // Stripe receipt email already includes the report link in the description
     }
   } catch (error) {
     console.error('Error processing audit:', error)
