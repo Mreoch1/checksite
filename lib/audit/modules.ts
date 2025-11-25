@@ -20,12 +20,19 @@ interface SiteData {
  */
 export async function fetchSite(url: string): Promise<SiteData> {
   try {
+    // Add timeout to fetch (30 seconds)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; SiteCheck/1.0)',
       },
       redirect: 'follow',
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
@@ -50,6 +57,9 @@ export async function fetchSite(url: string): Promise<SiteData> {
       headers,
     }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout: ${url} took longer than 30 seconds to respond`)
+    }
     throw new Error(`Failed to fetch ${url}: ${error}`)
   }
 }
