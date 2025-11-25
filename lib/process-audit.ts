@@ -329,21 +329,25 @@ export async function processAudit(auditId: string) {
       }
     }
 
-    // Send failure email
-    try {
-      const { data: audit } = await supabase
-        .from('audits')
-        .select('*, customers(*)')
-        .eq('id', auditId)
-        .single()
+          // Send failure email - DISABLED to preserve Resend quota
+          // Uncomment below to re-enable failure emails
+          /*
+          try {
+            const { data: audit } = await supabase
+              .from('audits')
+              .select('*, customers(*)')
+              .eq('id', auditId)
+              .single()
 
-      if (audit) {
-        const customer = audit.customers as any
-        await sendAuditFailureEmail(customer.email, audit.url)
-      }
-    } catch (failureEmailError) {
-      console.error('Error sending failure email:', failureEmailError)
-    }
+            if (audit) {
+              const customer = audit.customers as any
+              await sendAuditFailureEmail(customer.email, audit.url)
+            }
+          } catch (failureEmailError) {
+            console.error('Error sending failure email:', failureEmailError)
+          }
+          */
+          console.log('⚠️  Failure email disabled to preserve Resend quota')
   }
 }
 
