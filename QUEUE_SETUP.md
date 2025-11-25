@@ -25,7 +25,7 @@ We'll use **cron-job.org** (completely free):
 4. Configure:
    - **Title**: SEO CheckSite Queue Processor
    - **Address (URL)**: `https://seochecksite.netlify.app/api/process-queue`
-   - **Schedule**: Every minute (`* * * * *`)
+   - **Schedule**: Every minute (`* * * * *`) - Use "Custom" option and enter `* * * * *` in the crontab expression field
    - **Request method**: GET
    - **Request headers** (optional, for security):
      - Header name: `Authorization`
