@@ -221,7 +221,11 @@ export default function RecommendPage() {
                 <div
                   key={module.key}
                   className={`border-2 rounded-lg p-4 ${
-                    isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                    isSelected 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : module.recommended 
+                        ? 'border-gray-200 bg-white' 
+                        : 'border-gray-200 bg-gray-50'
                   }`}
                 >
                   <div className="flex items-start">
@@ -234,20 +238,48 @@ export default function RecommendPage() {
                       className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <div className="ml-3 flex-1">
-                      <label
-                        htmlFor={module.key}
-                        className={`font-semibold text-lg ${
-                          isCore ? 'text-gray-700' : 'text-gray-900 cursor-pointer'
-                        }`}
-                      >
-                        {MODULE_DISPLAY_NAMES[module.key]}
+                      <div className="flex items-center gap-2">
+                        <label
+                          htmlFor={module.key}
+                          className={`font-semibold text-lg ${
+                            isCore ? 'text-gray-700' : 'text-gray-900 cursor-pointer'
+                          }`}
+                        >
+                          {MODULE_DISPLAY_NAMES[module.key]}
+                        </label>
                         {isCore && (
-                          <span className="ml-2 text-sm text-gray-500 font-normal">(Always included)</span>
+                          <span className="text-sm text-gray-500 font-normal">(Always included)</span>
                         )}
-                      </label>
+                        {!isCore && module.recommended && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">
+                            Recommended
+                          </span>
+                        )}
+                        {!isCore && !module.recommended && (
+                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded font-medium">
+                            Not recommended
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-600 mt-1">{MODULE_DESCRIPTIONS[module.key]}</p>
                       {module.reason && (
-                        <p className="text-sm text-blue-600 mt-1 italic">Why: {module.reason}</p>
+                        <div className={`mt-2 p-2 rounded border-l-4 ${
+                          module.recommended 
+                            ? 'bg-blue-50 border-blue-400' 
+                            : 'bg-gray-100 border-gray-400'
+                        }`}>
+                          <p className={`text-sm ${
+                            module.recommended 
+                              ? 'text-blue-800' 
+                              : 'text-gray-700'
+                          }`}>
+                            {module.recommended ? (
+                              <>💡 <strong>Why recommended:</strong> {module.reason}</>
+                            ) : (
+                              <>ℹ️ {module.reason}</>
+                            )}
+                          </p>
+                        </div>
                       )}
                     </div>
                     <div className="ml-4 text-right">
