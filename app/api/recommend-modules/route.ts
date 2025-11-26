@@ -143,12 +143,10 @@ export async function POST(request: NextRequest) {
       // Check for online-only indicators (more specific to avoid false positives)
       const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront|purely online|exclusively online)/i.test(allText)
       
-      // Always recommend Local SEO - let the client decide
-      // We'll provide examples in the reason text to help them decide
-      const isLocalBusiness = true
+      // Local SEO is optional - not recommended by default, but available for clients to choose
+      const isLocalBusiness = false
       
-      // Local SEO is always recommended - client decides if they need it
-      console.log(`[recommend-modules] Local SEO always recommended for ${normalizedUrl} - client will decide`)
+      console.log(`[recommend-modules] Local SEO available as optional add-on for ${normalizedUrl}`)
       
       const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
       // Business detection - check for business indicators (name, services, contact info, etc.)
@@ -162,7 +160,7 @@ export async function POST(request: NextRequest) {
         social: hasSocialContent || isBusiness,
         competitor_overview: isBusiness,
         reasons: {
-          local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, this is recommended.',
+          local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, you may want to add this.',
           accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
           security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
           schema: isBusiness
