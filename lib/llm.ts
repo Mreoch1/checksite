@@ -282,7 +282,12 @@ For each module, set true if recommended, false if not needed, and provide a one
 
 6. competitor_overview - Would competitor analysis help? (For businesses in competitive markets - most businesses benefit from this)
 
-CRITICAL for local: Look for physical addresses, phone numbers, and local service indicators. If you see an address like "123 Main St, City, State 12345" or a phone number, it's likely a local business. Installation services, contractors, and businesses with physical locations should be TRUE.
+CRITICAL for local: 
+- Look for physical addresses (e.g., "1030 N Crooks Rd, Suite G, Clawson, MI 48017" or any street address with city/state/zip)
+- Look for phone numbers (e.g., "+1 248-288-6600" or any phone format)
+- Look for business entity names (Industries, Inc., LLC, Corp, Company)
+- Installation services, contractors, service businesses, and any business with a physical address should be TRUE
+- Only set FALSE if the site explicitly says "online-only", "remote only", "no physical location", or is clearly a SaaS/digital platform with no local presence
 
 Respond with ONLY valid JSON:
 {
