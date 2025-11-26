@@ -254,8 +254,14 @@ export async function recommendModules(
   competitor_overview: boolean
   reasons: Record<string, string>
 }> {
+  // Store full content for post-processing override
+  const fullContent = (siteSummary.content || '').toLowerCase()
+  const fullTitle = (siteSummary.title || '').toLowerCase()
+  const fullDescription = (siteSummary.description || '').toLowerCase()
+  const allText = `${fullTitle} ${fullDescription} ${fullContent}`
+  
   // Optimized prompt - shorter and more focused for faster response
-  const contentSample = (siteSummary.content || '').substring(0, 500) // Increased for better detection
+  const contentSample = (siteSummary.content || '').substring(0, 1000) // Increased to 1000 for better detection
   const prompt = `Analyze this website and recommend optional SEO checks.
 
 URL: ${url}
@@ -350,16 +356,36 @@ Respond with ONLY valid JSON:
     
     // Post-process: Override local recommendation if we detect clear local business indicators
     // This catches cases where LLM misses obvious local businesses
-    const fullContent = (siteSummary.content || '').toLowerCase()
-    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|address|location|visit us/i.test(fullContent)
-    const hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|tel:/i.test(fullContent)
-    const hasBusinessEntity = /(inc\.|llc|corp|industries|company)/i.test(fullContent)
+    // Use the full content we stored earlier, not just the sample
+    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|address|location|visit us|come in|our location|find us/i.test(allText)
+    const hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
+    const hasBusinessEntity = /(inc\.|llc|corp|industries|company|corporation)/i.test(allText)
     
-    // If we have address AND phone, or address/phone with business entity, force local = true
-    if ((hasAddress && hasPhone) || ((hasAddress || hasPhone) && hasBusinessEntity)) {
-      console.log(`[recommendModules] Overriding local recommendation to true - detected address/phone with business entity`)
+    // More aggressive: If we have address AND phone, definitely local
+    // OR if we have address/phone with business entity (Industries, Inc, LLC, etc.)
+    // OR if we have business entity with any contact info
+    const hasBothAddressAndPhone = hasAddress && hasPhone
+    const hasAddressOrPhoneWithEntity = (hasAddress || hasPhone) && hasBusinessEntity
+    const hasEntityWithContact = hasBusinessEntity && (hasAddress || hasPhone)
+    
+    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact) {
+      console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
+        hasAddress,
+        hasPhone,
+        hasBusinessEntity,
+        hasBothAddressAndPhone,
+        hasAddressOrPhoneWithEntity,
+        hasEntityWithContact,
+      })
       parsed.local = true
       parsed.reasons.local = 'Your site has a physical address and phone number, indicating a local business that would benefit from local SEO optimization.'
+    } else {
+      console.log(`[recommendModules] Not overriding local - no clear indicators found:`, {
+        hasAddress,
+        hasPhone,
+        hasBusinessEntity,
+        contentSample: allText.substring(0, 300),
+      })
     }
     
     console.log(`[recommendModules] Successfully parsed recommendations`)
