@@ -519,15 +519,23 @@ export async function GET(request: NextRequest) {
         })
         .eq('id', queueItem.id)
       
+      // Return 200 (not 500) if this is an expected failure that will be retried
+      // Only return 500 for unexpected errors that shouldn't be retried
+      const statusCode = shouldRetry ? 200 : 500
+      
       return NextResponse.json({
-        success: false,
-        message: `Audit ${auditId} processing failed`,
+        success: !shouldRetry, // Only "success" if we're not retrying
+        message: shouldRetry 
+          ? `Audit ${auditId} processing failed - will retry (attempt ${queueItem.retry_count + 1}/3)`
+          : `Audit ${auditId} processing failed - exceeded max retries`,
         error: errorMessage,
         processed: true,
         auditId,
         willRetry: shouldRetry,
+        retry_count: queueItem.retry_count + 1,
+        max_retries: 3,
         auditStatusUpdated: currentAudit?.status === 'failed',
-      }, { status: 500 })
+      }, { status: statusCode })
     }
   } catch (error) {
     const requestId = getRequestId(request)
