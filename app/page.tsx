@@ -16,7 +16,11 @@ export default function Home() {
 
   const validateUrl = (urlString: string): boolean => {
     try {
-      const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`)
+      // Normalize URL - add https:// if no protocol is provided
+      const normalized = urlString.startsWith('http://') || urlString.startsWith('https://')
+        ? urlString
+        : `https://${urlString}`
+      const url = new URL(normalized)
       return url.protocol === 'http:' || url.protocol === 'https:'
     } catch {
       return false
@@ -45,8 +49,11 @@ export default function Home() {
     setLoading(true)
 
     try {
-      // Normalize URL
-      const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+      // Normalize URL - ensure it has https://
+      let normalizedUrl = url.trim()
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`
+      }
       
       // Store in sessionStorage and redirect
       sessionStorage.setItem('auditUrl', normalizedUrl)

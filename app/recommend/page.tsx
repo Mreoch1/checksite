@@ -125,7 +125,14 @@ export default function RecommendPage() {
     setProcessing(true)
     setError('')
 
-    // Validate competitor URL if Competitor Overview is selected
+    // Normalize main URL - ensure it has https://
+    let normalizedUrl = url
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      normalizedUrl = `https://${url}`
+    }
+
+    // Validate and normalize competitor URL if Competitor Overview is selected
+    let normalizedCompetitorUrl: string | undefined = undefined
     if (selectedModules.has('competitor_overview')) {
       const trimmedUrl = competitorUrl.trim()
       if (!trimmedUrl) {
@@ -134,11 +141,16 @@ export default function RecommendPage() {
         return
       }
       
+      // Normalize competitor URL - ensure it has https://
+      normalizedCompetitorUrl = trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') 
+        ? trimmedUrl 
+        : `https://${trimmedUrl}`
+      
       // Basic URL validation
       try {
-        new URL(trimmedUrl.startsWith('http') ? trimmedUrl : `https://${trimmedUrl}`)
+        new URL(normalizedCompetitorUrl)
       } catch {
-        setError('Please enter a valid competitor URL (e.g., https://competitor.com)')
+        setError('Please enter a valid competitor URL (e.g., competitor.com or https://competitor.com)')
         setProcessing(false)
         return
       }
@@ -149,10 +161,10 @@ export default function RecommendPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url,
+          url: normalizedUrl,
           email,
           modules: Array.from(selectedModules),
-          competitorUrl: selectedModules.has('competitor_overview') ? competitorUrl.trim() : undefined,
+          competitorUrl: normalizedCompetitorUrl,
         }),
       })
 
@@ -317,7 +329,7 @@ export default function RecommendPage() {
                             id="competitor-url"
                             value={competitorUrl}
                             onChange={(e) => setCompetitorUrl(e.target.value)}
-                            placeholder="https://competitor.com"
+                            placeholder="competitor.com or https://competitor.com"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             aria-required="true"
                             aria-describedby="competitor-url-help"
