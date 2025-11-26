@@ -1,11 +1,16 @@
 import { Metadata } from 'next'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+
 export const metadata: Metadata = {
   title: 'Accessibility Statement | SEO CheckSite',
   description: 'Accessibility Statement for SEO CheckSite. Our commitment to digital accessibility and WCAG 2.1 Level AA compliance.',
   robots: {
     index: true,
     follow: true,
+  },
+  alternates: {
+    canonical: `${siteUrl}/accessibility`,
   },
 }
 

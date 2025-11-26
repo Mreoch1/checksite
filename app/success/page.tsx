@@ -1,5 +1,15 @@
 import { Suspense } from 'react'
+import { Metadata } from 'next'
 import SuccessClient from './SuccessClient'
+
+export const metadata: Metadata = {
+  title: 'Payment Successful | SEO CheckSite',
+  description: 'Your payment was successful. Your website audit report will be delivered to your email within 5-10 minutes.',
+  robots: {
+    index: false, // Don't index success pages (they're dynamic with query params)
+    follow: false,
+  },
+}
 
 export default function SuccessPage() {
   return (

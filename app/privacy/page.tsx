@@ -1,11 +1,16 @@
 import { Metadata } from 'next'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+
 export const metadata: Metadata = {
   title: 'Privacy Policy | SEO CheckSite',
   description: 'Privacy Policy for SEO CheckSite. Learn how we collect, use, and protect your personal information. GDPR and CCPA compliant.',
   robots: {
     index: true,
     follow: true,
+  },
+  alternates: {
+    canonical: `${siteUrl}/privacy`,
   },
 }
 
