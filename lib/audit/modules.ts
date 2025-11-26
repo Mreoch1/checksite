@@ -613,13 +613,18 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   // Priority 2: Full page text (fallback)
   const textContent = siteData.$('body').text()
   
-  // Strict address pattern: requires street number, street word(s), and street type
-  // Pattern: \d{1,5}\s+\w+(\s+\w+)*\s+(St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b
-  const strictStreetPattern = /\d{1,5}\s+\w+(\s+\w+)*\s+(St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b/i
+  // Strict address pattern: requires street number, optional directional, street word(s), and street type
+  // Handles: "1030 N Crooks Rd", "123 Main St", "456 S Park Avenue"
+  // Pattern: \d{1,5}\s+(N|S|E|W|NE|NW|SE|SW\s+)?\w+(\s+\w+)*\s+(St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b
+  // Note: Directional is optional but if present, must be followed by space(s)
+  const strictStreetPattern = /\d{1,5}\s+(?:(?:N|S|E|W|NE|NW|SE|SW)\s+)?\w+(?:\s+\w+)*\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b/i
   
-  // Full address pattern with city, state, zip: Street + City, [A-Z]{2} \d{5}(-\d{4})?
+  // Full address pattern with optional suite/unit, city, state, zip
+  // Handles: "1030 N Crooks Rd, Suite G, Clawson, MI 48017"
+  // Pattern: Street (optional: Suite/Unit/Apt) City, State ZIP
   const fullAddressPattern = new RegExp(
     strictStreetPattern.source + 
+    '(?:\\s*,?\\s*(?:Suite|Unit|Apt|Apartment|Room|Rm|#)\\s*[A-Z0-9]+)?' + // Optional suite/unit
     '\\s*,?\\s*[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*,\\s*[A-Z]{2}\\s+\\d{5}(-\\d{4})?',
     'i'
   )
@@ -635,14 +640,20 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   if (priorityText) {
     addressMatch = priorityText.match(fullAddressPattern)
     if (!addressMatch) {
-      // Try street pattern in priority sections
+      // Try street pattern in priority sections, then look for city/state/zip nearby
       const streetMatch = priorityText.match(strictStreetPattern)
       if (streetMatch) {
-        // Check if city/state/zip follows within reasonable distance
+        // Check if city/state/zip follows within reasonable distance (up to 200 chars to allow for suite/unit)
         const streetIndex = priorityText.indexOf(streetMatch[0])
-        const contextAfter = priorityText.substring(streetIndex, streetIndex + 150)
+        const contextAfter = priorityText.substring(streetIndex, streetIndex + 200)
         if (contextAfter.match(cityStateZipPattern)) {
-          addressMatch = priorityText.match(new RegExp(streetMatch[0] + '.*?' + cityStateZipPattern.source, 'i'))
+          // Match street + optional suite/unit + city/state/zip
+          const suitePattern = '(?:\\s*,?\\s*(?:Suite|Unit|Apt|Apartment|Room|Rm|#)\\s*[A-Z0-9]+)?'
+          addressMatch = priorityText.match(new RegExp(
+            streetMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + // Escape special chars
+            suitePattern + '\\s*,?\\s*' + cityStateZipPattern.source,
+            'i'
+          ))
         }
       }
     }
@@ -656,9 +667,15 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
       const streetMatch = textContent.match(strictStreetPattern)
       if (streetMatch) {
         const streetIndex = textContent.indexOf(streetMatch[0])
-        const contextAfter = textContent.substring(streetIndex, streetIndex + 150)
+        const contextAfter = textContent.substring(streetIndex, streetIndex + 200)
         if (contextAfter.match(cityStateZipPattern)) {
-          addressMatch = textContent.match(new RegExp(streetMatch[0] + '.*?' + cityStateZipPattern.source, 'i'))
+          // Match street + optional suite/unit + city/state/zip
+          const suitePattern = '(?:\\s*,?\\s*(?:Suite|Unit|Apt|Apartment|Room|Rm|#)\\s*[A-Z0-9]+)?'
+          addressMatch = textContent.match(new RegExp(
+            streetMatch[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + // Escape special chars
+            suitePattern + '\\s*,?\\s*' + cityStateZipPattern.source,
+            'i'
+          ))
         }
       }
     }
