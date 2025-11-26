@@ -433,6 +433,10 @@ Respond with ONLY valid JSON:
       titleHasEntity,
       urlHasEntity,
       hasContactKeywords,
+      urlHasInc,
+      hasAnyContactInfo,
+      hasIncWithContact,
+      overrideApplied: hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact,
     })
     return parsed
   } catch (parseError) {
