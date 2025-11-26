@@ -373,11 +373,16 @@ Respond with ONLY valid JSON:
     // More aggressive: If we have address AND phone, definitely local
     // OR if we have address/phone with business entity (Industries, Inc, LLC, etc.)
     // OR if we have business entity with any contact info
+    // OR if we have business entity with any digits (likely address/phone even if pattern doesn't match)
     const hasBothAddressAndPhone = hasAddress && hasPhone
     const hasAddressOrPhoneWithEntity = (hasAddress || hasPhone) && hasBusinessEntity
     const hasEntityWithContact = hasBusinessEntity && (hasAddress || hasPhone)
     
-    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact) {
+    // Fallback: If we see "Industries" or business entity with digits, it's likely a local business
+    // This catches cases where address format is non-standard
+    const hasEntityWithDigits = hasBusinessEntity && /\d{3,}/.test(allText) // 3+ consecutive digits (phone or zip)
+    
+    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits) {
       console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
         hasAddress,
         hasPhone,
@@ -385,6 +390,9 @@ Respond with ONLY valid JSON:
         hasBothAddressAndPhone,
         hasAddressOrPhoneWithEntity,
         hasEntityWithContact,
+        hasEntityWithDigits,
+        url,
+        title: siteSummary.title,
       })
       parsed.local = true
       parsed.reasons.local = 'Your site has a physical address and phone number, indicating a local business that would benefit from local SEO optimization.'
@@ -393,7 +401,8 @@ Respond with ONLY valid JSON:
         hasAddress,
         hasPhone,
         hasBusinessEntity,
-        contentSample: allText.substring(0, 300),
+        contentLength: allText.length,
+        contentSample: allText.substring(0, 500),
       })
     }
     
