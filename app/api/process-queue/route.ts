@@ -394,7 +394,7 @@ export async function GET(request: NextRequest) {
       .eq('id', auditId)
       .single()
     
-    if (isEmailSent(finalCheck?.email_sent_at)) {
+    if (finalCheck && isEmailSent(finalCheck.email_sent_at)) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email was sent between initial check and processing (${finalCheck.email_sent_at})`)
       // Mark queue item as completed since email was sent
       await supabase
