@@ -33,11 +33,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate URL
-    let normalizedUrl = url
-    if (!url.startsWith('http')) {
-      normalizedUrl = `https://${url}`
-    }
+    // Normalize URL - add https:// and lowercase domain
+    const { normalizeUrl } = await import('@/lib/normalize-url')
+    const normalizedUrl = normalizeUrl(url)
 
     // Fetch basic site info with timeout
     let siteSummary = {
