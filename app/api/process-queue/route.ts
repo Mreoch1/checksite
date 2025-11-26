@@ -52,9 +52,45 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .single()
     
+    // Check if no queue item found first
+    if (findError || !queueItem) {
+      // No pending audits - log this for debugging
+      console.log(`[${requestId}] No pending audits in queue`)
+      
+      // Check if there are any stuck items (processing for too long)
+      const { data: stuckItems } = await supabase
+        .from('audit_queue')
+        .select('*, audits(*)')
+        .eq('status', 'processing')
+        .lt('started_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // Processing for > 10 minutes
+      
+      if (stuckItems && stuckItems.length > 0) {
+        console.warn(`[${requestId}] Found ${stuckItems.length} stuck processing items`)
+        return NextResponse.json({
+          success: true,
+          message: 'No pending audits in queue',
+          processed: false,
+          warning: `${stuckItems.length} audits stuck in processing state`,
+          stuckItems: stuckItems.map(item => ({
+            id: item.id,
+            audit_id: item.audit_id,
+            started_at: item.started_at,
+            retry_count: item.retry_count,
+          })),
+        })
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: 'No pending audits in queue',
+        processed: false,
+      })
+    }
+    
     // Additional checks: skip if audit is already completed
-    const auditData = queueItem.audits as any
-    if (queueItem && auditData) {
+    // Now we know queueItem exists, so we can safely access its properties
+    const auditData = (queueItem.audits as any) || null
+    if (auditData) {
       // CRITICAL: Skip if email was already sent (regardless of report status)
       // This is the PRIMARY check to prevent duplicate emails
       if (auditData.email_sent_at) {
@@ -118,40 +154,6 @@ export async function GET(request: NextRequest) {
           auditId: queueItem.audit_id,
         })
       }
-    }
-
-    if (findError || !queueItem) {
-      // No pending audits - log this for debugging
-      console.log(`[${requestId}] No pending audits in queue`)
-      
-      // Check if there are any stuck items (processing for too long)
-      const { data: stuckItems } = await supabase
-        .from('audit_queue')
-        .select('*, audits(*)')
-        .eq('status', 'processing')
-        .lt('started_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // Processing for > 10 minutes
-      
-      if (stuckItems && stuckItems.length > 0) {
-        console.warn(`[${requestId}] Found ${stuckItems.length} stuck processing items`)
-        return NextResponse.json({
-          success: true,
-          message: 'No pending audits in queue',
-          processed: false,
-          warning: `${stuckItems.length} audits stuck in processing state`,
-          stuckItems: stuckItems.map(item => ({
-            id: item.id,
-            audit_id: item.audit_id,
-            started_at: item.started_at,
-            retry_count: item.retry_count,
-          })),
-        })
-      }
-      
-      return NextResponse.json({
-        success: true,
-        message: 'No pending audits in queue',
-        processed: false,
-      })
     }
 
     const auditId = queueItem.audit_id
