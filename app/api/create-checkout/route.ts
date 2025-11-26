@@ -145,6 +145,8 @@ export async function POST(request: NextRequest) {
         .eq('id', audit.id)
       
       // Add to queue instead of processing directly (avoids Netlify timeout)
+      // CRITICAL: When upserting, we need to reset created_at if the entry already existed
+      // Otherwise, old entries will be reused with old timestamps
       const { data: queueResult, error: queueError } = await supabase
         .from('audit_queue')
         .upsert({
@@ -152,6 +154,7 @@ export async function POST(request: NextRequest) {
           status: 'pending',
           retry_count: 0,
           last_error: null,
+          created_at: new Date().toISOString(), // Reset created_at to now when upserting
         }, {
           onConflict: 'audit_id',
         })

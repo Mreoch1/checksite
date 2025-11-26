@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     // Add to queue instead of processing directly (avoids Netlify timeout)
     // Use upsert to prevent duplicates if audit was already queued
+    // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
     console.log(`Adding audit ${auditId} to processing queue`)
     const { error: queueError } = await supabase
       .from('audit_queue')
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         retry_count: 0,
         last_error: null,
+        created_at: new Date().toISOString(), // Reset created_at to now when upserting
       }, {
         onConflict: 'audit_id',
       })

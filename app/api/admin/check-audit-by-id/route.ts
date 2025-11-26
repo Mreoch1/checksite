@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'add_to_queue') {
       // Add audit to queue
+      // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
       const { data: queueResult, error: queueError } = await supabase
         .from('audit_queue')
         .upsert({
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
           status: 'pending',
           retry_count: 0,
           last_error: null,
+          created_at: new Date().toISOString(), // Reset created_at to now when upserting
         }, {
           onConflict: 'audit_id',
         })
