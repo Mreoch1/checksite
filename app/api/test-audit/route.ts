@@ -91,12 +91,17 @@ export async function POST(request: NextRequest) {
       .eq('id', audit.id)
 
     // Add to queue instead of processing directly (avoids Netlify timeout)
+    // Use upsert to prevent duplicates if audit was already queued
     console.log(`Adding audit ${audit.id} to processing queue`)
     const { error: queueError } = await supabase
       .from('audit_queue')
-      .insert({
+      .upsert({
         audit_id: audit.id,
         status: 'pending',
+        retry_count: 0,
+        last_error: null,
+      }, {
+        onConflict: 'audit_id',
       })
 
     if (queueError) {

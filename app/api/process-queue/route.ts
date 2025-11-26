@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the oldest pending audit in the queue
+    // Also check that email hasn't been sent yet (prevent processing already-completed audits)
     const { data: queueItem, error: findError } = await supabase
       .from('audit_queue')
       .select('*, audits(*)')
@@ -47,6 +48,26 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(1)
       .single()
+    
+    // Additional check: skip if email was already sent (audit already completed)
+    if (queueItem && (queueItem.audits as any)?.email_sent_at) {
+      console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - email already sent at ${(queueItem.audits as any).email_sent_at}`)
+      // Mark queue item as completed since audit is done
+      await supabase
+        .from('audit_queue')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', queueItem.id)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Audit already completed (email sent)',
+        processed: false,
+        auditId: queueItem.audit_id,
+      })
+    }
 
     if (findError || !queueItem) {
       // No pending audits
