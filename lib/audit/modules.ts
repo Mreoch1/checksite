@@ -142,13 +142,19 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
     }
   })
 
-  if (imagesWithoutLazy > 5) {
+  // Suggest lazy loading for any images without it (even if just a few)
+  if (imagesWithoutLazy > 0) {
+    const severity = imagesWithoutLazy > 5 ? 'medium' : 'low'
     issues.push({
-      title: 'Images may be slowing down your site',
-      severity: 'medium',
+      title: imagesWithoutLazy > 5 
+        ? 'Images may be slowing down your site'
+        : 'Consider adding lazy loading to images',
+      severity,
       technicalExplanation: `Found ${imagesWithoutLazy} images without lazy loading`,
-      plainLanguageExplanation: 'Large images can make your site slow to load, especially on mobile devices.',
-      suggestedFix: 'Ask your web designer to add "lazy loading" to images. This makes images load only when visitors scroll to them.',
+      plainLanguageExplanation: imagesWithoutLazy > 5
+        ? 'Large images can make your site slow to load, especially on mobile devices.'
+        : 'Adding lazy loading to images can help your pages load faster.',
+      suggestedFix: 'Ask your web designer to add loading="lazy" to your images. This makes images load only when visitors scroll to them.',
       evidence: {
         found: `${imagesWithoutLazy} images without lazy loading`,
         actual: `${imagesWithLazy} with lazy loading, ${imagesWithoutLazy} without`,
@@ -156,7 +162,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
         count: imagesWithoutLazy,
       },
     })
-    score -= 10
+    score -= imagesWithoutLazy > 5 ? 10 : 5
   }
 
   // Check for render-blocking resources
@@ -282,7 +288,8 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       },
     })
     score -= 10
-  } else if (title.length > 60) {
+  } else if (title.length > 65) {
+    // More lenient: only flag if significantly over (65+)
     issues.push({
       title: 'Page title is too long',
       severity: 'low',
@@ -292,10 +299,25 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       evidence: {
         found: title,
         actual: `${title.length} characters`,
-        expected: '50-60 characters',
+        expected: '50-60 characters is optimal (61-65 is acceptable)',
       },
     })
     score -= 5
+  } else if (title.length > 60) {
+    // 61-65 characters: acceptable but mention it
+    issues.push({
+      title: 'Page title is slightly longer than recommended',
+      severity: 'low',
+      technicalExplanation: `Title is ${title.length} characters (slightly over the 50-60 recommendation)`,
+      plainLanguageExplanation: 'Your title is slightly longer than the recommended length, but it should still work fine.',
+      suggestedFix: 'If possible, shorten your title to 50-60 characters for best results, but this is not urgent.',
+      evidence: {
+        found: title,
+        actual: `${title.length} characters`,
+        expected: '50-60 characters is optimal (61-65 is acceptable)',
+      },
+    })
+    score -= 2 // Very minor penalty
   }
 
   // Check meta description
@@ -1124,9 +1146,50 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   const issues: AuditIssue[] = []
   let score = 100
 
-  // Check for sitemap.xml
+  // Check for sitemap - first check robots.txt, then default locations
+  let sitemapExists = false
+  let sitemapUrl: string | null = null
+  
+  // First, check robots.txt for sitemap declaration
   try {
-    const sitemapUrl = new URL('/sitemap.xml', siteData.url).toString()
+    const robotsUrl = new URL('/robots.txt', siteData.url).toString()
+    const robotsController = new AbortController()
+    const robotsTimeout = setTimeout(() => robotsController.abort(), 5000)
+    const robotsResponse = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+      signal: robotsController.signal,
+    })
+    clearTimeout(robotsTimeout)
+    
+    if (robotsResponse.ok) {
+      const robotsContent = await robotsResponse.text()
+      // Look for sitemap declaration in robots.txt (case-insensitive)
+      const sitemapMatch = robotsContent.match(/sitemap:\s*(.+)/i)
+      if (sitemapMatch) {
+        const declaredSitemap = sitemapMatch[1].trim()
+        // Handle absolute and relative URLs
+        try {
+          if (declaredSitemap.startsWith('http://') || declaredSitemap.startsWith('https://')) {
+            sitemapUrl = declaredSitemap
+          } else {
+            sitemapUrl = new URL(declaredSitemap, siteData.url).toString()
+          }
+        } catch {
+          // Invalid URL in robots.txt, will check default location
+        }
+      }
+    }
+  } catch {
+    // robots.txt not accessible, will check default location
+  }
+  
+  // If no sitemap found in robots.txt, check default locations
+  if (!sitemapUrl) {
+    sitemapUrl = new URL('/sitemap.xml', siteData.url).toString()
+  }
+  
+  // Try to fetch the sitemap
+  try {
     const sitemapController = new AbortController()
     const sitemapTimeout = setTimeout(() => sitemapController.abort(), 5000)
     const sitemapResponse = await fetch(sitemapUrl, {
@@ -1135,21 +1198,38 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     })
     clearTimeout(sitemapTimeout)
     
-    if (!sitemapResponse.ok) {
-      issues.push({
-        title: 'Sitemap file not found',
-        severity: 'high',
-        technicalExplanation: 'sitemap.xml not accessible',
-        plainLanguageExplanation: 'A sitemap helps search engines find all your pages.',
-        suggestedFix: 'Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.',
-      })
-      score -= 25
+    if (sitemapResponse.ok) {
+      sitemapExists = true
+    } else {
+      // If default failed, also try sitemap_index.xml
+      if (sitemapUrl.endsWith('/sitemap.xml')) {
+        try {
+          const sitemapIndexUrl = new URL('/sitemap_index.xml', siteData.url).toString()
+          const indexController = new AbortController()
+          const indexTimeout = setTimeout(() => indexController.abort(), 5000)
+          const indexResponse = await fetch(sitemapIndexUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+            signal: indexController.signal,
+          })
+          clearTimeout(indexTimeout)
+          if (indexResponse.ok) {
+            sitemapExists = true
+            sitemapUrl = sitemapIndexUrl
+          }
+        } catch {
+          // sitemap_index.xml also failed
+        }
+      }
     }
   } catch (error) {
+    // Sitemap fetch failed
+  }
+  
+  if (!sitemapExists) {
     issues.push({
       title: 'Sitemap file not found',
       severity: 'high',
-      technicalExplanation: 'Could not access sitemap.xml',
+      technicalExplanation: 'sitemap.xml not accessible at default location or location declared in robots.txt',
       plainLanguageExplanation: 'A sitemap helps search engines find all your pages.',
       suggestedFix: 'Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.',
     })
@@ -1362,7 +1442,8 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       internalLinksCount: internalLinks,
       totalLinksChecked: linkUrls.length > 0 ? Math.min(10, linkUrls.length) : 0,
       brokenLinksCount: brokenLinks.length,
-      sitemapExists: false, // Will be set if sitemap check passes
+      sitemapExists: sitemapExists,
+      sitemapUrl: sitemapExists ? sitemapUrl : null,
     },
   }
 }
@@ -1399,8 +1480,8 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
   })
 
   // Check if site has unique content (heuristic)
-  const textContent = siteData.$('body').text().trim()
-  const wordCount = textContent.split(/\s+/).filter(w => w.length > 0).length
+  const bodyTextContent = siteData.$('body').text().trim()
+  const wordCount = bodyTextContent.split(/\s+/).filter(w => w.length > 0).length
 
   if (wordCount < 500) {
     issues.push({
@@ -1428,21 +1509,22 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     : 'Your site needs more content to compete effectively. Research competitors and create more detailed, helpful content.'
   
   // Collect competitor evidence
-  const competitorTitle = siteData.title || 'Not available'
-  const competitorDescription = siteData.description || 'Not available'
-  const competitorH1 = siteData.$('h1').first().text().trim() || 'Not found'
-
+  // Note: This module doesn't have access to actual competitor URLs yet
+  // For now, show a note that competitor data wasn't provided
+  
   return {
     moduleKey: 'competitor_overview',
     score: Math.max(0, score),
     issues,
     summary,
     evidence: {
-      note: 'This is a basic overview. For detailed competitor analysis, consider professional SEO tools.',
-      competitorTitle,
-      competitorDescription: competitorDescription.substring(0, 200),
-      competitorH1,
-      competitorWordCount: siteData.$('body').text().split(' ').filter(w => w.length > 0).length,
+      note: 'No competitor URLs were provided for comparison. This analysis is based on general best practices for your industry.',
+      competitorTitle: 'N/A - No competitor URL provided',
+      competitorDescription: 'N/A - No competitor URL provided',
+      competitorH1: 'N/A - No competitor URL provided',
+      competitorWordCount: 'N/A',
+      yourSiteWordCount: wordCount,
+      explanation: 'To compare against competitors, competitor URLs need to be provided during audit setup.',
     },
   }
 }
