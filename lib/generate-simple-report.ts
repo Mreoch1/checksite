@@ -335,7 +335,13 @@ function generateHTMLReport(data: {
 
     <h2>Executive Summary</h2>
     <div class="summary">
-      ${data.executiveSummary.map(point => `<p>${escapeHtml(point)}</p>`).join('')}
+      <div style="margin-bottom: 15px;">
+        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: ${data.overallScore}/100</strong>
+        <span class="score-badge ${data.overallScore >= 80 ? 'score-high' : data.overallScore >= 60 ? 'score-medium' : 'score-low'}" style="margin-left: 10px;">
+          ${data.overallScore >= 80 ? 'GOOD' : data.overallScore >= 60 ? 'NEEDS IMPROVEMENT' : 'NEEDS WORK'}
+        </span>
+      </div>
+      ${data.executiveSummary.map(point => `<p style="margin: 8px 0;">${escapeHtml(point)}</p>`).join('')}
     </div>
 
     ${data.quickFixChecklist.length > 0 ? `
@@ -466,6 +472,8 @@ function generatePlaintextReport(data: {
   
   text += `EXECUTIVE SUMMARY\n`
   text += `${'='.repeat(50)}\n`
+  text += `Overall Score: ${data.overallScore}/100\n`
+  text += `${data.overallScore >= 80 ? 'GOOD' : data.overallScore >= 60 ? 'NEEDS IMPROVEMENT' : 'NEEDS WORK'}\n\n`
   data.executiveSummary.forEach(point => {
     text += `• ${point}\n`
   })
