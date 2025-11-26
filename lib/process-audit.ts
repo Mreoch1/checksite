@@ -3,7 +3,7 @@ import { runAuditModules } from '@/lib/audit/modules'
 import { generateSimpleReport } from '@/lib/generate-simple-report'
 // import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
 import { sendAuditReportEmail } from '@/lib/email-unified'
-// sendAuditFailureEmail disabled to preserve Resend quota
+// sendAuditFailureEmail disabled to preserve email quota
 import { ModuleKey } from '@/lib/types'
 
 /**
@@ -441,7 +441,7 @@ export async function processAudit(auditId: string) {
       }
     }
 
-          // Send failure email - DISABLED to preserve Resend quota
+          // Send failure email - DISABLED to preserve email quota
           // Uncomment below to re-enable failure emails
           /*
           try {
@@ -459,7 +459,7 @@ export async function processAudit(auditId: string) {
             console.error('Error sending failure email:', failureEmailError)
           }
           */
-          console.log('⚠️  Failure email disabled to preserve Resend quota')
+          console.log('⚠️  Failure email disabled to preserve email quota')
   }
 }
 

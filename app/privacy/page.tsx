@@ -49,7 +49,7 @@ export default function PrivacyPage() {
           <p className="text-gray-700 mb-4">We use the following third-party services:</p>
           <ul className="list-disc pl-6 text-gray-700 mb-4">
             <li><strong>Stripe:</strong> Payment processing (see Stripe's privacy policy)</li>
-            <li><strong>Resend:</strong> Email delivery (see Resend's privacy policy)</li>
+            <li><strong>SendGrid:</strong> Email delivery (see SendGrid's privacy policy)</li>
             <li><strong>Supabase:</strong> Database hosting (see Supabase's privacy policy)</li>
             <li><strong>DeepSeek:</strong> AI-powered report generation (see DeepSeek's privacy policy)</li>
           </ul>
