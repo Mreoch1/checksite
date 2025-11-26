@@ -271,12 +271,7 @@ Content: ${contentSample}
 
 For each module, set true if recommended, false if not needed, and provide a one-sentence reason:
 
-1. local - Set TRUE if this business has:
-   - A physical address (street address, city, state, zip code)
-   - A phone number
-   - Serves a local geographic area
-   - Examples: restaurants, contractors, installation services, local stores, service businesses
-   - Set FALSE ONLY for: pure online services, SaaS platforms, digital agencies, remote-only consulting, websites with no physical location
+1. local - ALWAYS set to TRUE. Local SEO helps businesses with physical locations or local service areas. The client will decide if they need it based on examples provided.
 
 2. accessibility - Should accessibility be checked? (Usually yes for all sites)
 
@@ -287,13 +282,6 @@ For each module, set true if recommended, false if not needed, and provide a one
 5. social - Would social sharing optimization help? (If content is shareable, has blog/articles, or is a business website)
 
 6. competitor_overview - Would competitor analysis help? (For businesses in competitive markets - most businesses benefit from this)
-
-CRITICAL for local: 
-- Look for physical addresses (e.g., "1030 N Crooks Rd, Suite G, Clawson, MI 48017" or any street address with city/state/zip)
-- Look for phone numbers (e.g., "+1 248-288-6600" or any phone format)
-- Look for business entity names (Industries, Inc., LLC, Corp, Company)
-- Installation services, contractors, service businesses, and any business with a physical address should be TRUE
-- Only set FALSE if the site explicitly says "online-only", "remote only", "no physical location", or is clearly a SaaS/digital platform with no local presence
 
 Respond with ONLY valid JSON:
 {
