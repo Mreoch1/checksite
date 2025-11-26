@@ -63,12 +63,8 @@ function initializeSendGrid(): void {
     throw new Error('SENDGRID_API_KEY environment variable is required for SendGrid')
   }
   sgMail.setApiKey(SENDGRID_API_KEY)
-  // Ensure proper request configuration
-  if (sgMail.client) {
-    sgMail.client.defaultHeaders = {
-      'Content-Type': 'application/json',
-    }
-  }
+  // Note: SendGrid library automatically sets Content-Type: application/json
+  // The 415 error might be due to message format - ensure we're using the correct API
 }
 
 /**
