@@ -13,11 +13,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit'
+import { getRequestId } from '@/lib/request-id'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const requestId = getRequestId(request)
+  console.log(`[${requestId}] /api/process-queue called`)
   try {
     // Optional: Add basic auth to prevent unauthorized access
     // Supports both Bearer token header and query parameter (for easier cron-job.org setup)
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // Process the audit (this may take several minutes)
     try {
-      console.log(`[process-queue] Processing audit ${auditId} from queue`)
+      console.log(`[${requestId}] Processing audit ${auditId} from queue`)
       await processAudit(auditId)
       
       // Mark as completed
@@ -131,7 +134,7 @@ export async function GET(request: NextRequest) {
         })
         .eq('id', queueItem.id)
 
-      console.error(`[process-queue] Failed to process audit ${auditId}:`, processError)
+      console.error(`[${requestId}] Failed to process audit ${auditId}:`, processError)
       
       return NextResponse.json({
         success: false,
@@ -143,7 +146,8 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
   } catch (error) {
-    console.error('[process-queue] Unexpected error:', error)
+    const requestId = getRequestId(request)
+    console.error(`[${requestId}] Unexpected error in /api/process-queue:`, error)
     return NextResponse.json(
       {
         error: 'Unexpected error processing queue',
