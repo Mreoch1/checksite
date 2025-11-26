@@ -1529,80 +1529,102 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
 
   // Compare with competitor if we have data
   if (competitorData && competitorUrl) {
-    // Compare word count
+    // Compare word count - provide specific, actionable insights
     if (competitorData.wordCount && wordCount < competitorData.wordCount) {
       const difference = competitorData.wordCount - wordCount
+      const percentageDiff = Math.round((difference / competitorData.wordCount) * 100)
       issues.push({
-        title: 'Your site has less content than your competitor',
+        title: `Your site has ${percentageDiff}% less content than your competitor`,
         severity: difference > 500 ? 'medium' : 'low',
-        technicalExplanation: `Your site: ${wordCount} words, Competitor: ${competitorData.wordCount} words`,
-        plainLanguageExplanation: `Your competitor's site has ${difference} more words than yours. More detailed content often helps with search rankings.`,
-        suggestedFix: `Add more helpful content to your pages. Aim to match or exceed your competitor's content depth (${competitorData.wordCount} words).`,
+        technicalExplanation: `Your site: ${wordCount} words, Competitor: ${competitorData.wordCount} words (${difference} word difference)`,
+        plainLanguageExplanation: `Your competitor's homepage has ${competitorData.wordCount.toLocaleString()} words compared to your ${wordCount.toLocaleString()} words. More detailed, helpful content typically ranks better in search results.`,
+        suggestedFix: `Add ${difference.toLocaleString()} more words of helpful content to your homepage. Consider adding: detailed service descriptions, customer testimonials, FAQs, or helpful guides that your target audience would find valuable.`,
         evidence: {
-          found: `${wordCount} words on your site`,
-          actual: `${wordCount} words`,
-          expected: `At least ${competitorData.wordCount} words to match competitor`,
+          found: `${wordCount.toLocaleString()} words on your site`,
+          actual: `${wordCount.toLocaleString()} words`,
+          expected: `${competitorData.wordCount.toLocaleString()} words (to match competitor)`,
           details: {
             yourWordCount: wordCount,
             competitorWordCount: competitorData.wordCount,
             difference: difference,
+            percentageDifference: percentageDiff,
           },
         },
       })
       score -= difference > 500 ? 15 : 5
     }
 
-    // Compare title length
+    // Compare title length and quality
     if (competitorData.title && title) {
       const yourTitleLength = title.length
       const competitorTitleLength = competitorData.title.length
-      if (yourTitleLength < 30 || yourTitleLength > 65) {
+      const optimalRange = yourTitleLength >= 50 && yourTitleLength <= 60
+      const competitorOptimal = competitorTitleLength >= 50 && competitorTitleLength <= 60
+      
+      if (!optimalRange && competitorOptimal) {
         issues.push({
-          title: 'Your page title may need optimization compared to competitor',
-          severity: 'low',
-          technicalExplanation: `Your title: ${yourTitleLength} chars, Competitor: ${competitorTitleLength} chars`,
-          plainLanguageExplanation: 'Your competitor has optimized their title length for search results.',
-          suggestedFix: `Optimize your title to be 50-60 characters long. Your competitor's title is ${competitorTitleLength} characters.`,
+          title: 'Your page title length is not optimized compared to your competitor',
+          severity: yourTitleLength > 65 || yourTitleLength < 30 ? 'medium' : 'low',
+          technicalExplanation: `Your title: ${yourTitleLength} chars, Competitor: ${competitorTitleLength} chars (optimal: 50-60)`,
+          plainLanguageExplanation: `Your competitor's title is ${competitorTitleLength} characters (within the optimal 50-60 character range), while yours is ${yourTitleLength} characters. Titles in the optimal range display fully in search results.`,
+          suggestedFix: `Shorten your title to 50-60 characters to match your competitor's optimization. Your competitor's title: "${competitorData.title.substring(0, 60)}${competitorData.title.length > 60 ? '...' : ''}"`,
           evidence: {
             found: title,
             actual: `${yourTitleLength} characters`,
             expected: `50-60 characters (competitor has ${competitorTitleLength} characters)`,
-            details: {
-              yourTitle: title,
-              competitorTitle: competitorData.title,
-              yourTitleLength: yourTitleLength,
-              competitorTitleLength: competitorTitleLength,
-            },
+            competitorTitle: competitorData.title,
+          },
+        })
+        score -= yourTitleLength > 65 || yourTitleLength < 30 ? 10 : 5
+      }
+    }
+
+    // Compare meta descriptions
+    if (competitorData.description && metaDescription) {
+      const yourDescLength = metaDescription.length
+      const competitorDescLength = competitorData.description.length
+      const optimalRange = yourDescLength >= 120 && yourDescLength <= 160
+      const competitorOptimal = competitorDescLength >= 120 && competitorDescLength <= 160
+      
+      if (!optimalRange && competitorOptimal) {
+        issues.push({
+          title: 'Your meta description length differs from your competitor',
+          severity: 'low',
+          technicalExplanation: `Your description: ${yourDescLength} chars, Competitor: ${competitorDescLength} chars (optimal: 120-160)`,
+          plainLanguageExplanation: `Your competitor's description is ${competitorDescLength} characters (within the optimal 120-160 character range), while yours is ${yourDescLength} characters. Optimal descriptions display fully in search results.`,
+          suggestedFix: `Adjust your meta description to 120-160 characters. Your competitor's description: "${competitorData.description.substring(0, 100)}${competitorData.description.length > 100 ? '...' : ''}"`,
+          evidence: {
+            found: metaDescription,
+            actual: `${yourDescLength} characters`,
+            expected: `120-160 characters (competitor has ${competitorDescLength} characters)`,
+            competitorDescription: competitorData.description,
           },
         })
         score -= 5
       }
     }
 
-    // Compare meta description
-    if (competitorData.description && metaDescription) {
-      const yourDescLength = metaDescription.length
-      const competitorDescLength = competitorData.description.length
-      if (yourDescLength < 120 || yourDescLength > 160) {
+    // Compare H1 headings
+    const h1Text = siteData.$('h1').first().text().trim()
+    if (competitorData.h1 && h1Text && competitorData.h1 !== 'Not found') {
+      const yourH1Length = h1Text.length
+      const competitorH1Length = competitorData.h1.length
+      
+      if (yourH1Length < 10 || yourH1Length > 60) {
         issues.push({
-          title: 'Your description length differs from competitor',
+          title: 'Your main heading (H1) could be more descriptive like your competitor',
           severity: 'low',
-          technicalExplanation: `Your description: ${yourDescLength} chars, Competitor: ${competitorDescLength} chars`,
-          plainLanguageExplanation: 'Your competitor has optimized their description length for search results.',
-          suggestedFix: `Optimize your description to be 120-160 characters. Your competitor's description is ${competitorDescLength} characters.`,
+          technicalExplanation: `Your H1: ${yourH1Length} chars, Competitor: ${competitorH1Length} chars`,
+          plainLanguageExplanation: `Your competitor's main heading is more descriptive (${competitorH1Length} characters) compared to yours (${yourH1Length} characters). Descriptive headings help both visitors and search engines understand your page content.`,
+          suggestedFix: `Make your H1 more descriptive. Your competitor's H1: "${competitorData.h1}"`,
           evidence: {
-            found: metaDescription,
-            actual: `${yourDescLength} characters`,
-            expected: `120-160 characters (competitor has ${competitorDescLength} characters)`,
-            details: {
-              yourDescription: metaDescription,
-              competitorDescription: competitorData.description,
-              yourDescLength: yourDescLength,
-              competitorDescLength: competitorDescLength,
-            },
+            found: h1Text,
+            actual: `${yourH1Length} characters`,
+            expected: `10-60 characters (competitor has ${competitorH1Length} characters)`,
+            competitorH1: competitorData.h1,
           },
         })
-        score -= 3
+        score -= 5
       }
     }
   } else {

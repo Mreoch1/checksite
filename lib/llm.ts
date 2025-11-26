@@ -124,35 +124,45 @@ export async function identifyCompetitor(
   url: string,
   siteSummary: { title?: string; description?: string; content?: string }
 ): Promise<{ competitorUrl: string | null; reason: string }> {
-  const contentSample = (siteSummary.content || '').substring(0, 800) // Increased for better context
-  const prompt = `Identify a direct competitor website URL for this business.
+  const contentSample = (siteSummary.content || '').substring(0, 1000) // Increased for better context
+  const domain = new URL(url).hostname.replace('www.', '')
+  
+  const prompt = `You are an SEO analyst. Identify ONE direct competitor website for this business.
 
-Website URL: ${url}
-Title: ${siteSummary.title || 'Not found'}
-Description: ${siteSummary.description || 'Not found'}
-Content sample: ${contentSample}
+BUSINESS TO ANALYZE:
+- URL: ${url}
+- Domain: ${domain}
+- Title: ${siteSummary.title || 'Not found'}
+- Description: ${siteSummary.description || 'Not found'}
+- Content sample: ${contentSample}
 
-Your task: Identify ONE direct competitor website that:
-1. Offers similar products/services
-2. Targets the same customer base  
-3. Operates in the same market/industry
-4. Has an accessible website (not a social media page or directory)
+YOUR TASK:
+Find a REAL, ACTIVE competitor website that:
+1. Offers similar products/services in the same industry
+2. Targets the same customer base
+3. Is a direct business competitor (not a directory, marketplace, or aggregator)
+4. Has a working website with actual business content
 
-If you cannot identify a clear competitor, return null for competitorUrl.
+EXAMPLES:
+- For a local restaurant: find another restaurant in the same area/cuisine
+- For an author website: find another author in the same genre
+- For a SaaS product: find another SaaS in the same category
+- For a service business: find another service provider in the same industry
 
-Respond with ONLY valid JSON (no markdown, no explanation):
+IMPORTANT:
+- You MUST provide a real competitor URL if one exists
+- Research the industry and find an actual competitor
+- Return the full homepage URL (e.g., https://competitor.com)
+- Do NOT return directories (Yelp, Google Business, Yellow Pages)
+- Do NOT return social media (Facebook, Instagram, LinkedIn company pages)
+- Do NOT return marketplaces (Amazon, Etsy, etc.)
+- Do NOT return the same domain as the input
+
+Respond with ONLY valid JSON (no markdown, no explanation, no code blocks):
 {
-  "competitorUrl": "https://competitor-domain.com" or null,
-  "reason": "One sentence explaining the choice or why none was found"
-}
-
-CRITICAL RULES:
-- Return a full URL starting with https:// if you find a competitor
-- Return null for competitorUrl if no clear competitor exists
-- Do NOT return the same URL as the input website
-- Do NOT return directories (Yelp, Google Business, etc.)
-- Do NOT return social media pages
-- Focus on actual business websites that compete directly`
+  "competitorUrl": "https://actual-competitor-domain.com" or null,
+  "reason": "Brief explanation of why this is a competitor or why none was found"
+}`
 
   const messages: DeepSeekMessage[] = [
     {
