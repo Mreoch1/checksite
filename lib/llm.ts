@@ -210,7 +210,7 @@ CRITICAL RULES:
         // Don't return the same domain
         if (competitorUrlObj.hostname === inputUrlObj.hostname) {
           console.warn('[identifyCompetitor] LLM returned same URL as competitor, returning null')
-          return { competitorUrl: null, reason: 'No clear competitor identified' }
+          return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
         }
         
         console.log(`[identifyCompetitor] ✅ Found competitor: ${result.competitorUrl}`)
@@ -220,12 +220,12 @@ CRITICAL RULES:
         }
       } catch (urlError) {
         console.warn('[identifyCompetitor] Invalid competitor URL format:', result.competitorUrl)
-        return { competitorUrl: null, reason: 'Invalid competitor URL format' }
+        return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
       }
     }
     
     console.log('[identifyCompetitor] No competitor URL in response')
-    return { competitorUrl: null, reason: result.reason || 'No competitor identified' }
+    return { competitorUrl: null, reason: result.reason || 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
   } catch (error) {
     console.error('[identifyCompetitor] Error identifying competitor:', error)
     return { competitorUrl: null, reason: 'Error analyzing competitors' }
