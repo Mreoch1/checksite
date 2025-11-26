@@ -368,9 +368,12 @@ export async function processAudit(auditId: string) {
       .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
       .select('email_sent_at')
     
-    // If reservation failed, another process is already sending the email
-    if (reservationError || !reservationResult || reservationResult.length === 0) {
-      // Check if email was already sent by another process
+    // Track if we successfully reserved after retry
+    let reservationSuccessful = reservationResult && reservationResult.length > 0 && !reservationError
+    
+    // If reservation failed, check what happened
+    if (!reservationSuccessful) {
+      // Check current state of email_sent_at
       const { data: doubleCheck } = await supabase
         .from('audits')
         .select('email_sent_at')
@@ -378,14 +381,18 @@ export async function processAudit(auditId: string) {
         .single()
       
       if (doubleCheck?.email_sent_at) {
+        // email_sent_at is set - check if it's a valid reservation or already sent
         if (isEmailSent(doubleCheck.email_sent_at)) {
+          // Email was already sent (timestamp is >5 minutes old)
           console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${doubleCheck.email_sent_at}`)
           return {
             success: true,
             auditId,
             message: 'Audit completed successfully (email was already sent by another process)',
+            emailSent: true,
           }
         } else if (isEmailSending(doubleCheck.email_sent_at)) {
+          // Another process is currently sending (reservation is <5 minutes old)
           const sentTime = new Date(doubleCheck.email_sent_at).getTime()
           const now = Date.now()
           console.log(`⛔ SKIPPING email send for audit ${auditId} - another process is currently sending the email (reserved ${Math.round((now - sentTime) / 1000)}s ago)`)
@@ -393,12 +400,47 @@ export async function processAudit(auditId: string) {
             success: true,
             auditId,
             message: 'Audit skipped - another process is sending the email',
+            emailSent: false,
+          }
+        } else {
+          // Stale reservation (timestamp exists but is >5 minutes old and not considered "sent")
+          // Clear it and retry
+          console.warn(`⚠️  Stale reservation detected for audit ${auditId} (${doubleCheck.email_sent_at}) - clearing and retrying`)
+          const { error: clearError } = await supabase
+            .from('audits')
+            .update({ email_sent_at: null })
+            .eq('id', auditId)
+          
+          if (clearError) {
+            console.error(`❌ Failed to clear stale reservation:`, clearError)
+            // Fall through to error handling
+          } else {
+            console.log(`✅ Cleared stale reservation, retrying...`)
+            // Retry the reservation
+            const retryTimestamp = new Date(Date.now() - 1000).toISOString()
+            const { data: retryResult, error: retryError } = await supabase
+              .from('audits')
+              .update({ email_sent_at: retryTimestamp })
+              .eq('id', auditId)
+              .is('email_sent_at', null)
+              .select('email_sent_at')
+            
+            if (retryError || !retryResult || retryResult.length === 0) {
+              console.error(`❌ Retry reservation also failed:`, retryError)
+              // Fall through to error handling
+            } else {
+              console.log(`✅ Retry reservation succeeded, continuing with email send`)
+              reservationSuccessful = true
+              // Continue with email sending below (skip the return statement)
+            }
           }
         }
-      } else {
+      }
+      
+      // If reservation still failed (no retry success), handle error
+      if (!reservationSuccessful) {
+        // email_sent_at is null but reservation failed - this is a database issue
         console.error('⚠️  Failed to reserve email sending slot:', reservationError)
-        // CRITICAL: If reservation failed and doubleCheck shows null, something is wrong
-        // Don't send email - this could cause duplicates
         console.error('⚠️  Reservation failed but email_sent_at is null - this indicates a database issue')
         console.error('⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.')
         
@@ -427,6 +469,9 @@ export async function processAudit(auditId: string) {
         }
       }
     }
+    
+    // If we get here, reservation was successful (either initial or after retry)
+    // Continue with email sending
     
     // Step 2: Send email ONLY if we successfully reserved the slot
     let emailSentAt: string | null = null
