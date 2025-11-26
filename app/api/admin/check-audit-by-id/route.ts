@@ -142,8 +142,62 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (action === 'fix_status') {
+      // Fix audit status if it has a report but wrong status
+      const { data: audit, error: auditError } = await supabase
+        .from('audits')
+        .select('status, formatted_report_html, completed_at')
+        .eq('id', auditId)
+        .single()
+
+      if (auditError || !audit) {
+        return NextResponse.json(
+          { error: 'Audit not found', details: auditError?.message },
+          { status: 404 }
+        )
+      }
+
+      const hasReport = !!audit.formatted_report_html
+      const needsFix = (audit.status === 'running' || audit.status === 'pending') && hasReport
+
+      if (!needsFix) {
+        return NextResponse.json({
+          success: true,
+          message: 'Audit status is correct',
+          status: audit.status,
+          hasReport,
+          action: 'none',
+        })
+      }
+
+      // Fix: Update status to completed
+      const { error: updateError } = await supabase
+        .from('audits')
+        .update({
+          status: 'completed',
+          completed_at: audit.completed_at || new Date().toISOString(),
+        })
+        .eq('id', auditId)
+
+      if (updateError) {
+        return NextResponse.json(
+          { error: 'Failed to update audit status', details: updateError.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Audit status fixed successfully',
+        auditId,
+        previousStatus: audit.status,
+        newStatus: 'completed',
+        hasReport,
+      })
+    }
+
     return NextResponse.json(
-      { error: 'Unknown action' },
+      { error: 'Unknown action. Supported actions: add_to_queue, fix_status' },
       { status: 400 }
     )
   } catch (error) {
