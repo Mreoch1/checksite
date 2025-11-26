@@ -1576,7 +1576,9 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
             found: title,
             actual: `${yourTitleLength} characters`,
             expected: `50-60 characters (competitor has ${competitorTitleLength} characters)`,
-            competitorTitle: competitorData.title,
+            details: {
+              competitorTitle: competitorData.title,
+            },
           },
         })
         score -= yourTitleLength > 65 || yourTitleLength < 30 ? 10 : 5
@@ -1601,7 +1603,9 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
             found: metaDescription,
             actual: `${yourDescLength} characters`,
             expected: `120-160 characters (competitor has ${competitorDescLength} characters)`,
-            competitorDescription: competitorData.description,
+            details: {
+              competitorDescription: competitorData.description,
+            },
           },
         })
         score -= 5
@@ -1625,7 +1629,9 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
             found: h1Text,
             actual: `${yourH1Length} characters`,
             expected: `10-60 characters (competitor has ${competitorH1Length} characters)`,
-            competitorH1: competitorData.h1,
+            details: {
+              competitorH1: competitorData.h1,
+            },
           },
         })
         score -= 5
