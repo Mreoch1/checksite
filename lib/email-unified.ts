@@ -93,6 +93,8 @@ async function sendViaSendGrid(options: {
     .trim()
   
   try {
+    // SendGrid v8.x message format - using text/html properties with type assertion
+    // to work around strict TypeScript types
     const msg = {
       to: options.to,
       from: fromFormatted,
@@ -120,7 +122,7 @@ async function sendViaSendGrid(options: {
           enable: true,
         },
       },
-    }
+    } as any // Type assertion to bypass strict SendGrid types
     
     const result = await Promise.race([
       sgMail.send(msg),
