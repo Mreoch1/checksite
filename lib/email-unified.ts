@@ -105,6 +105,8 @@ async function sendViaSendGrid(options: {
       text: plainText,
       html: options.html,
       // Add headers to improve deliverability and avoid spam filters
+      // NOTE: Do NOT set Content-Type in headers - SendGrid API requires application/json
+      // and the library handles email content type automatically
       headers: {
         'List-Unsubscribe': `<${SITE_URL}/unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -116,7 +118,6 @@ async function sendViaSendGrid(options: {
         'X-Priority': '3',
         'Importance': 'normal',
         'Auto-Submitted': 'no', // Important: indicates this is NOT an auto-reply
-        'Content-Type': 'text/html; charset=UTF-8',
         'MIME-Version': '1.0',
       },
       // SendGrid-specific settings to improve deliverability
