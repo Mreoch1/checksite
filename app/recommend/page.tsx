@@ -19,6 +19,7 @@ export default function RecommendPage() {
   const [email, setEmail] = useState('')
   const [modules, setModules] = useState<ModuleOption[]>([])
   const [selectedModules, setSelectedModules] = useState<Set<ModuleKey>>(new Set())
+  const [competitorUrl, setCompetitorUrl] = useState('')
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
 
@@ -124,6 +125,25 @@ export default function RecommendPage() {
     setProcessing(true)
     setError('')
 
+    // Validate competitor URL if Competitor Overview is selected
+    if (selectedModules.has('competitor_overview')) {
+      const trimmedUrl = competitorUrl.trim()
+      if (!trimmedUrl) {
+        setError('Please enter a competitor URL to compare against, or uncheck Competitor Overview.')
+        setProcessing(false)
+        return
+      }
+      
+      // Basic URL validation
+      try {
+        new URL(trimmedUrl.startsWith('http') ? trimmedUrl : `https://${trimmedUrl}`)
+      } catch {
+        setError('Please enter a valid competitor URL (e.g., https://competitor.com)')
+        setProcessing(false)
+        return
+      }
+    }
+
     try {
       const response = await fetch('/api/create-checkout', {
         method: 'POST',
@@ -132,6 +152,7 @@ export default function RecommendPage() {
           url,
           email,
           modules: Array.from(selectedModules),
+          competitorUrl: selectedModules.has('competitor_overview') ? competitorUrl.trim() : undefined,
         }),
       })
 
@@ -293,6 +314,26 @@ export default function RecommendPage() {
                             ) : (
                               <>ℹ️ {module.reason}</>
                             )}
+                          </p>
+                        </div>
+                      )}
+                      {module.key === 'competitor_overview' && isSelected && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                          <label htmlFor="competitor-url" className="block text-sm font-medium text-gray-700 mb-2">
+                            Competitor Website URL <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            id="competitor-url"
+                            value={competitorUrl}
+                            onChange={(e) => setCompetitorUrl(e.target.value)}
+                            placeholder="https://competitor.com"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            aria-required="true"
+                            aria-describedby="competitor-url-help"
+                          />
+                          <p id="competitor-url-help" className="mt-1 text-xs text-gray-500">
+                            Enter the URL of a competitor website you want to compare against.
                           </p>
                         </div>
                       )}

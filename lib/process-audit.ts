@@ -57,11 +57,21 @@ export async function processAudit(auditId: string) {
       throw new Error('No enabled modules to run')
     }
 
+    // Get competitor URL from audit metadata if available
+    let competitorUrl: string | null = null
+    if (audit.raw_result_json && typeof audit.raw_result_json === 'object') {
+      const metadata = audit.raw_result_json as any
+      if (metadata.competitorUrl && typeof metadata.competitorUrl === 'string') {
+        competitorUrl = metadata.competitorUrl
+        console.log(`Using competitor URL from audit metadata: ${competitorUrl}`)
+      }
+    }
+
     // Run audit modules
     console.log('Starting audit module execution...')
     let results, siteData
     try {
-      const moduleResult = await runAuditModules(audit.url, enabledModules)
+      const moduleResult = await runAuditModules(audit.url, enabledModules, competitorUrl)
       results = moduleResult.results
       siteData = moduleResult.siteData
       console.log(`Audit modules completed. Results: ${results.length} modules`)

@@ -1567,22 +1567,23 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
 
 /**
  * Competitor Overview Module
- * Uses LLM to identify a competitor, then fetches and compares their data
+ * Uses provided competitor URL to fetch and compare their data
  */
-export async function runCompetitorOverviewModule(siteData: SiteData): Promise<ModuleResult> {
+export async function runCompetitorOverviewModule(
+  siteData: SiteData,
+  providedCompetitorUrl?: string | null
+): Promise<ModuleResult> {
   const issues: AuditIssue[] = []
   let score = 75 // Default score
 
-  // Extract site information for LLM
+  // Extract site information
   const title = siteData.$('title').text().trim() || ''
   const metaDescription = siteData.$('meta[name="description"]').attr('content') || ''
   const bodyTextContent = siteData.$('body').text().trim()
   const wordCount = bodyTextContent.split(/\s+/).filter(w => w.length > 0).length
-  const contentSample = bodyTextContent.substring(0, 1000)
 
-  // Use LLM to identify a competitor
   let competitorUrl: string | null = null
-  let competitorReason: string = 'No competitor identified'
+  let competitorReason: string = 'No competitor URL provided'
   let competitorData: {
     title?: string
     description?: string
@@ -1590,58 +1591,78 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     wordCount?: number
   } | null = null
 
-  try {
-    const { identifyCompetitor } = await import('@/lib/llm')
-    console.log('[runCompetitorOverviewModule] Identifying competitor using LLM...')
-    const competitorResult = await identifyCompetitor(siteData.url, {
-      title,
-      description: metaDescription,
-      content: contentSample,
-    })
+  // Use provided competitor URL
+  if (providedCompetitorUrl && providedCompetitorUrl.trim()) {
+    competitorUrl = providedCompetitorUrl.trim()
+    competitorReason = `Using provided competitor URL: ${competitorUrl}`
+    console.log(`[runCompetitorOverviewModule] Using provided competitor URL: ${competitorUrl}`)
     
-    competitorUrl = competitorResult.competitorUrl
-    competitorReason = competitorResult.reason
-
-    if (competitorUrl) {
-      console.log(`[runCompetitorOverviewModule] Found competitor: ${competitorUrl}`)
-      
-      // Fetch competitor's website data
-      try {
-        const competitorController = new AbortController()
-        const competitorTimeout = setTimeout(() => competitorController.abort(), 10000) // 10 second timeout
-        
-        const competitorResponse = await fetch(competitorUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
-          signal: competitorController.signal,
-        })
-        clearTimeout(competitorTimeout)
-
-        if (competitorResponse.ok) {
-          const competitorHtml = await competitorResponse.text()
-          const cheerio = await import('cheerio')
-          const competitor$ = cheerio.load(competitorHtml)
-          
-          competitorData = {
-            title: competitor$('title').text().trim() || 'Not found',
-            description: competitor$('meta[name="description"]').attr('content') || 'Not found',
-            h1: competitor$('h1').first().text().trim() || 'Not found',
-            wordCount: competitor$('body').text().trim().split(/\s+/).filter((w: string) => w.length > 0).length,
-          }
-          
-          console.log('[runCompetitorOverviewModule] ✅ Successfully fetched competitor data')
-        } else {
-          console.warn(`[runCompetitorOverviewModule] Failed to fetch competitor: ${competitorResponse.status}`)
-        }
-      } catch (fetchError) {
-        console.warn(`[runCompetitorOverviewModule] Error fetching competitor data:`, fetchError)
-        // Continue without competitor data
+    // Normalize URL
+    try {
+      if (!competitorUrl.startsWith('http://') && !competitorUrl.startsWith('https://')) {
+        competitorUrl = `https://${competitorUrl}`
       }
-    } else {
-      console.log('[runCompetitorOverviewModule] No competitor identified by LLM')
+      // Validate URL format
+      new URL(competitorUrl)
+    } catch (urlError) {
+      console.error(`[runCompetitorOverviewModule] Invalid competitor URL format: ${competitorUrl}`, urlError)
+      competitorUrl = null
+      competitorReason = `Entered URL not available: Invalid URL format. Please check the URL and try again.`
     }
-  } catch (llmError) {
-    console.error('[runCompetitorOverviewModule] Error identifying competitor with LLM:', llmError)
-    // Continue with generic analysis
+  } else {
+    console.log('[runCompetitorOverviewModule] No competitor URL provided')
+    competitorReason = 'No competitor URL was provided for comparison.'
+  }
+
+  // Fetch competitor's website data if URL is valid
+  if (competitorUrl) {
+    try {
+      const competitorController = new AbortController()
+      const competitorTimeout = setTimeout(() => competitorController.abort(), 10000) // 10 second timeout
+      
+      const competitorResponse = await fetch(competitorUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        signal: competitorController.signal,
+        redirect: 'follow',
+      })
+      clearTimeout(competitorTimeout)
+
+      if (competitorResponse.ok) {
+        const competitorHtml = await competitorResponse.text()
+        const cheerio = await import('cheerio')
+        const competitor$ = cheerio.load(competitorHtml)
+        
+        competitorData = {
+          title: competitor$('title').text().trim() || 'Not found',
+          description: competitor$('meta[name="description"]').attr('content') || 'Not found',
+          h1: competitor$('h1').first().text().trim() || 'Not found',
+          wordCount: competitor$('body').text().trim().split(/\s+/).filter((w: string) => w.length > 0).length,
+        }
+        
+        console.log('[runCompetitorOverviewModule] ✅ Successfully fetched competitor data')
+        competitorReason = `Successfully analyzed competitor: ${competitorUrl}`
+      } else {
+        console.warn(`[runCompetitorOverviewModule] Failed to fetch competitor: ${competitorResponse.status}`)
+        competitorReason = `Entered URL not available: The URL returned status ${competitorResponse.status}. Please check the URL and try again.`
+        competitorUrl = null // Mark as unavailable
+      }
+    } catch (fetchError) {
+      console.warn(`[runCompetitorOverviewModule] Error fetching competitor data:`, fetchError)
+      const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError)
+      
+      // Try to provide helpful error message
+      if (errorMsg.includes('timeout') || errorMsg.includes('aborted')) {
+        competitorReason = `Entered URL not available: The URL took too long to respond. Please check the URL and try again.`
+      } else if (errorMsg.includes('ENOTFOUND') || errorMsg.includes('getaddrinfo')) {
+        competitorReason = `Entered URL not available: The domain could not be found. Please check the URL and try again.`
+      } else if (errorMsg.includes('ECONNREFUSED')) {
+        competitorReason = `Entered URL not available: Connection refused. Please check the URL and try again.`
+      } else {
+        competitorReason = `Entered URL not available: ${errorMsg}. Please check the URL and try again.`
+      }
+      
+      competitorUrl = null // Mark as unavailable
+    }
   }
 
   // Compare with competitor if we have data
@@ -1751,14 +1772,26 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
       }
     }
   } else {
-    // Generic competitor insights if no competitor found
-    issues.push({
-      title: 'Monitor your top competitors',
-      severity: 'low',
-      technicalExplanation: 'Competitor analysis requires identification',
-      plainLanguageExplanation: 'Understanding what your competitors do well can help you improve your own site.',
-      suggestedFix: `Research 3-5 businesses similar to yours. Check their websites, see what content they have, and note what they do well. Look for businesses in your area or industry that rank well in search results.`,
-    })
+    // Generic competitor insights if no competitor URL provided or URL failed
+    if (!providedCompetitorUrl) {
+      // No URL was provided
+      issues.push({
+        title: 'No competitor URL provided',
+        severity: 'low',
+        technicalExplanation: 'Competitor analysis requires a competitor URL',
+        plainLanguageExplanation: 'To compare your site with a competitor, you need to provide a competitor website URL.',
+        suggestedFix: 'Enter a competitor website URL when selecting Competitor Overview to get specific comparison insights.',
+      })
+    } else {
+      // URL was provided but failed
+      issues.push({
+        title: 'Competitor URL not available',
+        severity: 'low',
+        technicalExplanation: competitorReason,
+        plainLanguageExplanation: 'We could not access the competitor URL you provided. This section provides general best practices instead.',
+        suggestedFix: 'Please check the competitor URL and ensure it is accessible. You can try again with a different URL.',
+      })
+    }
   }
 
   // Check if site has unique content (heuristic)
@@ -1816,12 +1849,15 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     evidence.competitorWordCount = 'N/A'
     evidence.comparisonAvailable = false
     // User-friendly message instead of technical error
-    if (competitorUrl) {
-      evidence.note = 'Competitor was identified but data could not be fetched'
+    if (providedCompetitorUrl && !competitorUrl) {
+      // URL was provided but failed
+      evidence.note = competitorReason || 'Entered URL not available. Please check the URL and try again.'
+    } else if (!providedCompetitorUrl) {
+      // No URL was provided
+      evidence.note = 'No competitor URL was provided for comparison.'
     } else {
-      // Check if the reason indicates an error or just no competitor found
-      // Always use friendly message - never show technical errors
-      evidence.note = 'We could not find competitor sites in your category, so this section gives general best practices instead.'
+      // Should not reach here, but fallback
+      evidence.note = 'We could not access the competitor URL, so this section gives general best practices instead.'
     }
   }
   
@@ -1839,12 +1875,14 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
  */
 export async function runAuditModules(
   url: string,
-  enabledModules: ModuleKey[]
+  enabledModules: ModuleKey[],
+  competitorUrl?: string | null
 ): Promise<{ results: ModuleResult[]; siteData: SiteData }> {
   const siteData = await fetchSite(url)
   const results: ModuleResult[] = []
 
-  const moduleMap: Record<ModuleKey, (data: SiteData) => Promise<ModuleResult>> = {
+  // Type-safe module map - competitor_overview takes optional second param, others don't
+  const moduleMap: Record<ModuleKey, (data: SiteData, ...args: any[]) => Promise<ModuleResult>> = {
     performance: runPerformanceModule,
     crawl_health: runCrawlHealthModule,
     on_page: runOnPageModule,
@@ -1861,7 +1899,10 @@ export async function runAuditModules(
   const modulePromises = enabledModules.map(async (moduleKey) => {
     if (moduleMap[moduleKey]) {
       try {
-        const result = await moduleMap[moduleKey](siteData)
+        // Pass competitor URL only to competitor_overview module
+        const result = moduleKey === 'competitor_overview'
+          ? await moduleMap[moduleKey](siteData, competitorUrl)
+          : await moduleMap[moduleKey](siteData)
         return result
       } catch (error) {
         console.error(`Error running module ${moduleKey}:`, error)

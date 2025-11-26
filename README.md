@@ -53,15 +53,6 @@ FROM_EMAIL=noreply@yourdomain.com
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_API_KEY=your_deepseek_api_key
 
-# Search API (Optional - for competitor identification)
-# At least one is recommended for accurate competitor identification
-# SerpAPI (recommended): https://serpapi.com/
-SERPAPI_API_KEY=your_serpapi_key_here
-
-# OR Bing Web Search API: https://www.microsoft.com/en-us/bing/apis/bing-web-search-api
-BING_SEARCH_API_KEY=your_bing_search_api_key_here
-BING_SEARCH_ENDPOINT=https://api.bing.microsoft.com/v7.0/search
-
 # Site URL (for webhooks and links)
 NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 ```
