@@ -66,13 +66,12 @@ export async function callDeepSeek(
     })
 
     // Race between fetch and timeout - use separate timeout to ensure it fires
+    let timeoutHandle: NodeJS.Timeout | null = null
     const timeoutPromise = new Promise<never>((_, reject) => {
-      const timeout = setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         controller.abort()
         reject(new Error('DeepSeek API timeout: Request took longer than 2 minutes'))
       }, 120000) // 2 minutes (reduced for faster failure detection)
-      // Store timeout ID for cleanup if needed
-      ;(timeoutPromise as any)._timeout = timeout
     })
 
     console.log('Waiting for DeepSeek API response...')
@@ -80,8 +79,10 @@ export async function callDeepSeek(
     try {
       response = await Promise.race([fetchPromise, timeoutPromise])
       clearTimeout(timeoutId)
+      if (timeoutHandle) clearTimeout(timeoutHandle)
     } catch (raceError) {
       clearTimeout(timeoutId)
+      if (timeoutHandle) clearTimeout(timeoutHandle)
       if (raceError instanceof Error && (raceError.name === 'AbortError' || raceError.message.includes('timeout'))) {
         console.error('❌ DeepSeek API timeout or abort')
         throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
@@ -105,9 +106,10 @@ export async function callDeepSeek(
     return content
   } catch (error) {
     clearTimeout(timeoutId)
-      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
-        console.error('DeepSeek API timeout after 2 minutes')
-        throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
+    if (timeoutHandle) clearTimeout(timeoutHandle)
+    if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('timeout'))) {
+      console.error('DeepSeek API timeout after 2 minutes')
+      throw new Error('DeepSeek API timeout: Request took longer than 2 minutes')
     }
     console.error('DeepSeek API error:', error)
     throw error
