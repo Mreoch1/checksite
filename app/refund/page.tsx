@@ -1,11 +1,16 @@
 import { Metadata } from 'next'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+
 export const metadata: Metadata = {
   title: 'Refund Policy | SEO CheckSite',
   description: 'Refund Policy for SEO CheckSite. Learn about our refund process and eligibility requirements.',
   robots: {
     index: true,
     follow: true,
+  },
+  alternates: {
+    canonical: `${siteUrl}/refund`,
   },
 }
 

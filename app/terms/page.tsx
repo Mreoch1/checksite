@@ -1,11 +1,16 @@
 import { Metadata } from 'next'
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+
 export const metadata: Metadata = {
   title: 'Terms of Service | SEO CheckSite',
   description: 'Terms of Service for SEO CheckSite. Read our terms and conditions for using our website audit service.',
   robots: {
     index: true,
     follow: true,
+  },
+  alternates: {
+    canonical: `${siteUrl}/terms`,
   },
 }
 

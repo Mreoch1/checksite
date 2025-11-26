@@ -1,5 +1,28 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Sample Report | SEO CheckSite',
+  description: 'View a sample SEO audit report to see what you\'ll get. Complete website analysis with actionable insights in plain language.',
+  openGraph: {
+    title: 'Sample SEO Audit Report | SEO CheckSite',
+    description: 'See what you\'ll get in your SEO audit report. Complete website analysis with actionable insights.',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sample SEO Audit Report | SEO CheckSite',
+    description: 'See what you\'ll get in your SEO audit report.',
+  },
+  alternates: {
+    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'}/sample-report`,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+}
 
 export default function SampleReportPage() {
   // Read the sample report HTML
