@@ -118,182 +118,19 @@ export async function callDeepSeek(
  * Recommend modules based on website analysis
  */
 /**
- * Identify a competitor URL for a given website
- * First tries search API (SerpAPI/Bing), then falls back to LLM
+ * Identify a competitor URL for a given website using LLM
+ * NOTE: This function is deprecated - competitors are now provided by the client via UI
+ * This function is kept for backward compatibility but should not be called
  */
 export async function identifyCompetitor(
   url: string,
   siteSummary: { title?: string; description?: string; content?: string }
 ): Promise<{ competitorUrl: string | null; reason: string }> {
-  // Extract business name and location from title/content
-  const title = siteSummary.title || ''
-  const content = siteSummary.content || ''
-  
-  // Try to extract business name (first part of title, or common patterns)
-  let businessName = title.split('|')[0].split('-')[0].trim()
-  if (businessName.length > 50) {
-    businessName = businessName.substring(0, 50)
-  }
-  
-  // Try to extract location (city, state) from content
-  const locationMatch = content.match(/([A-Z][a-z]+,\s*[A-Z]{2})/i)
-  const location = locationMatch ? locationMatch[1] : undefined
-  
-  // Extract industry/keywords from title and description
-  const description = siteSummary.description || ''
-  const industryKeywords = `${title} ${description}`.substring(0, 100)
-  
-  // Get domain to exclude from search results
-  let excludeDomain: string | undefined
-  try {
-    const urlObj = new URL(url)
-    excludeDomain = urlObj.hostname
-  } catch {
-    // Invalid URL, skip exclusion
-  }
-
-  // Try search API first (more reliable)
-  try {
-    const { searchCompetitors } = await import('@/lib/search-api')
-    const searchResults = await searchCompetitors(businessName, industryKeywords, location, excludeDomain)
-    
-    if (searchResults.length > 0) {
-      console.log(`[identifyCompetitor] ✅ Found ${searchResults.length} competitor(s) via search API`)
-      return {
-        competitorUrl: searchResults[0].url,
-        reason: `Found competitor via search: ${searchResults[0].title}`,
-      }
-    }
-  } catch (error) {
-    console.warn('[identifyCompetitor] Search API failed, falling back to LLM:', error)
-  }
-
-  // Fall back to LLM if search API fails or returns no results
-  return identifyCompetitorWithLLM(url, siteSummary)
-}
-
-/**
- * Identify a competitor URL using LLM (fallback method)
- */
-async function identifyCompetitorWithLLM(
-  url: string,
-  siteSummary: { title?: string; description?: string; content?: string }
-): Promise<{ competitorUrl: string | null; reason: string }> {
-  const contentSample = (siteSummary.content || '').substring(0, 1000) // Increased for better context
-  const domain = new URL(url).hostname.replace('www.', '')
-  
-  const prompt = `You are an SEO analyst. Identify ONE direct competitor website for this business.
-
-BUSINESS TO ANALYZE:
-- URL: ${url}
-- Domain: ${domain}
-- Title: ${siteSummary.title || 'Not found'}
-- Description: ${siteSummary.description || 'Not found'}
-- Content sample: ${contentSample}
-
-YOUR TASK:
-Find a REAL, ACTIVE competitor website that:
-1. Offers similar products/services in the same industry
-2. Targets the same customer base
-3. Is a direct business competitor (not a directory, marketplace, or aggregator)
-4. Has a working website with actual business content
-
-EXAMPLES:
-- For a local restaurant: find another restaurant in the same area/cuisine
-- For an author website: find another author in the same genre
-- For a SaaS product: find another SaaS in the same category
-- For a service business: find another service provider in the same industry
-
-IMPORTANT:
-- You MUST provide a real competitor URL if one exists
-- Research the industry and find an actual competitor
-- Return the full homepage URL (e.g., https://competitor.com)
-- Do NOT return directories (Yelp, Google Business, Yellow Pages)
-- Do NOT return social media (Facebook, Instagram, LinkedIn company pages)
-- Do NOT return marketplaces (Amazon, Etsy, etc.)
-- Do NOT return the same domain as the input
-
-Respond with ONLY valid JSON (no markdown, no explanation, no code blocks):
-{
-  "competitorUrl": "https://actual-competitor-domain.com" or null,
-  "reason": "Brief explanation of why this is a competitor or why none was found"
-}`
-
-  const messages: DeepSeekMessage[] = [
-    {
-      role: 'system',
-      content: 'You are an SEO analyst who identifies direct business competitors. Always respond with valid JSON only.',
-    },
-    {
-      role: 'user',
-      content: prompt,
-    },
-  ]
-
-  try {
-    console.log(`[identifyCompetitor] Identifying competitor for ${url}...`)
-    
-    // Add timeout protection (8 seconds to avoid Netlify timeout)
-    const responsePromise = callDeepSeek(messages, 0.5)
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Competitor identification timeout')), 8000)
-    })
-    
-    const response = await Promise.race([responsePromise, timeoutPromise])
-    
-    // Extract JSON from response
-    let jsonText = response.trim()
-    
-    // Remove markdown code blocks if present
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '')
-    }
-    
-    // Find JSON object
-    let jsonMatch = jsonText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      console.warn('[identifyCompetitor] No JSON found in response:', response.substring(0, 200))
-      return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
-    }
-    
-    let result
-    try {
-      result = JSON.parse(jsonMatch[0])
-    } catch (parseError) {
-      console.error('[identifyCompetitor] JSON parse error:', parseError)
-      console.error('[identifyCompetitor] Response text:', jsonMatch[0].substring(0, 500))
-      return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
-    }
-    
-    // Validate result
-    if (result.competitorUrl && typeof result.competitorUrl === 'string') {
-      // Ensure it's a valid URL and not the same as input
-      try {
-        const competitorUrlObj = new URL(result.competitorUrl)
-        const inputUrlObj = new URL(url)
-        
-        // Don't return the same domain
-        if (competitorUrlObj.hostname === inputUrlObj.hostname) {
-          console.warn('[identifyCompetitor] LLM returned same URL as competitor, returning null')
-          return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
-        }
-        
-        console.log(`[identifyCompetitor] ✅ Found competitor: ${result.competitorUrl}`)
-        return {
-          competitorUrl: result.competitorUrl,
-          reason: result.reason || 'Identified as a direct competitor',
-        }
-      } catch (urlError) {
-        console.warn('[identifyCompetitor] Invalid competitor URL format:', result.competitorUrl)
-        return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
-      }
-    }
-    
-    console.log('[identifyCompetitor] No competitor URL in response')
-    return { competitorUrl: null, reason: result.reason || 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
-  } catch (error) {
-    console.error('[identifyCompetitor] Error identifying competitor:', error)
-    return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
+  // This function is deprecated - competitor URLs are now provided by the client via UI
+  console.warn('[identifyCompetitor] This function is deprecated. Competitor URLs should be provided by the client.')
+  return {
+    competitorUrl: null,
+    reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.',
   }
 }
 

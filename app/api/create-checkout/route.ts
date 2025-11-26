@@ -48,12 +48,19 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { url, email, name, modules } = validationResult.data
+    const { url, email, name, modules, competitorUrl } = validationResult.data
 
     // Validate URL
     let normalizedUrl = url
     if (!url.startsWith('http')) {
       normalizedUrl = `https://${url}`
+    }
+
+    // Normalize competitor URL if provided
+    let normalizedCompetitorUrl: string | undefined = undefined
+    if (competitorUrl && competitorUrl.trim()) {
+      const trimmed = competitorUrl.trim()
+      normalizedCompetitorUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
     }
 
     // Calculate total price
@@ -89,6 +96,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create audit record
+    // Store competitor URL in raw_result_json as metadata for now
+    const auditMetadata = normalizedCompetitorUrl ? { competitorUrl: normalizedCompetitorUrl } : {}
+    
     const { data: audit, error: auditError } = await supabase
       .from('audits')
       .insert({
@@ -96,6 +106,7 @@ export async function POST(request: NextRequest) {
         url: normalizedUrl,
         status: 'pending',
         total_price_cents: totalCents,
+        raw_result_json: Object.keys(auditMetadata).length > 0 ? auditMetadata : null,
       })
       .select()
       .single()

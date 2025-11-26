@@ -40,7 +40,33 @@ export const createAuditSchema = z.object({
     'social',
     'competitor_overview',
   ])).min(1, 'At least one module must be selected'),
-})
+  competitorUrl: z.string().url().optional().or(
+    z.string().refine(
+      (val) => {
+        if (!val || val.trim() === '') return true // Optional
+        try {
+          new URL(val.startsWith('http') ? val : `https://${val}`)
+          return true
+        } catch {
+          return false
+        }
+      },
+      { message: 'Invalid competitor URL format' }
+    )
+  ),
+}).refine(
+  (data) => {
+    // If competitor_overview is selected, competitorUrl must be provided
+    if (data.modules.includes('competitor_overview')) {
+      return data.competitorUrl && data.competitorUrl.trim() !== ''
+    }
+    return true
+  },
+  {
+    message: 'Competitor URL is required when Competitor Overview is selected',
+    path: ['competitorUrl'],
+  }
+)
 
 // Test audit schema
 export const testAuditSchema = z.object({
