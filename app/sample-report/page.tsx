@@ -25,13 +25,11 @@ export const metadata: Metadata = {
 }
 
 export default function SampleReportPage() {
-  // Read the sample report HTML
-  const sampleReportHtml = `<!DOCTYPE html>
-<html>
-<head>
+  // Sample report HTML - updated with latest audit report
+  const sampleReportHtml = `
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SEO CheckSite - Sample Website Report</title>
+  <title>SEO CheckSite - Website Report</title>
   <style>
     body { 
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
@@ -164,8 +162,8 @@ export default function SampleReportPage() {
       h1, h2 { page-break-after: avoid; }
     }
   </style>
-</head>
-<body>
+
+
   <div class="container">
     <h1>SEO CheckSite</h1>
     <div style="margin-bottom: 20px;">
@@ -174,11 +172,11 @@ export default function SampleReportPage() {
     
     <h1 style="margin-top: 20px;">Website Report</h1>
     <div class="meta-info">
-      <p><strong>Website:</strong> wikipedia.com</p>
+      <p><strong>Website:</strong> seochecksite.netlify.app</p>
       <p><strong>Date:</strong> November 26, 2025</p>
       <p><strong>Overall Score:</strong> 
         <span class="score-badge score-high">
-          81/100
+          98/100
         </span>
       </p>
     </div>
@@ -187,18 +185,16 @@ export default function SampleReportPage() {
     <h2>Page Breakdown</h2>
     <div class="summary">
       <table class="evidence-table">
-        <tbody><tr><th>Page URL</th><td>https://wikipedia.com</td></tr>
-        <tr><th>Final URL (after redirect)</th><td>https://www.wikipedia.org/</td></tr>
-        <tr><th>Page Title</th><td>Wikipedia</td></tr>
-        <tr><th>Page Description</th><td>Wikipedia is a free online encyclopedia, created and edited by volunteers around the world and hosted by the Wikimedia Foundation.</td></tr>
-        <tr><th>Main Heading (H1)</th><td>Wikipedia
-
-The Free Encyclopedia</td></tr>
-        <tr><th>Word Count</th><td>1258 words</td></tr>
+        <tbody><tr><th>Page URL</th><td>https://seochecksite.netlify.app</td></tr>
+        <tr><th>Final URL (after redirect)</th><td>https://seochecksite.netlify.app/</td></tr>
+        <tr><th>Page Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr>
+        <tr><th>Page Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr>
+        <tr><th>Main Heading (H1)</th><td>Get Your Website Checked</td></tr>
+        <tr><th>Word Count</th><td>579 words</td></tr>
         <tr><th>Images</th><td>1 total</td></tr>
-        <tr><th>Links</th><td>364 internal, 8 external</td></tr>
+        <tr><th>Links</th><td>5 internal, 0 external</td></tr>
         <tr><th>HTTPS</th><td>Yes ✓</td></tr>
-        <tr><th>Redirect</th><td>Yes (redirected from https://wikipedia.com to https://www.wikipedia.org/)</td></tr>
+        <tr><th>Redirect</th><td>Yes (redirected from https://seochecksite.netlify.app to https://seochecksite.netlify.app/)</td></tr>
       </tbody></table>
     </div>
     
@@ -206,74 +202,34 @@ The Free Encyclopedia</td></tr>
     <h2>Executive Summary</h2>
     <div class="summary">
       <div style="margin-bottom: 15px;">
-        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: 81/100</strong>
+        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: 98/100</strong>
         <span class="score-badge score-high" style="margin-left: 10px;">
           GOOD
         </span>
       </div>
-      <p style="margin: 8px 0;">Your website is in good overall health with strong SEO fundamentals.</p><p style="margin: 8px 0;">We checked 8 areas of your website.</p><p style="margin: 8px 0;">Found 10 issues total.</p><p style="margin: 8px 0;">4 high-priority issues need immediate attention.</p><p style="margin: 8px 0;">3 medium-priority issues to address.</p><p style="margin: 8px 0;">6 of 8 checked areas are performing excellently.</p><p style="margin: 8px 0;">1 area needs significant improvement.</p>
+      <p style="margin: 8px 0;">Your website is in good overall health with strong SEO fundamentals.</p><p style="margin: 8px 0;">We checked 8 areas of your website.</p><p style="margin: 8px 0;">Found 3 issues total.</p><p style="margin: 8px 0;">1 medium-priority issue to address.</p><p style="margin: 8px 0;">8 of 8 checked areas are performing excellently.</p>
     </div>
 
-    
-    <h2>Quick Fix Checklist</h2>
-    <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
-      <ul style="list-style: none; padding-left: 0;">
-        
-          <li style="margin: 10px 0; padding-left: 30px; position: relative;">
-            <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-            Sitemap file not found
-          </li>
-        
-          <li style="margin: 10px 0; padding-left: 30px; position: relative;">
-            <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-            Robots.txt may be blocking search engines
-          </li>
-        
-          <li style="margin: 10px 0; padding-left: 30px; position: relative;">
-            <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-            5 broken links found
-          </li>
-        
-          <li style="margin: 10px 0; padding-left: 30px; position: relative;">
-            <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-            No structured data found
-          </li>
-        
-      </ul>
-      <p style="margin-top: 15px; color: #6b7280; font-size: 14px;">Check off each item as you complete it!</p>
-    </div>
     
 
     <h2>Start Here: Top Priority Actions</h2>
     
-      <div class="action high">
-        <h3>1. Sitemap file not found</h3>
-        <p><strong>Why this matters:</strong> A sitemap helps search engines find all your pages.</p>
-        <p><strong>How to fix it:</strong> Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.</p>
-      </div>
-    
-      <div class="action high">
-        <h3>2. Robots.txt may be blocking search engines</h3>
-        <p><strong>Why this matters:</strong> Your robots.txt file might be preventing search engines from finding your pages.</p>
-        <p><strong>How to fix it:</strong> Check your robots.txt file and make sure it's not blocking all pages. Remove "Disallow: /" unless you want to block search engines.</p>
-      </div>
-    
-      <div class="action high">
-        <h3>3. 5 broken links found</h3>
-        <p><strong>Why this matters:</strong> Broken links frustrate visitors and hurt your site's reputation. Visitors clicking broken links will see error pages.</p>
-        <p><strong>How to fix it:</strong> Fix or remove the broken links. Check each link to make sure it goes to a working page.</p>
-      </div>
-    
       <div class="action medium">
-        <h3>4. Page title is too short</h3>
-        <p><strong>Why this matters:</strong> Short titles don't give search engines enough information.</p>
-        <p><strong>How to fix it:</strong> Make your title longer (aim for 50-60 characters) and include your main keywords.</p>
+        <h3>1. Too many scripts may slow page loading</h3>
+        <p><strong>Why this matters:</strong> Scripts can prevent your page from showing quickly to visitors.</p>
+        <p><strong>How to fix it:</strong> Ask your web designer to optimize scripts or move them to load after the page content.</p>
       </div>
     
-      <div class="action medium">
-        <h3>5. Viewport setting may not be optimal</h3>
-        <p><strong>Why this matters:</strong> Your mobile display settings may not be optimal.</p>
-        <p><strong>How to fix it:</strong> Update your viewport tag to: &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;</p>
+      <div class="action low">
+        <h3>2. Consider adding lazy loading to images</h3>
+        <p><strong>Why this matters:</strong> Adding lazy loading to images can help your pages load faster.</p>
+        <p><strong>How to fix it:</strong> Ask your web designer to add loading="lazy" to your images. This makes images load only when visitors scroll to them.</p>
+      </div>
+    
+      <div class="action low">
+        <h3>3. Some optional security headers are missing</h3>
+        <p><strong>Why this matters:</strong> These security headers provide additional protection but are optional. Your site is still secure.</p>
+        <p><strong>How to fix it:</strong> Ask your web developer to add these security headers for enhanced protection.</p>
       </div>
     
 
@@ -282,7 +238,7 @@ The Free Encyclopedia</td></tr>
         <h2>Performance</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 95/100</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 85/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site performance looks good. We found one small improvement opportunity.</p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This looks at your HTTPS status, images, scripts, and page resources.</p>
@@ -291,7 +247,7 @@ The Free Encyclopedia</td></tr>
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Is Https</th><td>true</td></tr><tr><th style="width: 30%;">Total Images</th><td>1</td></tr><tr><th style="width: 30%;">Images With Lazy Loading</th><td>0</td></tr><tr><th style="width: 30%;">Images Without Lazy Loading</th><td>1</td></tr><tr><th style="width: 30%;">Total Scripts</th><td>2</td></tr><tr><th style="width: 30%;">Blocking Scripts</th><td>2</td></tr><tr><th style="width: 30%;">Async Scripts</th><td>0</td></tr><tr><th style="width: 30%;">Deferred Scripts</th><td>0</td></tr><tr><th style="width: 30%;">Total Stylesheets</th><td>0</td></tr><tr><th style="width: 30%;">Total Resources</th><td>3</td></tr><tr><th style="width: 30%;">External Http Resources</th><td>0</td></tr>
+              <tbody><tr><th style="width: 30%;">Is Https</th><td>true</td></tr><tr><th style="width: 30%;">Total Images</th><td>1</td></tr><tr><th style="width: 30%;">Images With Lazy Loading</th><td>0</td></tr><tr><th style="width: 30%;">Images Without Lazy Loading</th><td>1</td></tr><tr><th style="width: 30%;">Total Scripts</th><td>9</td></tr><tr><th style="width: 30%;">Blocking Scripts</th><td>9</td></tr><tr><th style="width: 30%;">Async Scripts</th><td>0</td></tr><tr><th style="width: 30%;">Deferred Scripts</th><td>0</td></tr><tr><th style="width: 30%;">Total Stylesheets</th><td>1</td></tr><tr><th style="width: 30%;">Total Resources</th><td>11</td></tr><tr><th style="width: 30%;">External Http Resources</th><td>0</td></tr>
             </tbody></table>
           </div>
         
@@ -312,90 +268,22 @@ The Free Encyclopedia</td></tr>
               
             </div>
           
-      </div>
-    
-      <div class="module-section">
-        <h2>Crawl Health</h2>
-        <div style="margin-bottom: 15px;">
-          <span class="score-badge score-low" style="margin-right: 10px;">NEEDS IMPROVEMENT</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 25/100</span>
-        </div>
-        <p style="margin-bottom: 15px;">Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.</p>
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks robots.txt, sitemap, internal links, and broken links.</p>
-        
-        
-          <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
-            <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
-            <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Robots Txt Content</th><td># robots.txt for http://www.wikipedia.org/ and friends
-#
-# Please note: There are a lot of pages on this site, and there are
-# some misbehaved spiders out there that go _way_ too fast. If you're
-# irresponsible, your access to the site may be blocked.
-#
-# Observed spamming large amounts of https://en.wikipedia.org/?curid=NNNNNN
-# and ignoring 429 ratelimit responses, claims to respect robots:
-# http://mj12bot.com/
-User-agent: MJ12bot
-Disallow: /
-
-# advertising-related bots:
-User-agent: Mediapar...</td></tr><tr><th style="width: 30%;">Internal Links Count</th><td>364</td></tr><tr><th style="width: 30%;">Total Links Checked</th><td>10</td></tr><tr><th style="width: 30%;">Broken Links Count</th><td>5</td></tr><tr><th style="width: 30%;">Sitemap Exists</th><td>false</td></tr>
-            </tbody></table>
-          </div>
-        
-        
-        
-            <div class="issue high">
-              <span class="severity high">HIGH</span>
-              <h3 style="margin-top: 10px;">Sitemap file not found</h3>
-              <p><strong>Why this matters:</strong> A sitemap helps search engines find all your pages.</p>
-              <p><strong>How to fix it:</strong> Create a sitemap.xml file and place it in your website root. Many website builders create this automatically.</p>
-              
-            </div>
-          
-            <div class="issue high">
-              <span class="severity high">HIGH</span>
-              <h3 style="margin-top: 10px;">Robots.txt may be blocking search engines</h3>
-              <p><strong>Why this matters:</strong> Your robots.txt file might be preventing search engines from finding your pages.</p>
-              <p><strong>How to fix it:</strong> Check your robots.txt file and make sure it's not blocking all pages. Remove "Disallow: /" unless you want to block search engines.</p>
+            <div class="issue medium">
+              <span class="severity medium">MEDIUM</span>
+              <h3 style="margin-top: 10px;">Too many scripts may slow page loading</h3>
+              <p><strong>Why this matters:</strong> Scripts can prevent your page from showing quickly to visitors.</p>
+              <p><strong>How to fix it:</strong> Ask your web designer to optimize scripts or move them to load after the page content.</p>
               
                 <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
                   <h4>Details:</h4>
                   <table class="evidence-table">
-                    <tbody><tr><th>Found</th><td># robots.txt for http://www.wikipedia.org/ and friends
-#
-# Please note: There are a lot of pages on this site, and there are
-# some misbehaved spiders out there that go _way_ too fast. If you're
-# irr</td></tr><tr><th>Actual</th><td>Contains "Disallow: /" which blocks all pages</td></tr><tr><th>Expected</th><td>Should allow search engines to crawl pages (e.g., "User-agent: *
-Allow: /")</td></tr>
-                  </tbody></table>
-                </div>
-              
-            </div>
-          
-            <div class="issue high">
-              <span class="severity high">HIGH</span>
-              <h3 style="margin-top: 10px;">5 broken links found</h3>
-              <p><strong>Why this matters:</strong> Broken links frustrate visitors and hurt your site's reputation. Visitors clicking broken links will see error pages.</p>
-              <p><strong>How to fix it:</strong> Fix or remove the broken links. Check each link to make sure it goes to a working page.</p>
-              
-                <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
-                  <h4>Details:</h4>
-                  <table class="evidence-table">
-                    <tbody><tr><th>Found</th><td>[
-  "https://wikipedia.com//en.wikipedia.org/",
-  "https://wikipedia.com//ja.wikipedia.org/",
-  "https://wikipedia.com//de.wikipedia.org/",
-  "https://wikipedia.com//ru.wikipedia.org/",
-  "https://wikipedia.com//fr.wikipedia.org/"
-]</td></tr><tr><th>Actual</th><td>5 broken links</td></tr><tr><th>Expected</th><td>All links should work</td></tr><tr><th>Count</th><td>5</td></tr><tr><th>Details</th><td>{
-  "brokenLinks": [
-    "https://wikipedia.com//en.wikipedia.org/",
-    "https://wikipedia.com//ja.wikipedia.org/",
-    "https://wikipedia.com//de.wikipedia.org/",
-    "https://wikipedia.com//ru.wikipedia.org/",
-    "https://wikipedia.com//fr.wikipedia.org/"
+                    <tbody><tr><th>Found</th><td>9 blocking scripts</td></tr><tr><th>Actual</th><td>9 blocking, 0 async, 0 deferred</td></tr><tr><th>Expected</th><td>Scripts should use async or defer attributes</td></tr><tr><th>Count</th><td>9</td></tr><tr><th>Details</th><td>{
+  "blockingScripts": [
+    "/_next/static/chunks/fd9d1056-9f91b5e418130764.js",
+    "/_next/static/chunks/117-b06ad745578f0d64.js",
+    "/_next/static/chunks/main-app-f1e2f05f66ca4fbd.js",
+    "/_next/static/chunks/972-c297c90601cf06f0.js",
+    "/_next/static/chunks/878-71bd0a18f631c783.js"
   ]
 }</td></tr>
                   </tbody></table>
@@ -406,10 +294,50 @@ Allow: /")</td></tr>
       </div>
     
       <div class="module-section">
+        <h2>Crawl Health</h2>
+        <div style="margin-bottom: 15px;">
+          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
+        </div>
+        <p style="margin-bottom: 15px;">Search engines should be able to find your pages easily. Make sure you have a sitemap.xml file.</p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks robots.txt, sitemap, internal links, and broken links.</p>
+        
+        
+          <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
+            <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
+            <table class="evidence-table">
+              <tbody><tr><th style="width: 30%;">Robots Txt Content</th><td>User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /api/
+Disallow: /admin/
+
+# Allow public pages
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+Allow: /recommend
+Allow: /success
+Allow: /report/
+
+# Sitemap
+Sitemap: https://seochecksite.netlify.app/sitemap.xml
+
+</td></tr><tr><th style="width: 30%;">Internal Links Count</th><td>5</td></tr><tr><th style="width: 30%;">Total Links Checked</th><td>5</td></tr><tr><th style="width: 30%;">Broken Links Count</th><td>0</td></tr><tr><th style="width: 30%;">Sitemap Exists</th><td>true</td></tr><tr><th style="width: 30%;">Sitemap Url</th><td>https://seochecksite.netlify.app/sitemap.xml</td></tr>
+            </tbody></table>
+          </div>
+        
+        
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
+      </div>
+    
+      <div class="module-section">
         <h2>On-Page SEO</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 90/100</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your on-page SEO is in good shape. Keep titles and descriptions clear and descriptive.</p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your page title, description, headings, and content quality.</p>
@@ -418,36 +346,19 @@ Allow: /")</td></tr>
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Title</th><td>Wikipedia</td></tr><tr><th style="width: 30%;">Title Length</th><td>9</td></tr><tr><th style="width: 30%;">Meta Description</th><td>Wikipedia is a free online encyclopedia, created and edited by volunteers around the world and hosted by the Wikimedia Foundation.</td></tr><tr><th style="width: 30%;">Meta Description Length</th><td>130</td></tr><tr><th style="width: 30%;">H1 Text</th><td>Wikipedia
-
-The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</td></tr><tr><th style="width: 30%;">H2 Count</th><td>5</td></tr><tr><th style="width: 30%;">H3 Count</th><td>1</td></tr><tr><th style="width: 30%;">Word Count</th><td>1258</td></tr><tr><th style="width: 30%;">Image Count</th><td>1</td></tr><tr><th style="width: 30%;">Missing Alt Count</th><td>0</td></tr>
+              <tbody><tr><th style="width: 30%;">Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Title Length</th><td>55</td></tr><tr><th style="width: 30%;">Meta Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Meta Description Length</th><td>125</td></tr><tr><th style="width: 30%;">H1 Text</th><td>Get Your Website Checked</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</td></tr><tr><th style="width: 30%;">H2 Count</th><td>6</td></tr><tr><th style="width: 30%;">H3 Count</th><td>14</td></tr><tr><th style="width: 30%;">Word Count</th><td>579</td></tr><tr><th style="width: 30%;">Image Count</th><td>1</td></tr><tr><th style="width: 30%;">Missing Alt Count</th><td>0</td></tr>
             </tbody></table>
           </div>
         
         
-        
-            <div class="issue medium">
-              <span class="severity medium">MEDIUM</span>
-              <h3 style="margin-top: 10px;">Page title is too short</h3>
-              <p><strong>Why this matters:</strong> Short titles don't give search engines enough information.</p>
-              <p><strong>How to fix it:</strong> Make your title longer (aim for 50-60 characters) and include your main keywords.</p>
-              
-                <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
-                  <h4>Details:</h4>
-                  <table class="evidence-table">
-                    <tbody><tr><th>Found</th><td>Wikipedia</td></tr><tr><th>Actual</th><td>9 characters</td></tr><tr><th>Expected</th><td>50-60 characters</td></tr>
-                  </tbody></table>
-                </div>
-              
-            </div>
-          
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
       </div>
     
       <div class="module-section">
         <h2>Mobile Optimization</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 85/100</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site is mobile-friendly. Keep up the good work!</p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks how well your site works on phones and tablets.</p>
@@ -456,34 +367,19 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Viewport</th><td>initial-scale=1,user-scalable=yes</td></tr><tr><th style="width: 30%;">Has Viewport</th><td>true</td></tr><tr><th style="width: 30%;">Viewport Optimal</th><td>false</td></tr><tr><th style="width: 30%;">Has Fixed Width</th><td>false</td></tr><tr><th style="width: 30%;">Small Text Elements</th><td>0</td></tr><tr><th style="width: 30%;">Total Buttons</th><td>383</td></tr><tr><th style="width: 30%;">Small Buttons</th><td>0</td></tr><tr><th style="width: 30%;">Touch Targets Optimal</th><td>true</td></tr>
+              <tbody><tr><th style="width: 30%;">Viewport</th><td>width=device-width, initial-scale=1</td></tr><tr><th style="width: 30%;">Has Viewport</th><td>true</td></tr><tr><th style="width: 30%;">Viewport Optimal</th><td>true</td></tr><tr><th style="width: 30%;">Has Fixed Width</th><td>false</td></tr><tr><th style="width: 30%;">Small Text Elements</th><td>0</td></tr><tr><th style="width: 30%;">Total Buttons</th><td>13</td></tr><tr><th style="width: 30%;">Small Buttons</th><td>0</td></tr><tr><th style="width: 30%;">Touch Targets Optimal</th><td>true</td></tr>
             </tbody></table>
           </div>
         
         
-        
-            <div class="issue medium">
-              <span class="severity medium">MEDIUM</span>
-              <h3 style="margin-top: 10px;">Viewport setting may not be optimal</h3>
-              <p><strong>Why this matters:</strong> Your mobile display settings may not be optimal.</p>
-              <p><strong>How to fix it:</strong> Update your viewport tag to: &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;</p>
-              
-                <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
-                  <h4>Details:</h4>
-                  <table class="evidence-table">
-                    <tbody><tr><th>Found</th><td>initial-scale=1,user-scalable=yes</td></tr><tr><th>Actual</th><td>initial-scale=1,user-scalable=yes</td></tr><tr><th>Expected</th><td>width=device-width, initial-scale=1</td></tr>
-                  </tbody></table>
-                </div>
-              
-            </div>
-          
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
       </div>
     
       <div class="module-section">
         <h2>Accessibility</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 95/100</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site is accessible. Good job making your site usable for everyone!</p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks if your site is usable by everyone, including people with disabilities.</p>
@@ -492,20 +388,12 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Total Images</th><td>1</td></tr><tr><th style="width: 30%;">Images With Alt</th><td>1</td></tr><tr><th style="width: 30%;">Images Missing Alt</th><td>0</td></tr><tr><th style="width: 30%;">Total Form Fields</th><td>1</td></tr><tr><th style="width: 30%;">Form Fields With Labels</th><td>0</td></tr><tr><th style="width: 30%;">Form Fields Missing Labels</th><td>1</td></tr><tr><th style="width: 30%;">Heading Structure</th><td>H1: 1, H2: 5, H3: 1</td></tr><tr><th style="width: 30%;">Heading Hierarchy Issues</th><td>0</td></tr><tr><th style="width: 30%;">Low Contrast Elements</th><td>0</td></tr>
+              <tbody><tr><th style="width: 30%;">Total Images</th><td>1</td></tr><tr><th style="width: 30%;">Images With Alt</th><td>1</td></tr><tr><th style="width: 30%;">Images Missing Alt</th><td>0</td></tr><tr><th style="width: 30%;">Total Form Fields</th><td>3</td></tr><tr><th style="width: 30%;">Form Fields With Labels</th><td>3</td></tr><tr><th style="width: 30%;">Form Fields Missing Labels</th><td>0</td></tr><tr><th style="width: 30%;">Heading Structure</th><td>H1: 1, H2: 6, H3: 14</td></tr><tr><th style="width: 30%;">Heading Hierarchy Issues</th><td>0</td></tr><tr><th style="width: 30%;">Low Contrast Elements</th><td>0</td></tr>
             </tbody></table>
           </div>
         
         
-        
-            <div class="issue medium">
-              <span class="severity medium">MEDIUM</span>
-              <h3 style="margin-top: 10px;">1 form field missing labels</h3>
-              <p><strong>Why this matters:</strong> Form fields need labels so everyone knows what information to enter.</p>
-              <p><strong>How to fix it:</strong> Add labels to all form fields. Use &lt;label&gt; tags or aria-label attributes.</p>
-              
-            </div>
-          
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
       </div>
     
       <div class="module-section">
@@ -521,7 +409,7 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Https Enabled</th><td>true</td></tr><tr><th style="width: 30%;">Has Mixed Content</th><td>false</td></tr><tr><th style="width: 30%;">Security Headers Found</th><td>strict-transport-security</td></tr><tr><th style="width: 30%;">Security Headers Missing</th><td>x-frame-options, x-content-type-options, x-xss-protection, content-security-policy</td></tr><tr><th style="width: 30%;">Total Security Headers</th><td>1</td></tr><tr><th style="width: 30%;">Total Missing Headers</th><td>4</td></tr>
+              <tbody><tr><th style="width: 30%;">Https Enabled</th><td>true</td></tr><tr><th style="width: 30%;">Has Mixed Content</th><td>false</td></tr><tr><th style="width: 30%;">Security Headers Found</th><td>strict-transport-security, x-frame-options, x-content-type-options, x-xss-protection</td></tr><tr><th style="width: 30%;">Security Headers Missing</th><td>content-security-policy</td></tr><tr><th style="width: 30%;">Total Security Headers</th><td>4</td></tr><tr><th style="width: 30%;">Total Missing Headers</th><td>1</td></tr>
             </tbody></table>
           </div>
         
@@ -536,14 +424,14 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
                 <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
                   <h4>Details:</h4>
                   <table class="evidence-table">
-                    <tbody><tr><th>Found</th><td>strict-transport-security</td></tr><tr><th>Actual</th><td>Found: 1, Missing: 4</td></tr><tr><th>Expected</th><td>All recommended security headers present</td></tr><tr><th>Details</th><td>{
+                    <tbody><tr><th>Found</th><td>strict-transport-security, x-frame-options, x-content-type-options, x-xss-protection</td></tr><tr><th>Actual</th><td>Found: 4, Missing: 1</td></tr><tr><th>Expected</th><td>All recommended security headers present</td></tr><tr><th>Details</th><td>{
   "foundHeaders": [
-    "strict-transport-security"
-  ],
-  "missingHeaders": [
+    "strict-transport-security",
     "x-frame-options",
     "x-content-type-options",
-    "x-xss-protection",
+    "x-xss-protection"
+  ],
+  "missingHeaders": [
     "content-security-policy"
   ]
 }</td></tr>
@@ -555,10 +443,31 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
       </div>
     
       <div class="module-section">
+        <h2>Schema Markup</h2>
+        <div style="margin-bottom: 15px;">
+          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
+        </div>
+        <p style="margin-bottom: 15px;">Your structured data is well implemented. This helps search engines understand your business.</p>
+        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for structured data that helps search engines understand your content.</p>
+        
+        
+          <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
+            <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
+            <table class="evidence-table">
+              <tbody><tr><th style="width: 30%;">Schema Found</th><td>true</td></tr><tr><th style="width: 30%;">Schema Count</th><td>1</td></tr><tr><th style="width: 30%;">Schema Types</th><td>Organization</td></tr><tr><th style="width: 30%;">Schema Preview</th><td><pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">{"@context":"https://schema.org","@type":"Organization","name":"SEO CheckSite","url":"https://seochecksite.netlify.app","logo":"https://seochecksite.netlify.app/logo.svg","description":"Get a simple, ...</pre></td></tr>
+            </tbody></table>
+          </div>
+        
+        
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
+      </div>
+    
+      <div class="module-section">
         <h2>Social Metadata</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 90/100</span>
+          <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your social sharing is well configured. Your links will look great when shared!</p>
         <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks Open Graph and Twitter Card tags for social sharing.</p>
@@ -567,49 +476,12 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Og Title</th><td>Wikipedia, the free encyclopedia</td></tr><tr><th style="width: 30%;">Og Description</th><td>Wikipedia is a free online encyclopedia, created and edited by volunteers around the world and hosted by the Wikimedia Foundation.</td></tr><tr><th style="width: 30%;">Og Image</th><td>https://upload.wikimedia.org/wikipedia/en/thumb/8/80/Wikipedia-logo-v2.svg/2244px-Wikipedia-logo-v2.svg.png</td></tr><tr><th style="width: 30%;">Og Type</th><td>website</td></tr><tr><th style="width: 30%;">Og Url</th><td>Not found</td></tr><tr><th style="width: 30%;">Twitter Card</th><td>Not found</td></tr><tr><th style="width: 30%;">Twitter Title</th><td>Not found</td></tr><tr><th style="width: 30%;">Twitter Description</th><td>Not found</td></tr><tr><th style="width: 30%;">Twitter Image</th><td>Not found</td></tr>
+              <tbody><tr><th style="width: 30%;">Og Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Og Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Og Image</th><td>https://seochecksite.netlify.app/logo.svg</td></tr><tr><th style="width: 30%;">Og Type</th><td>website</td></tr><tr><th style="width: 30%;">Og Url</th><td>https://seochecksite.netlify.app</td></tr><tr><th style="width: 30%;">Twitter Card</th><td>summary_large_image</td></tr><tr><th style="width: 30%;">Twitter Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Twitter Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Twitter Image</th><td>https://seochecksite.netlify.app/logo.svg</td></tr>
             </tbody></table>
           </div>
         
         
-        
-            <div class="issue low">
-              <span class="severity low">LOW</span>
-              <h3 style="margin-top: 10px;">Missing Twitter Card tags</h3>
-              <p><strong>Why this matters:</strong> Twitter Cards make your shared links look better on Twitter.</p>
-              <p><strong>How to fix it:</strong> Add Twitter Card tags: &lt;meta name="twitter:card" content="summary"&gt; and related tags.</p>
-              
-            </div>
-          
-      </div>
-    
-      <div class="module-section">
-        <h2>Schema Markup</h2>
-        <div style="margin-bottom: 15px;">
-          <span class="score-badge score-medium" style="margin-right: 10px;">MEDIUM</span>
-          <span style="color: #6b7280; font-size: 0.9em;">Score: 70/100</span>
-        </div>
-        <p style="margin-bottom: 15px;">Your structured data needs improvement. Add Organization or LocalBusiness schema with complete business information.</p>
-        <p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for structured data that helps search engines understand your content.</p>
-        
-        
-          <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
-            <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
-            <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Schema Found</th><td>false</td></tr><tr><th style="width: 30%;">Schema Count</th><td>0</td></tr><tr><th style="width: 30%;">Schema Types</th><td>None detected</td></tr><tr><th style="width: 30%;">Schema Preview</th><td><pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">No schema markup found</pre></td></tr>
-            </tbody></table>
-          </div>
-        
-        
-        
-            <div class="issue high">
-              <span class="severity high">HIGH</span>
-              <h3 style="margin-top: 10px;">No structured data found</h3>
-              <p><strong>Why this matters:</strong> Structured data helps search engines understand your business and show rich results.</p>
-              <p><strong>How to fix it:</strong> Add schema markup (structured data) with your business information. Ask your web designer about "Organization schema" or "LocalBusiness schema".</p>
-              
-            </div>
-          
+        <div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>
       </div>
     
 
@@ -623,8 +495,7 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
       This report was generated by SEO CheckSite. For questions, email us at contact@seoauditpro.net. We're here to help!
     </p>
   </div>
-</body>
-</html>`
+`
 
   return (
     <div className="min-h-screen bg-white">
@@ -677,4 +548,3 @@ The Free Encyclopedia</td></tr><tr><th style="width: 30%;">H1 Count</th><td>1</t
     </div>
   )
 }
-
