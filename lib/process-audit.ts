@@ -18,20 +18,23 @@ export async function processAudit(auditId: string) {
   try {
     console.log(`[processAudit] Starting audit ${auditId} at ${new Date().toISOString()}`)
     
-    // CRITICAL: Early check - if email was already sent, skip processing entirely
+    // CRITICAL: Early check - if email was already sent AND report exists, skip processing entirely
     // This prevents duplicate processing and duplicate emails
+    // BUT: If report exists but email wasn't sent, we should still send the email
     const { data: earlyCheck } = await supabase
       .from('audits')
       .select('email_sent_at, status, formatted_report_html')
       .eq('id', auditId)
       .single()
     
-    if (earlyCheck?.email_sent_at) {
-      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at}`)
+    // Only skip if BOTH email was sent AND report exists
+    // If report exists but email wasn't sent, we need to continue to send the email
+    if (earlyCheck?.email_sent_at && earlyCheck?.formatted_report_html) {
+      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at} and report exists`)
       return {
         success: true,
         auditId,
-        message: 'Audit skipped - email already sent',
+        message: 'Audit skipped - email already sent and report exists',
         email_sent_at: earlyCheck.email_sent_at,
       }
     }
@@ -50,6 +53,20 @@ export async function processAudit(auditId: string) {
 
     audit = auditData
     console.log(`Found audit for URL: ${audit.url}, Customer: ${(audit.customers as any)?.email}`)
+    
+    // Check if we need to run modules or if report already exists
+    let html: string | null = null
+    let plaintext: string | null = null
+    
+    if (audit.formatted_report_html && !audit.email_sent_at) {
+      // Report exists but email wasn't sent - use existing report and skip to email sending
+      console.log(`⚠️  [processAudit] Audit ${auditId} has report but email not sent - will send email only (skipping module execution)`)
+      html = audit.formatted_report_html
+      plaintext = audit.formatted_report_plaintext || ''
+      // Skip all module execution and go straight to email sending
+    } else if (!audit.formatted_report_html) {
+      // Normal flow: run modules and generate report
+      console.log(`[processAudit] Running normal audit flow for ${auditId} - no report exists yet`)
 
     // Get enabled modules
     const { data: modules, error: modulesError } = await supabase
@@ -260,45 +277,37 @@ export async function processAudit(auditId: string) {
       throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
     }
 
-    // CRITICAL: Only proceed if report was successfully generated
+      // Verify report was saved (double-check) - only if we just generated it
+      if (!audit.formatted_report_html) {
+        const { data: savedAudit } = await supabase
+          .from('audits')
+          .select('formatted_report_html, status')
+          .eq('id', auditId)
+          .single()
+        
+        if (!savedAudit?.formatted_report_html || savedAudit.status !== 'completed') {
+          console.error('❌ Report verification failed - report not properly saved')
+          throw new Error('Report was not properly saved to database - cannot send email')
+        }
+        console.log('✅ Report verified in database - safe to send email')
+      } else {
+        console.log('✅ Using existing report - safe to send email')
+      }
+    } // End of else if (!audit.formatted_report_html) block
+    
+    // At this point, we either:
+    // 1. Have a newly generated report (html and plaintext set above)
+    // 2. Have an existing report (html and plaintext set from audit.formatted_report_html)
+    
+    // Verify report exists before sending email
     if (!html || html.trim().length === 0) {
-      console.error(`❌ Cannot complete audit ${auditId} - report HTML is empty or missing`)
-      throw new Error('Report generation failed - cannot complete audit without report content')
+      console.error(`❌ Cannot send email for audit ${auditId} - report HTML is missing`)
+      throw new Error('Report is missing - cannot send email')
     }
     
-    // CRITICAL: Save report to database FIRST before sending email
-    // This ensures the report URL works when the email is received
-    console.log('Saving report to database BEFORE sending email...')
-    const updateData: any = {
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      formatted_report_html: html,
-      formatted_report_plaintext: plaintext,
-    }
-    
-    const { error: reportUpdateError } = await supabase
-      .from('audits')
-      .update(updateData)
-      .eq('id', auditId)
-    
-    if (reportUpdateError) {
-      console.error('❌ Error saving report to database:', reportUpdateError)
-      throw new Error(`Failed to save report to database: ${reportUpdateError.message}`)
-    }
-    console.log('✅ Report saved to database - report URL is now accessible')
-    
-    // Verify report was saved (double-check)
-    const { data: savedAudit } = await supabase
-      .from('audits')
-      .select('formatted_report_html, status')
-      .eq('id', auditId)
-      .single()
-    
-    if (!savedAudit?.formatted_report_html || savedAudit.status !== 'completed') {
-      console.error('❌ Report verification failed - report not properly saved')
-      throw new Error('Report was not properly saved to database - cannot send email')
-    }
-    console.log('✅ Report verified in database - safe to send email')
+    // Ensure html and plaintext are strings (not null)
+    const reportHtml: string = html
+    const reportPlaintext: string = plaintext || ''
     
     // Get customer email
     const customer = audit.customers as any
@@ -338,7 +347,7 @@ export async function processAudit(auditId: string) {
         customer.email,
         audit.url,
         auditId,
-        html
+        reportHtml
       )
       // Only set email_sent_at AFTER email is successfully sent
       emailSentAt = new Date().toISOString()

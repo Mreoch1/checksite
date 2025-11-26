@@ -163,10 +163,10 @@ export async function GET(request: NextRequest) {
         })
       }
       
-      // CRITICAL: Skip if audit has a report already saved (even if email wasn't sent)
-      // This prevents reprocessing audits that already have reports
-      if (auditData.status === 'completed' && auditData.formatted_report_html) {
-        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report`)
+      // CRITICAL: Skip if audit has a report AND email was sent
+      // BUT: If audit is completed with report but email wasn't sent, we should still process it to send the email
+      if (auditData.status === 'completed' && auditData.formatted_report_html && auditData.email_sent_at) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report and email sent`)
         // Mark queue item as completed
         await supabase
           .from('audit_queue')
@@ -178,10 +178,18 @@ export async function GET(request: NextRequest) {
         
         return NextResponse.json({
           success: true,
-          message: 'Audit already completed (report exists)',
+          message: 'Audit already completed (report exists and email sent)',
           processed: false,
           auditId: queueItem.audit_id,
         })
+      }
+      
+      // If audit is completed with report but email wasn't sent, we need to send the email
+      // This can happen if email sending failed during initial processing
+      if (auditData.status === 'completed' && auditData.formatted_report_html && !auditData.email_sent_at) {
+        console.log(`[${requestId}] ⚠️  Audit ${queueItem.audit_id} has report but email not sent - will send email only`)
+        // We'll process this audit but only to send the email (skip module execution)
+        // This is handled in processAudit by the early check
       }
       
       // FIX: If audit has report but status is wrong, fix it first
