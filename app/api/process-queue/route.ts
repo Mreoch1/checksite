@@ -524,15 +524,22 @@ export async function GET(request: NextRequest) {
       // This prevents the same audit from being processed again
       if (isEmailSent(verifyAudit.email_sent_at)) {
         // Email was sent - mark queue as completed immediately
-        await supabase
+        const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
+          .select('status')
         
-        console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
+        if (queueUpdateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
+        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
+          console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
+        } else {
+          console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed (status: ${queueUpdateResult[0].status})`)
+        }
         
         return NextResponse.json({
           success: true,
@@ -547,15 +554,22 @@ export async function GET(request: NextRequest) {
       // If audit is completed with report, mark queue as completed
       if (verifyAudit.status === 'completed' && verifyAudit.formatted_report_html) {
         // Mark queue item as completed
-        await supabase
+        const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
+          .select('status')
         
-        console.log(`[${requestId}] ✅ Audit ${auditId} completed successfully`)
+        if (queueUpdateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
+        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
+          console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
+        } else {
+          console.log(`[${requestId}] ✅ Audit ${auditId} completed successfully - queue marked as completed (status: ${queueUpdateResult[0].status})`)
+        }
         
         return NextResponse.json({
           success: true,
@@ -585,15 +599,22 @@ export async function GET(request: NextRequest) {
         }
         
         // Mark queue as completed
-        await supabase
+        const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
+          .select('status')
         
-        console.log(`[${requestId}] ✅ Audit ${auditId} has report - marked queue as completed`)
+        if (queueUpdateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
+        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
+          console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
+        } else {
+          console.log(`[${requestId}] ✅ Audit ${auditId} has report - marked queue as completed (status: ${queueUpdateResult[0].status})`)
+        }
         
         return NextResponse.json({
           success: true,
