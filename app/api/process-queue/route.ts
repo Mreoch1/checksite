@@ -47,12 +47,13 @@ export async function GET(request: NextRequest) {
     // CRITICAL: Also filter out audits that already have email_sent_at to prevent duplicate processing
     // This prevents processing the same audit multiple times if there are duplicate queue entries
     // Use a simpler query approach to avoid join filter issues
+    // NOTE: Get more items to ensure we catch recent ones that might be filtered out
     const { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
-      .limit(10) // Get a few items to filter in code
+      .limit(20) // Increased from 10 to catch more items
     
     if (findError) {
       console.error(`[${requestId}] Error finding queue items:`, findError)
