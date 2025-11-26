@@ -348,6 +348,20 @@ Respond with ONLY valid JSON:
       throw new Error(`Invalid response structure: missing ${missingKeys.join(', ')}`)
     }
     
+    // Post-process: Override local recommendation if we detect clear local business indicators
+    // This catches cases where LLM misses obvious local businesses
+    const fullContent = (siteSummary.content || '').toLowerCase()
+    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|address|location|visit us/i.test(fullContent)
+    const hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|tel:/i.test(fullContent)
+    const hasBusinessEntity = /(inc\.|llc|corp|industries|company)/i.test(fullContent)
+    
+    // If we have address AND phone, or address/phone with business entity, force local = true
+    if ((hasAddress && hasPhone) || ((hasAddress || hasPhone) && hasBusinessEntity)) {
+      console.log(`[recommendModules] Overriding local recommendation to true - detected address/phone with business entity`)
+      parsed.local = true
+      parsed.reasons.local = 'Your site has a physical address and phone number, indicating a local business that would benefit from local SEO optimization.'
+    }
+    
     console.log(`[recommendModules] Successfully parsed recommendations`)
     return parsed
   } catch (parseError) {
