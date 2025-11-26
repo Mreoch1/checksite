@@ -357,8 +357,17 @@ Respond with ONLY valid JSON:
     // Post-process: Override local recommendation if we detect clear local business indicators
     // This catches cases where LLM misses obvious local businesses
     // Use the full content we stored earlier, not just the sample
-    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|address|location|visit us|come in|our location|find us/i.test(allText)
+    
+    // More flexible address pattern - handles formats like:
+    // "1030 N Crooks Rd, Suite G, Clawson, MI 48017"
+    // "123 Main St, City, State 12345"
+    // Also matches just "address", "location", etc.
+    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct)(?:[,\s]+(?:suite|ste|unit|apt|apartment|#)[\sA-Za-z0-9]+)?[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct)(?:[,\s]+(?:suite|ste|unit|apt|apartment|#)[\sA-Za-z0-9]+)?[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us|physical location)/i.test(allText)
+    
+    // Phone pattern - handles +1 248-288-6600, (248) 288-6600, 248-288-6600, etc.
     const hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
+    
+    // Business entity - check for Inc, LLC, Corp, Industries, Company
     const hasBusinessEntity = /(inc\.|llc|corp|industries|company|corporation)/i.test(allText)
     
     // More aggressive: If we have address AND phone, definitely local
