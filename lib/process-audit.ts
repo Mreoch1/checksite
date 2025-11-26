@@ -280,19 +280,14 @@ export async function processAudit(auditId: string) {
     }
     
     // Use atomic update to prevent duplicate emails (race condition protection)
-    // Try to set email_sent_at to a temporary value first, then send email
-    // This prevents two processes from both sending emails simultaneously
-    const tempTimestamp = new Date().toISOString()
-    const { data: updateResult, error: updateError } = await supabase
+    // Check if email was already sent by another process
+    const { data: existingAudit } = await supabase
       .from('audits')
-      .update({ email_sent_at: tempTimestamp })
-      .eq('id', auditId)
-      .is('email_sent_at', null) // Only update if email_sent_at is NULL
       .select('email_sent_at')
+      .eq('id', auditId)
       .single()
     
-    // If update failed, email was already sent (another process got there first)
-    const emailAlreadySent = updateError || !updateResult || updateResult.email_sent_at !== tempTimestamp
+    const emailAlreadySent = !!existingAudit?.email_sent_at
     
     // Send email AFTER report is saved and verified
     let emailSentAt: string | null = null
@@ -300,6 +295,7 @@ export async function processAudit(auditId: string) {
     
     if (!emailAlreadySent) {
       console.log(`📧 Sending email to ${customer.email} for audit ${auditId}...`)
+      console.log(`📧 Email provider check: SENDGRID_API_KEY=${!!process.env.SENDGRID_API_KEY}, SMTP_PASSWORD=${!!process.env.SMTP_PASSWORD}, EMAIL_PROVIDER=${process.env.EMAIL_PROVIDER || 'not set'}`)
       try {
         await sendAuditReportEmail(
           customer.email,
@@ -307,43 +303,62 @@ export async function processAudit(auditId: string) {
           auditId,
           html
         )
-        emailSentAt = tempTimestamp // Use the timestamp we already set
-        console.log(`✅ Email sent successfully to ${customer.email}`)
+        // Only set email_sent_at AFTER email is successfully sent
+        emailSentAt = new Date().toISOString()
+        const { error: emailUpdateError } = await supabase
+          .from('audits')
+          .update({ email_sent_at: emailSentAt })
+          .eq('id', auditId)
+          .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
+        
+        if (emailUpdateError) {
+          console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
+          // Email was sent, but we couldn't update the timestamp - not critical
+        } else {
+          console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated`)
+        }
       } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
         console.error('❌ Email sending failed:', emailError)
         console.error('Email error details:', emailError.message)
         console.error('Email error stack:', emailError.stack)
-        // Reset email_sent_at on failure so it can be retried
-        await supabase
+        
+        // Log email error to database for debugging
+        const emailErrorLog = JSON.stringify({
+          timestamp: new Date().toISOString(),
+          type: 'email_send_failure',
+          error: emailError.message,
+          stack: emailError.stack,
+          customer_email: customer.email,
+          audit_id: auditId,
+          email_provider_config: {
+            has_sendgrid_key: !!process.env.SENDGRID_API_KEY,
+            has_smtp_password: !!process.env.SMTP_PASSWORD,
+            email_provider: process.env.EMAIL_PROVIDER || 'not set',
+            use_fallback: process.env.EMAIL_USE_FALLBACK === 'true',
+          },
+        }, null, 2)
+        
+        // Ensure email_sent_at is null and log error
+        const { error: resetError } = await supabase
           .from('audits')
-          .update({ email_sent_at: null })
+          .update({ 
+            email_sent_at: null,
+            error_log: emailErrorLog,
+          } as any) // Type assertion since error_log might not exist
           .eq('id', auditId)
-        // Don't throw - report is already saved, so user can access it via URL
-        console.warn('⚠️  Email failed but report is saved. User can access report at /report/' + auditId)
+        
+        if (resetError) {
+          console.error('❌ Failed to reset email_sent_at and log error:', resetError)
+        } else {
+          console.warn('⚠️  Email failed but report is saved. User can access report at /report/' + auditId)
+          console.warn('⚠️  Email error logged to database error_log column')
+        }
       }
     } else {
-      // Email already sent by another process - get the timestamp
-      const { data: existingAudit } = await supabase
-        .from('audits')
-        .select('email_sent_at')
-        .eq('id', auditId)
-        .single()
-      emailSentAt = existingAudit?.email_sent_at || null
+      // Email already sent by another process
+      emailSentAt = existingAudit.email_sent_at
       console.log(`⚠️  Email already sent for audit ${auditId} at ${emailSentAt}. Skipping duplicate email.`)
-    }
-    
-    // Update email_sent_at if email was sent (or already sent)
-    if (emailSentAt) {
-      const { error: emailUpdateError } = await supabase
-        .from('audits')
-        .update({ email_sent_at: emailSentAt })
-        .eq('id', auditId)
-      
-      if (emailUpdateError) {
-        console.error('Warning: Failed to update email_sent_at:', emailUpdateError)
-        // Don't throw - report is already saved
-      }
     }
     
     // If email failed, log it in error_log for debugging
