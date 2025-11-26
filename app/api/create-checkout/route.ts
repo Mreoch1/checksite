@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
         .eq('id', audit.id)
       
       // Add to queue instead of processing directly (avoids Netlify timeout)
-      const { error: queueError } = await supabase
+      const { data: queueResult, error: queueError } = await supabase
         .from('audit_queue')
         .upsert({
           audit_id: audit.id,
@@ -155,11 +155,29 @@ export async function POST(request: NextRequest) {
         }, {
           onConflict: 'audit_id',
         })
+        .select()
       
       if (queueError) {
-        console.error('Error adding audit to queue:', queueError)
+        console.error(`❌ Error adding audit ${audit.id} to queue:`, queueError)
+        console.error('Queue error details:', JSON.stringify(queueError, null, 2))
       } else {
         console.log(`✅ Test audit ${audit.id} added to queue - will be processed by queue worker`)
+        if (queueResult && queueResult.length > 0) {
+          console.log(`   Queue entry ID: ${queueResult[0].id}, Status: ${queueResult[0].status}`)
+        }
+        
+        // Verify the queue entry was actually created
+        const { data: verifyQueue, error: verifyError } = await supabase
+          .from('audit_queue')
+          .select('id, status, created_at')
+          .eq('audit_id', audit.id)
+          .single()
+        
+        if (verifyError || !verifyQueue) {
+          console.error(`⚠️  WARNING: Queue entry verification failed for audit ${audit.id}:`, verifyError)
+        } else {
+          console.log(`   ✅ Verified queue entry exists: ID=${verifyQueue.id}, Status=${verifyQueue.status}, Created=${verifyQueue.created_at}`)
+        }
       }
       
       // Return success URL directly (bypassing Stripe)
