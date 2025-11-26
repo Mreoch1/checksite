@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
+import { isEmailSent, isEmailSending } from '@/lib/email-status'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
         console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - this might indicate a database issue`)
         return
       }
-      if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+      if (isEmailSent(audit.email_sent_at)) {
         itemsToCleanup.push(item.id)
       }
     })
@@ -134,15 +135,15 @@ export async function GET(request: NextRequest) {
         return false
       }
       
-      // Skip if email_sent_at exists and is not a "sending_" reservation
-      if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+      // Skip if email was already sent (not a reservation)
+      if (isEmailSent(audit.email_sent_at)) {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${audit.email_sent_at}`)
         return false
       }
       
-      // Skip if email_sent_at is a "sending_" reservation (another process is handling it)
-      if (audit.email_sent_at?.startsWith('sending_')) {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (${audit.email_sent_at})`)
+      // Skip if email is being sent (reservation exists - another process is handling it)
+      if (isEmailSending(audit.email_sent_at)) {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (reserved at ${audit.email_sent_at})`)
         return false
       }
       
@@ -163,8 +164,8 @@ export async function GET(request: NextRequest) {
       const waitingItems = queueItems?.filter((item: any) => {
         const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
         if (!audit) return false
-        if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) return false
-        if (audit.email_sent_at?.startsWith('sending_')) return false
+        if (isEmailSent(audit.email_sent_at)) return false
+        if (isEmailSending(audit.email_sent_at)) return false
         if (item.created_at && item.created_at > fiveMinutesAgo) return true
         return false
       }) || []
@@ -181,7 +182,7 @@ export async function GET(request: NextRequest) {
           const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
           const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
           const passesDelay = item.created_at < fiveMinutesAgo
-          const passesEmail = !audit?.email_sent_at || audit.email_sent_at.startsWith('sending_')
+          const passesEmail = !isEmailSent(audit?.email_sent_at) && !isEmailSending(audit?.email_sent_at)
           console.warn(`[${requestId}]   - Queue item ${item.id} (audit_id: ${item.audit_id}):`)
           console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageMinutes}m, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
           console.warn(`[${requestId}]     passes_delay=${passesDelay}, passes_email=${passesEmail}, should_process=${passesDelay && passesEmail && audit ? 'YES' : 'NO'}`)
