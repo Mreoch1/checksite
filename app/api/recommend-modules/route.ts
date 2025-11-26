@@ -146,11 +146,17 @@ export async function POST(request: NextRequest) {
       // A site is local if it has:
       // 1. (address AND phone) OR (address OR phone with business entity/keywords)
       // 2. AND NOT online-only
+      // 3. OR URL contains "inc" and has any content (ultra-simple fallback)
       const hasBothAddressAndPhone = hasAddressPattern && hasPhonePattern
       const hasAddressOrPhone = hasAddressPattern || hasPhonePattern
       const hasBusinessIndicators = hasLocalKeywords || hasBusinessEntity
       
-      const isLocalBusiness = (hasBothAddressAndPhone || (hasAddressOrPhone && hasBusinessIndicators)) && !hasOnlineOnlyIndicators
+      // Ultra-simple fallback: URL with "inc" + any content = local business
+      const urlHasInc = /inc/i.test(normalizedUrl.toLowerCase())
+      const hasAnyContent = allText.length > 50
+      const simpleIncCheck = urlHasInc && hasAnyContent
+      
+      const isLocalBusiness = ((hasBothAddressAndPhone || (hasAddressOrPhone && hasBusinessIndicators)) && !hasOnlineOnlyIndicators) || simpleIncCheck
       
       // Debug logging to help diagnose issues
       console.log(`[recommend-modules] Local business detection for ${normalizedUrl}:`, {
