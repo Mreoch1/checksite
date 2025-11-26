@@ -461,9 +461,12 @@ export async function processAudit(auditId: string) {
         throw new Error('Email sent but timestamp was not saved to database')
       } else {
         console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated to ${updateResult[0].email_sent_at}`)
-        // Verify the timestamp matches what we set
-        if (updateResult[0].email_sent_at !== emailSentAt) {
-          console.warn(`⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${updateResult[0].email_sent_at}`)
+        // Verify the timestamp matches what we set (allowing for format differences like Z vs +00:00)
+        const expectedTime = new Date(emailSentAt).getTime()
+        const actualTime = new Date(updateResult[0].email_sent_at).getTime()
+        const timeDiff = Math.abs(expectedTime - actualTime)
+        if (timeDiff > 1000) { // Allow up to 1 second difference (format differences are fine)
+          console.warn(`⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${updateResult[0].email_sent_at} (difference: ${timeDiff}ms)`)
         }
       }
     } catch (err) {
