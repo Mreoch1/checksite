@@ -1,0 +1,60 @@
+# SendGrid DNS Records for seoauditpro.net
+# Add these records to your DNS provider (Namecheap, GoDaddy, Cloudflare, etc.)
+# Domain: seoauditpro.net
+
+# ============================================
+# CNAME RECORDS
+# ============================================
+
+# Record 1
+Type: CNAME
+Name/Host: url5121
+Value/Target: sendgrid.net
+Full Record: url5121.seoauditpro.net → sendgrid.net
+
+# Record 2
+Type: CNAME
+Name/Host: 51760082
+Value/Target: sendgrid.net
+Full Record: 51760082.seoauditpro.net → sendgrid.net
+
+# Record 3
+Type: CNAME
+Name/Host: em1811
+Value/Target: u51760082.wl083.sendgrid.net
+Full Record: em1811.seoauditpro.net → u51760082.wl083.sendgrid.net
+
+# Record 4
+Type: CNAME
+Name/Host: s1._domainkey
+Value/Target: s1.domainkey.u51760082.wl083.sendgrid.net
+Full Record: s1._domainkey.seoauditpro.net → s1.domainkey.u51760082.wl083.sendgrid.net
+
+# Record 5
+Type: CNAME
+Name/Host: s2._domainkey
+Value/Target: s2.domainkey.u51760082.wl083.sendgrid.net
+Full Record: s2._domainkey.seoauditpro.net → s2.domainkey.u51760082.wl083.sendgrid.net
+
+# ============================================
+# TXT RECORD
+# ============================================
+
+# Record 6
+Type: TXT
+Name/Host: _dmarc
+Value: v=DMARC1; p=none; rua=mailto:contact@seoauditpro.net
+Full Record: _dmarc.seoauditpro.net → v=DMARC1; p=none; rua=mailto:contact@seoauditpro.net
+
+# ============================================
+# QUICK COPY-PASTE FORMAT
+# ============================================
+# Copy these directly into your DNS provider:
+
+# CNAME | url5121 | sendgrid.net
+# CNAME | 51760082 | sendgrid.net
+# CNAME | em1811 | u51760082.wl083.sendgrid.net
+# CNAME | s1._domainkey | s1.domainkey.u51760082.wl083.sendgrid.net
+# CNAME | s2._domainkey | s2.domainkey.u51760082.wl083.sendgrid.net
+# TXT | _dmarc | v=DMARC1; p=none; rua=mailto:contact@seoauditpro.net
+

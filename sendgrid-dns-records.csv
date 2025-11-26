@@ -1,0 +1,8 @@
+Type,Name/Host,Value/Target
+CNAME,url5121,sendgrid.net
+CNAME,51760082,sendgrid.net
+CNAME,em1811,u51760082.wl083.sendgrid.net
+CNAME,s1._domainkey,s1.domainkey.u51760082.wl083.sendgrid.net
+CNAME,s2._domainkey,s2.domainkey.u51760082.wl083.sendgrid.net
+TXT,_dmarc,"v=DMARC1; p=none; rua=mailto:contact@seoauditpro.net"
+
