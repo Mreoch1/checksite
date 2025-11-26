@@ -124,8 +124,8 @@ export async function identifyCompetitor(
   url: string,
   siteSummary: { title?: string; description?: string; content?: string }
 ): Promise<{ competitorUrl: string | null; reason: string }> {
-  const contentSample = (siteSummary.content || '').substring(0, 500)
-  const prompt = `Identify a direct competitor website URL for this business:
+  const contentSample = (siteSummary.content || '').substring(0, 800) // Increased for better context
+  const prompt = `Identify a direct competitor website URL for this business.
 
 Website URL: ${url}
 Title: ${siteSummary.title || 'Not found'}
@@ -134,21 +134,24 @@ Content sample: ${contentSample}
 
 Your task: Identify ONE direct competitor website that:
 1. Offers similar products/services
-2. Targets the same customer base
+2. Targets the same customer base  
 3. Operates in the same market/industry
-4. Has an accessible website (not a social media page)
+4. Has an accessible website (not a social media page or directory)
 
-Respond with ONLY valid JSON:
+If you cannot identify a clear competitor, return null for competitorUrl.
+
+Respond with ONLY valid JSON (no markdown, no explanation):
 {
-  "competitorUrl": "https://competitor-domain.com" or null if no clear competitor found,
-  "reason": "One sentence explaining why this is a competitor"
+  "competitorUrl": "https://competitor-domain.com" or null,
+  "reason": "One sentence explaining the choice or why none was found"
 }
 
-IMPORTANT:
-- Return a full URL (https://...) if you find a competitor
-- Return null for competitorUrl if you cannot identify a clear competitor
-- Do NOT return the same URL as the input
-- Do NOT return generic directories (like Yelp, Google Business, etc.)
+CRITICAL RULES:
+- Return a full URL starting with https:// if you find a competitor
+- Return null for competitorUrl if no clear competitor exists
+- Do NOT return the same URL as the input website
+- Do NOT return directories (Yelp, Google Business, etc.)
+- Do NOT return social media pages
 - Focus on actual business websites that compete directly`
 
   const messages: DeepSeekMessage[] = [
@@ -164,23 +167,38 @@ IMPORTANT:
 
   try {
     console.log(`[identifyCompetitor] Identifying competitor for ${url}...`)
-    const response = await callDeepSeek(messages, 0.5)
+    
+    // Add timeout protection (8 seconds to avoid Netlify timeout)
+    const responsePromise = callDeepSeek(messages, 0.5)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Competitor identification timeout')), 8000)
+    })
+    
+    const response = await Promise.race([responsePromise, timeoutPromise])
     
     // Extract JSON from response
-    let jsonMatch = response.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
-      if (codeBlockMatch) {
-        jsonMatch = [codeBlockMatch[1], codeBlockMatch[1]]
-      }
+    let jsonText = response.trim()
+    
+    // Remove markdown code blocks if present
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '')
     }
     
+    // Find JSON object
+    let jsonMatch = jsonText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      console.warn('[identifyCompetitor] No JSON found in response, returning null')
+      console.warn('[identifyCompetitor] No JSON found in response:', response.substring(0, 200))
       return { competitorUrl: null, reason: 'Could not identify a competitor from the analysis' }
     }
     
-    const result = JSON.parse(jsonMatch[1])
+    let result
+    try {
+      result = JSON.parse(jsonMatch[0])
+    } catch (parseError) {
+      console.error('[identifyCompetitor] JSON parse error:', parseError)
+      console.error('[identifyCompetitor] Response text:', jsonMatch[0].substring(0, 500))
+      return { competitorUrl: null, reason: 'Error parsing competitor identification response' }
+    }
     
     // Validate result
     if (result.competitorUrl && typeof result.competitorUrl === 'string') {
