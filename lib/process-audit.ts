@@ -401,6 +401,23 @@ export async function processAudit(auditId: string) {
         // Don't send email - this could cause duplicates
         console.error('⚠️  Reservation failed but email_sent_at is null - this indicates a database issue')
         console.error('⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.')
+        
+        // CRITICAL: Ensure status is set to completed even if email reservation failed
+        // The report is already saved, so the audit is complete
+        const { error: statusError } = await supabase
+          .from('audits')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', auditId)
+        
+        if (statusError) {
+          console.error('⚠️  Failed to update audit status to completed:', statusError)
+        } else {
+          console.log('✅ Audit status updated to completed (email reservation failed but report is saved)')
+        }
+        
         return {
           success: true,
           auditId,
