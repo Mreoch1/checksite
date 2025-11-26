@@ -118,9 +118,64 @@ export async function callDeepSeek(
  * Recommend modules based on website analysis
  */
 /**
- * Identify a competitor URL for a given website using LLM
+ * Identify a competitor URL for a given website
+ * First tries search API (SerpAPI/Bing), then falls back to LLM
  */
 export async function identifyCompetitor(
+  url: string,
+  siteSummary: { title?: string; description?: string; content?: string }
+): Promise<{ competitorUrl: string | null; reason: string }> {
+  // Extract business name and location from title/content
+  const title = siteSummary.title || ''
+  const content = siteSummary.content || ''
+  
+  // Try to extract business name (first part of title, or common patterns)
+  let businessName = title.split('|')[0].split('-')[0].trim()
+  if (businessName.length > 50) {
+    businessName = businessName.substring(0, 50)
+  }
+  
+  // Try to extract location (city, state) from content
+  const locationMatch = content.match(/([A-Z][a-z]+,\s*[A-Z]{2})/i)
+  const location = locationMatch ? locationMatch[1] : undefined
+  
+  // Extract industry/keywords from title and description
+  const description = siteSummary.description || ''
+  const industryKeywords = `${title} ${description}`.substring(0, 100)
+  
+  // Get domain to exclude from search results
+  let excludeDomain: string | undefined
+  try {
+    const urlObj = new URL(url)
+    excludeDomain = urlObj.hostname
+  } catch {
+    // Invalid URL, skip exclusion
+  }
+
+  // Try search API first (more reliable)
+  try {
+    const { searchCompetitors } = await import('@/lib/search-api')
+    const searchResults = await searchCompetitors(businessName, industryKeywords, location, excludeDomain)
+    
+    if (searchResults.length > 0) {
+      console.log(`[identifyCompetitor] ✅ Found ${searchResults.length} competitor(s) via search API`)
+      return {
+        competitorUrl: searchResults[0].url,
+        reason: `Found competitor via search: ${searchResults[0].title}`,
+      }
+    }
+  } catch (error) {
+    console.warn('[identifyCompetitor] Search API failed, falling back to LLM:', error)
+  }
+
+  // Fall back to LLM if search API fails or returns no results
+  return identifyCompetitorWithLLM(url, siteSummary)
+}
+
+/**
+ * Identify a competitor URL using LLM (fallback method)
+ */
+async function identifyCompetitorWithLLM(
   url: string,
   siteSummary: { title?: string; description?: string; content?: string }
 ): Promise<{ competitorUrl: string | null; reason: string }> {
