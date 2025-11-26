@@ -232,21 +232,27 @@ export async function processAudit(auditId: string) {
       throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
     }
 
-    // Check if email was already sent (prevent duplicates)
-    const { data: currentAudit } = await supabase
-      .from('audits')
-      .select('email_sent_at')
-      .eq('id', auditId)
-      .single()
-    
-    const emailAlreadySent = currentAudit?.email_sent_at !== null && currentAudit?.email_sent_at !== undefined
-    
     // Get customer email
     const customer = audit.customers as any
     if (!customer?.email) {
       console.error('No customer email found for audit', auditId)
       throw new Error('Customer email is required to send report')
     }
+    
+    // Use atomic update to prevent duplicate emails (race condition protection)
+    // Try to set email_sent_at to a temporary value first, then send email
+    // This prevents two processes from both sending emails simultaneously
+    const tempTimestamp = new Date().toISOString()
+    const { data: updateResult, error: updateError } = await supabase
+      .from('audits')
+      .update({ email_sent_at: tempTimestamp })
+      .eq('id', auditId)
+      .is('email_sent_at', null) // Only update if email_sent_at is NULL
+      .select('email_sent_at')
+      .single()
+    
+    // If update failed, email was already sent (another process got there first)
+    const emailAlreadySent = updateError || !updateResult || updateResult.email_sent_at !== tempTimestamp
     
     // Send email BEFORE updating audit status to completed
     // This ensures email is sent as part of the completion process
@@ -262,20 +268,31 @@ export async function processAudit(auditId: string) {
           auditId,
           html
         )
-        emailSentAt = new Date().toISOString()
+        emailSentAt = tempTimestamp // Use the timestamp we already set
         console.log(`✅ Email sent successfully to ${customer.email}`)
       } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
         console.error('❌ Email sending failed:', emailError)
         console.error('Email error details:', emailError.message)
         console.error('Email error stack:', emailError.stack)
+        // Reset email_sent_at on failure so it can be retried
+        await supabase
+          .from('audits')
+          .update({ email_sent_at: null })
+          .eq('id', auditId)
         // Don't throw - we still want to mark audit as completed
         // Report is available via URL even if email fails
         console.warn('⚠️  Email failed but audit will be marked as completed. Report available at /report/' + auditId)
       }
     } else {
-      console.log(`⚠️  Email already sent for audit ${auditId} at ${currentAudit.email_sent_at}. Skipping duplicate email.`)
-      emailSentAt = currentAudit.email_sent_at
+      // Email already sent by another process - get the timestamp
+      const { data: existingAudit } = await supabase
+        .from('audits')
+        .select('email_sent_at')
+        .eq('id', auditId)
+        .single()
+      emailSentAt = existingAudit?.email_sent_at || null
+      console.log(`⚠️  Email already sent for audit ${auditId} at ${emailSentAt}. Skipping duplicate email.`)
     }
     
     // Update audit with formatted report and email status
