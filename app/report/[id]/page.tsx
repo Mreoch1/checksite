@@ -39,7 +39,52 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function ReportPage({ params }: { params: { id: string } }) {
-  const { id } = params
+  let { id } = params
+
+  // Handle test audit IDs (strip "test-" prefix if present)
+  // Test emails sometimes use test- prefixed IDs that don't exist in the database
+  if (id.startsWith('test-')) {
+    // This is a test audit ID - show a helpful error message
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-4">
+            <Link
+              href="/"
+              className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
+              Back to Home
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Test Report Link</h1>
+          <p className="text-gray-600 mb-4">
+            This appears to be a test email link. Test audit reports are not stored in the database.
+          </p>
+          <p className="text-sm text-gray-500">
+            If you ordered a real audit, please check your email for the correct report link, or contact us at{' '}
+            <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:underline">
+              contact@seoauditpro.net
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // Fetch audit from database
   const { data: audit, error } = await supabase

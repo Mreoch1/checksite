@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchSite } from '@/lib/audit/modules'
 import { generateReport } from '@/lib/llm'
 import { sendAuditReportEmail } from '@/lib/email-unified'
+import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Require admin authentication
+  const authError = requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const { step, url, email } = await request.json()
 

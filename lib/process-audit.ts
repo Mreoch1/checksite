@@ -6,6 +6,7 @@ import { sendAuditReportEmail } from '@/lib/email-unified'
 // sendAuditFailureEmail disabled to preserve email quota
 import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
+import { isEmailSent, isEmailSending } from '@/lib/email-status'
 
 /**
  * Process an audit - runs modules, generates report, sends email
@@ -28,30 +29,18 @@ export async function processAudit(auditId: string) {
       .eq('id', auditId)
       .single()
     
-    // Check if email was sent (either actual timestamp or "sending_" reservation)
-    const emailSentOrSending = earlyCheck?.email_sent_at && 
-      !earlyCheck.email_sent_at.startsWith('sending_') && 
-      earlyCheck.email_sent_at !== 'null'
+    // Check if email was sent (not a reservation)
+    const emailSent = isEmailSent(earlyCheck?.email_sent_at)
     
-    // Only skip if BOTH email was sent (not just reserved) AND report exists
+    // Only skip if BOTH email was sent AND report exists
     // If report exists but email wasn't sent, we need to continue to send the email
-    if (emailSentOrSending && earlyCheck?.formatted_report_html) {
+    if (emailSent && earlyCheck?.formatted_report_html) {
       console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at} and report exists`)
       return {
         success: true,
         auditId,
         message: 'Audit skipped - email already sent and report exists',
         email_sent_at: earlyCheck.email_sent_at,
-      }
-    }
-    
-    // If email is in "sending_" state, another process is handling it - skip
-    if (earlyCheck?.email_sent_at?.startsWith('sending_')) {
-      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - another process is sending the email (${earlyCheck.email_sent_at})`)
-      return {
-        success: true,
-        auditId,
-        message: 'Audit skipped - another process is sending the email',
       }
     }
     
@@ -368,12 +357,13 @@ export async function processAudit(auditId: string) {
     }
     
     // CRITICAL: Use atomic reservation pattern to prevent duplicate emails
-    // Step 1: Try to atomically reserve the email sending by setting a "sending" timestamp
+    // Step 1: Try to atomically reserve the email sending by setting email_sent_at to NOW
     // This prevents multiple processes from sending emails simultaneously
-    const sendingTimestamp = `sending_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    // We use a timestamp slightly in the past to mark as "sending" (will update to actual time after success)
+    const reservationTimestamp = new Date(Date.now() - 1000).toISOString() // 1 second ago
     const { data: reservationResult, error: reservationError } = await supabase
       .from('audits')
-      .update({ email_sent_at: sendingTimestamp } as any) // Temporary "sending" value
+      .update({ email_sent_at: reservationTimestamp })
       .eq('id', auditId)
       .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
       .select('email_sent_at')
@@ -387,19 +377,23 @@ export async function processAudit(auditId: string) {
         .eq('id', auditId)
         .single()
       
-      if (doubleCheck?.email_sent_at && !doubleCheck.email_sent_at.startsWith('sending_')) {
-        console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${doubleCheck.email_sent_at}`)
-        return {
-          success: true,
-          auditId,
-          message: 'Audit completed successfully (email was already sent by another process)',
-        }
-      } else if (doubleCheck?.email_sent_at?.startsWith('sending_')) {
-        console.log(`⛔ SKIPPING email send for audit ${auditId} - another process is currently sending the email`)
-        return {
-          success: true,
-          auditId,
-          message: 'Audit skipped - another process is sending the email',
+      if (doubleCheck?.email_sent_at) {
+        if (isEmailSent(doubleCheck.email_sent_at)) {
+          console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${doubleCheck.email_sent_at}`)
+          return {
+            success: true,
+            auditId,
+            message: 'Audit completed successfully (email was already sent by another process)',
+          }
+        } else if (isEmailSending(doubleCheck.email_sent_at)) {
+          const sentTime = new Date(doubleCheck.email_sent_at).getTime()
+          const now = Date.now()
+          console.log(`⛔ SKIPPING email send for audit ${auditId} - another process is currently sending the email (reserved ${Math.round((now - sentTime) / 1000)}s ago)`)
+          return {
+            success: true,
+            auditId,
+            message: 'Audit skipped - another process is sending the email',
+          }
         }
       } else {
         console.error('⚠️  Failed to reserve email sending slot:', reservationError)

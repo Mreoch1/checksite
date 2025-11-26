@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAuditReportEmail } from '@/lib/email-unified'
+import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Require admin authentication to prevent unauthorized test emails
+  const authError = requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const { email } = await request.json()
 
