@@ -64,13 +64,47 @@ export async function GET(request: NextRequest) {
     // Filter out audits that already have email_sent_at (client-side filter)
     // Also filter out audits with "sending_" prefix (another process is sending)
     // Handle both array and single object responses from Supabase
+    // First, clean up any queue items for audits that already have emails sent
+    const itemsToCleanup: string[] = []
+    queueItems?.forEach((item: any) => {
+      const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+      if (audit?.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+        itemsToCleanup.push(item.id)
+      }
+    })
+    
+    // Clean up queue items in parallel (fire and forget)
+    if (itemsToCleanup.length > 0) {
+      console.log(`[${requestId}] Cleaning up ${itemsToCleanup.length} queue items for audits with emails already sent`)
+      // Fire and forget - don't await
+      void Promise.all(
+        itemsToCleanup.map(async (itemId) => {
+          try {
+            await supabase
+              .from('audit_queue')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', itemId)
+            console.log(`[${requestId}] ✅ Cleaned up queue item ${itemId}`)
+          } catch (err) {
+            console.error(`[${requestId}] Failed to clean up queue item ${itemId}:`, err)
+          }
+        })
+      )
+    }
+    
+    // Now find the first valid queue item
     const queueItem = queueItems?.find((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       if (!audit) return false
+      
       // Skip if email_sent_at exists and is not a "sending_" reservation
       if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
         return false
       }
+      
       // Skip if email_sent_at is a "sending_" reservation (another process is handling it)
       if (audit.email_sent_at?.startsWith('sending_')) {
         return false
@@ -282,6 +316,34 @@ export async function GET(request: NextRequest) {
 
     const auditId = queueItem.audit_id
 
+    // CRITICAL: Double-check email_sent_at one more time right before processing
+    // This prevents race conditions where email was sent between the initial check and now
+    const { data: finalCheck } = await supabase
+      .from('audits')
+      .select('email_sent_at')
+      .eq('id', auditId)
+      .single()
+    
+    if (finalCheck?.email_sent_at && !finalCheck.email_sent_at.startsWith('sending_')) {
+      console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email was sent between initial check and processing (${finalCheck.email_sent_at})`)
+      // Mark queue item as completed since email was sent
+      await supabase
+        .from('audit_queue')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', queueItem.id)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Audit skipped - email was sent by another process',
+        processed: false,
+        auditId,
+        email_sent_at: finalCheck.email_sent_at,
+      })
+    }
+
     // Mark as processing
     const { error: updateError } = await supabase
       .from('audit_queue')
@@ -319,15 +381,22 @@ export async function GET(request: NextRequest) {
       
       await Promise.race([processPromise, timeoutPromise])
       
-      // Verify audit was actually completed (not just timed out)
+      // Verification: Check if audit is actually completed with report
+      // This ensures we don't mark queue as completed if processAudit failed silently
       const { data: verifyAudit } = await supabase
         .from('audits')
-        .select('status, formatted_report_html')
+        .select('status, formatted_report_html, email_sent_at')
         .eq('id', auditId)
         .single()
       
-      if (verifyAudit && verifyAudit.status === 'completed' && verifyAudit.formatted_report_html) {
-        // Mark queue as completed
+      if (!verifyAudit) {
+        throw new Error('Audit not found after processing')
+      }
+      
+      // CRITICAL: Mark queue as completed if email was sent, regardless of status
+      // This prevents the same audit from being processed again
+      if (verifyAudit.email_sent_at && !verifyAudit.email_sent_at.startsWith('sending_')) {
+        // Email was sent - mark queue as completed immediately
         await supabase
           .from('audit_queue')
           .update({
@@ -335,16 +404,42 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
-
+        
+        console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
+        
         return NextResponse.json({
           success: true,
-          message: `Audit ${auditId} processed successfully`,
+          message: 'Audit email sent successfully',
           processed: true,
           auditId,
+          email_sent_at: verifyAudit.email_sent_at,
+          has_report: !!verifyAudit.formatted_report_html,
+        })
+      }
+      
+      // If audit is completed with report, mark queue as completed
+      if (verifyAudit.status === 'completed' && verifyAudit.formatted_report_html) {
+        // Mark queue item as completed
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        console.log(`[${requestId}] ✅ Audit ${auditId} completed successfully`)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit processed successfully',
+          processed: true,
+          auditId,
+          email_sent_at: verifyAudit.email_sent_at,
         })
       } else {
-        // Process completed but audit status wasn't updated - mark as failed
-        throw new Error('Audit processing completed but audit status was not updated to completed')
+        // Audit processing didn't complete properly
+        throw new Error(`Audit ${auditId} processing incomplete: status=${verifyAudit.status}, has_report=${!!verifyAudit.formatted_report_html}`)
       }
     } catch (processError) {
       const errorMessage = processError instanceof Error ? processError.message : String(processError)

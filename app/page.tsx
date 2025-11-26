@@ -116,9 +116,14 @@ export default function Home() {
           <p className="text-xl text-gray-600 mb-2">
             One-time website audit for regular business owners
           </p>
-          <p className="text-lg text-gray-500 mb-6">
-            No jargon. No technical knowledge needed. Just clear, actionable insights.
-          </p>
+          <div className="mb-4">
+            <p className="text-2xl font-bold text-blue-600 mb-2">
+              Basic audit starting at $19.99
+            </p>
+            <p className="text-lg text-gray-500">
+              No jargon. No technical knowledge needed. Just clear, actionable insights.
+            </p>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
@@ -216,6 +221,9 @@ export default function Home() {
 
             {/* Pricing Clarity */}
             <div className="text-center pt-2">
+              <p className="text-base font-semibold text-gray-900 mb-1">
+                Starting at $19.99
+              </p>
               <p className="text-sm text-gray-600">
                 <strong>One-time audit.</strong> Flat price. <strong>No subscription.</strong>
               </p>
@@ -476,8 +484,11 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-white mb-4">
             Ready to See How Your Website Stacks Up?
           </h2>
-          <p className="text-xl text-blue-100 mb-8">
+          <p className="text-xl text-blue-100 mb-2">
             Get your complete audit report in minutes
+          </p>
+          <p className="text-lg font-semibold text-white mb-8">
+            Starting at just $19.99
           </p>
           <a
             href="#main-content"
