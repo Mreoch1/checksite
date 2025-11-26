@@ -100,10 +100,25 @@ async function sendViaSendGrid(options: {
       subject: options.subject,
       text: plainText,
       html: options.html,
-      // Add headers to improve deliverability
+      // Add headers to improve deliverability and avoid spam filters
       headers: {
         'List-Unsubscribe': `<${SITE_URL}/unsubscribe>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'X-Mailer': 'SEO CheckSite',
+        'X-Entity-Ref-ID': `audit-${Date.now()}`,
+        // Add Message-ID for better deliverability
+        'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seoauditpro.net>`,
+      },
+      // SendGrid-specific settings to improve deliverability
+      mailSettings: {
+        // Enable click tracking (helps with deliverability)
+        clickTracking: {
+          enable: true,
+        },
+        // Enable open tracking (helps with deliverability)
+        openTracking: {
+          enable: true,
+        },
       },
     }
     
@@ -361,9 +376,12 @@ export async function sendAuditReportEmail(
     </div>
   `
   
+  // Use a more professional subject line to avoid spam filters
+  const subject = `Your SEO Audit Report for ${domain}`
+  
   await sendEmail({
     to: email,
-    subject: `Your SEO CheckSite Report for ${domain} is Ready!`,
+    subject,
     html,
   })
 }
