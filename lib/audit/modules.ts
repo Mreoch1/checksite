@@ -1450,39 +1450,173 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
 
 /**
  * Competitor Overview Module
+ * Uses LLM to identify a competitor, then fetches and compares their data
  */
 export async function runCompetitorOverviewModule(siteData: SiteData): Promise<ModuleResult> {
   const issues: AuditIssue[] = []
-  let score = 75 // Default score since we can't do full competitor analysis
+  let score = 75 // Default score
 
-  // Extract domain to suggest competitors
-  // Safely extract domain
-  let domain = siteData.url
-  try {
-    domain = new URL(siteData.url).hostname.replace('www.', '')
-  } catch (urlError) {
-    // If URL parsing fails, try to extract domain manually
-    const match = siteData.url.match(/https?:\/\/([^\/]+)/)
-    if (match) {
-      domain = match[1].replace('www.', '')
-    }
-  }
-  const domainParts = domain.split('.')
-  const businessName = domainParts[0] // First part of domain
-
-  // Generic competitor insights based on common patterns
-  issues.push({
-    title: 'Monitor your top competitors',
-    severity: 'low',
-    technicalExplanation: 'Competitor analysis requires manual research',
-    plainLanguageExplanation: 'Understanding what your competitors do well can help you improve your own site.',
-    suggestedFix: `Research 3-5 businesses similar to yours. Check their websites, see what content they have, and note what they do well. Look for businesses in your area or industry that rank well in search results.`,
-  })
-
-  // Check if site has unique content (heuristic)
+  // Extract site information for LLM
+  const title = siteData.$('title').text().trim() || ''
+  const metaDescription = siteData.$('meta[name="description"]').attr('content') || ''
   const bodyTextContent = siteData.$('body').text().trim()
   const wordCount = bodyTextContent.split(/\s+/).filter(w => w.length > 0).length
+  const contentSample = bodyTextContent.substring(0, 1000)
 
+  // Use LLM to identify a competitor
+  let competitorUrl: string | null = null
+  let competitorReason: string = 'No competitor identified'
+  let competitorData: {
+    title?: string
+    description?: string
+    h1?: string
+    wordCount?: number
+  } | null = null
+
+  try {
+    const { identifyCompetitor } = await import('@/lib/llm')
+    console.log('[runCompetitorOverviewModule] Identifying competitor using LLM...')
+    const competitorResult = await identifyCompetitor(siteData.url, {
+      title,
+      description: metaDescription,
+      content: contentSample,
+    })
+    
+    competitorUrl = competitorResult.competitorUrl
+    competitorReason = competitorResult.reason
+
+    if (competitorUrl) {
+      console.log(`[runCompetitorOverviewModule] Found competitor: ${competitorUrl}`)
+      
+      // Fetch competitor's website data
+      try {
+        const competitorController = new AbortController()
+        const competitorTimeout = setTimeout(() => competitorController.abort(), 10000) // 10 second timeout
+        
+        const competitorResponse = await fetch(competitorUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+          signal: competitorController.signal,
+        })
+        clearTimeout(competitorTimeout)
+
+        if (competitorResponse.ok) {
+          const competitorHtml = await competitorResponse.text()
+          const cheerio = await import('cheerio')
+          const competitor$ = cheerio.load(competitorHtml)
+          
+          competitorData = {
+            title: competitor$('title').text().trim() || 'Not found',
+            description: competitor$('meta[name="description"]').attr('content') || 'Not found',
+            h1: competitor$('h1').first().text().trim() || 'Not found',
+            wordCount: competitor$('body').text().trim().split(/\s+/).filter((w: string) => w.length > 0).length,
+          }
+          
+          console.log('[runCompetitorOverviewModule] ✅ Successfully fetched competitor data')
+        } else {
+          console.warn(`[runCompetitorOverviewModule] Failed to fetch competitor: ${competitorResponse.status}`)
+        }
+      } catch (fetchError) {
+        console.warn(`[runCompetitorOverviewModule] Error fetching competitor data:`, fetchError)
+        // Continue without competitor data
+      }
+    } else {
+      console.log('[runCompetitorOverviewModule] No competitor identified by LLM')
+    }
+  } catch (llmError) {
+    console.error('[runCompetitorOverviewModule] Error identifying competitor with LLM:', llmError)
+    // Continue with generic analysis
+  }
+
+  // Compare with competitor if we have data
+  if (competitorData && competitorUrl) {
+    // Compare word count
+    if (competitorData.wordCount && wordCount < competitorData.wordCount) {
+      const difference = competitorData.wordCount - wordCount
+      issues.push({
+        title: 'Your site has less content than your competitor',
+        severity: difference > 500 ? 'medium' : 'low',
+        technicalExplanation: `Your site: ${wordCount} words, Competitor: ${competitorData.wordCount} words`,
+        plainLanguageExplanation: `Your competitor's site has ${difference} more words than yours. More detailed content often helps with search rankings.`,
+        suggestedFix: `Add more helpful content to your pages. Aim to match or exceed your competitor's content depth (${competitorData.wordCount} words).`,
+        evidence: {
+          found: `${wordCount} words on your site`,
+          actual: `${wordCount} words`,
+          expected: `At least ${competitorData.wordCount} words to match competitor`,
+          details: {
+            yourWordCount: wordCount,
+            competitorWordCount: competitorData.wordCount,
+            difference: difference,
+          },
+        },
+      })
+      score -= difference > 500 ? 15 : 5
+    }
+
+    // Compare title length
+    if (competitorData.title && title) {
+      const yourTitleLength = title.length
+      const competitorTitleLength = competitorData.title.length
+      if (yourTitleLength < 30 || yourTitleLength > 65) {
+        issues.push({
+          title: 'Your page title may need optimization compared to competitor',
+          severity: 'low',
+          technicalExplanation: `Your title: ${yourTitleLength} chars, Competitor: ${competitorTitleLength} chars`,
+          plainLanguageExplanation: 'Your competitor has optimized their title length for search results.',
+          suggestedFix: `Optimize your title to be 50-60 characters long. Your competitor's title is ${competitorTitleLength} characters.`,
+          evidence: {
+            found: title,
+            actual: `${yourTitleLength} characters`,
+            expected: `50-60 characters (competitor has ${competitorTitleLength} characters)`,
+            details: {
+              yourTitle: title,
+              competitorTitle: competitorData.title,
+              yourTitleLength: yourTitleLength,
+              competitorTitleLength: competitorTitleLength,
+            },
+          },
+        })
+        score -= 5
+      }
+    }
+
+    // Compare meta description
+    if (competitorData.description && metaDescription) {
+      const yourDescLength = metaDescription.length
+      const competitorDescLength = competitorData.description.length
+      if (yourDescLength < 120 || yourDescLength > 160) {
+        issues.push({
+          title: 'Your description length differs from competitor',
+          severity: 'low',
+          technicalExplanation: `Your description: ${yourDescLength} chars, Competitor: ${competitorDescLength} chars`,
+          plainLanguageExplanation: 'Your competitor has optimized their description length for search results.',
+          suggestedFix: `Optimize your description to be 120-160 characters. Your competitor's description is ${competitorDescLength} characters.`,
+          evidence: {
+            found: metaDescription,
+            actual: `${yourDescLength} characters`,
+            expected: `120-160 characters (competitor has ${competitorDescLength} characters)`,
+            details: {
+              yourDescription: metaDescription,
+              competitorDescription: competitorData.description,
+              yourDescLength: yourDescLength,
+              competitorDescLength: competitorDescLength,
+            },
+          },
+        })
+        score -= 3
+      }
+    }
+  } else {
+    // Generic competitor insights if no competitor found
+    issues.push({
+      title: 'Monitor your top competitors',
+      severity: 'low',
+      technicalExplanation: 'Competitor analysis requires identification',
+      plainLanguageExplanation: 'Understanding what your competitors do well can help you improve your own site.',
+      suggestedFix: `Research 3-5 businesses similar to yours. Check their websites, see what content they have, and note what they do well. Look for businesses in your area or industry that rank well in search results.`,
+    })
+  }
+
+  // Check if site has unique content (heuristic)
   if (wordCount < 500) {
     issues.push({
       title: 'Your site may need more content than competitors',
@@ -1490,6 +1624,14 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
       technicalExplanation: `Site has only ${wordCount} words`,
       plainLanguageExplanation: 'Competitors with more detailed content often rank better in search results.',
       suggestedFix: 'Add more helpful content to your pages. Aim for at least 500-1000 words per main page with useful information about your business.',
+      evidence: {
+        found: `${wordCount} words`,
+        actual: `${wordCount} words`,
+        expected: 'At least 500-1000 words per main page',
+        details: {
+          yourWordCount: wordCount,
+        },
+      },
     })
     score -= 15
   }
@@ -1508,24 +1650,37 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     ? 'Research your competitors and identify opportunities to improve your content and online presence.'
     : 'Your site needs more content to compete effectively. Research competitors and create more detailed, helpful content.'
   
-  // Collect competitor evidence
-  // Note: This module doesn't have access to actual competitor URLs yet
-  // For now, show a note that competitor data wasn't provided
+  // Build evidence object
+  const evidence: any = {
+    yourSiteWordCount: wordCount,
+    competitorIdentified: !!competitorUrl,
+    competitorUrl: competitorUrl || 'Not identified',
+    competitorReason: competitorReason,
+  }
+
+  if (competitorData) {
+    evidence.competitorTitle = competitorData.title
+    evidence.competitorDescription = competitorData.description
+    evidence.competitorH1 = competitorData.h1
+    evidence.competitorWordCount = competitorData.wordCount
+    evidence.comparisonAvailable = true
+  } else {
+    evidence.competitorTitle = 'N/A - Competitor data not available'
+    evidence.competitorDescription = 'N/A - Competitor data not available'
+    evidence.competitorH1 = 'N/A - Competitor data not available'
+    evidence.competitorWordCount = 'N/A'
+    evidence.comparisonAvailable = false
+    evidence.note = competitorUrl 
+      ? 'Competitor was identified but data could not be fetched'
+      : 'No competitor was identified for comparison'
+  }
   
   return {
     moduleKey: 'competitor_overview',
     score: Math.max(0, score),
     issues,
     summary,
-    evidence: {
-      note: 'No competitor URLs were provided for comparison. This analysis is based on general best practices for your industry.',
-      competitorTitle: 'N/A - No competitor URL provided',
-      competitorDescription: 'N/A - No competitor URL provided',
-      competitorH1: 'N/A - No competitor URL provided',
-      competitorWordCount: 'N/A',
-      yourSiteWordCount: wordCount,
-      explanation: 'To compare against competitors, competitor URLs need to be provided during audit setup.',
-    },
+    evidence,
   }
 }
 
