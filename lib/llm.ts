@@ -384,11 +384,17 @@ Respond with ONLY valid JSON:
     
     // Ultra-aggressive: If title/URL has business entity (Industries, Inc, etc.) and any contact keywords, assume local
     const titleHasEntity = /(industries|inc\.|llc|corp|company)/i.test(siteSummary.title || '')
-    const urlHasEntity = /(industries|inc|llc|corp|company)/i.test(url)
-    const hasContactKeywords = /(contact|phone|address|location|call|email|tel)/i.test(allText)
+    // Check URL for business indicators - "rcbiinc" contains "inc", "industries" might be in domain
+    const urlHasEntity = /(industries|inc|llc|corp|company|industriesinc|rcbiinc)/i.test(url.toLowerCase())
+    const hasContactKeywords = /(contact|phone|address|location|call|email|tel|sales@)/i.test(allText)
     const hasEntityInTitleOrUrl = (titleHasEntity || urlHasEntity) && hasContactKeywords
     
-    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl) {
+    // Even more aggressive: If URL contains "inc" (like rcbiinc.com) and we have any digits or contact words, assume local
+    const urlHasInc = /inc/i.test(url)
+    const hasAnyContactInfo = hasContactKeywords || /\d{3,}/.test(allText) // Contact keywords OR digits (phone/zip)
+    const hasIncWithContact = urlHasInc && hasAnyContactInfo
+    
+    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact) {
       console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
         hasAddress,
         hasPhone,
