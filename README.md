@@ -2,6 +2,8 @@
 
 A production-ready, beginner-friendly website audit tool built for non-technical website and small business owners. Get clear, actionable insights about your website without the jargon.
 
+**Copyright © 2025 SEO CheckSite. All rights reserved.**
+
 ## Features
 
 - **Automated Website Analysis**: Checks performance, SEO, mobile optimization, accessibility, security, and more
@@ -59,12 +61,17 @@ NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 
 1. Go to your Supabase project dashboard
 2. Navigate to SQL Editor
-3. Run the migration file: `supabase/migrations/001_initial_schema.sql`
+3. Run the migration files in order:
+   - `supabase/migrations/001_initial_schema.sql` - Creates base tables
+   - `supabase/migrations/002_add_error_log.sql` - Adds error logging
+   - `supabase/migrations/003_create_audit_queue.sql` - Creates queue system
+   - `supabase/migrations/004_add_email_sent_at.sql` - Adds email tracking
 
 This will create the following tables:
 - `customers` - Customer information
-- `audits` - Audit records
+- `audits` - Audit records with report storage
 - `audit_modules` - Individual module results
+- `audit_queue` - Queue for processing audits (prevents Netlify timeouts)
 
 ## Local Development
 
@@ -200,27 +207,35 @@ export async function crawlSite(url: string, maxPages: number = 100) {
 seo-checksite/
 ├── app/
 │   ├── api/
-│   │   ├── recommend-modules/    # AI module recommendation
-│   │   ├── create-checkout/      # Stripe checkout creation
+│   │   ├── admin/               # Admin endpoints (diagnostics, fixes)
+│   │   ├── recommend-modules/   # AI module recommendation
+│   │   ├── create-checkout/     # Stripe checkout creation
+│   │   ├── process-queue/        # Queue processor (called by cron)
+│   │   ├── test-audit/          # Test endpoint for direct audit creation
 │   │   └── webhooks/
 │   │       └── stripe/           # Stripe webhook handler
-│   ├── recommend/                # Module selection page
-│   ├── success/                  # Payment success page
+│   ├── recommend/               # Module selection page
+│   ├── success/                 # Payment success page
 │   ├── report/[id]/             # Report viewing page
 │   ├── layout.tsx
-│   ├── page.tsx                  # Landing page
+│   ├── page.tsx                 # Landing page
 │   └── globals.css
 ├── lib/
 │   ├── audit/
-│   │   └── modules.ts            # Audit module implementations
+│   │   └── modules.ts           # Audit module implementations
+│   ├── email-unified.ts         # Unified email sending (Resend + Zoho SMTP)
+│   ├── generate-simple-report.ts # Report generation (non-LLM)
 │   ├── llm.ts                   # DeepSeek integration
+│   ├── process-audit.ts         # Main audit processing logic
 │   ├── stripe.ts                # Stripe helpers
-│   ├── resend.ts                # Email helpers
 │   ├── supabase.ts              # Supabase client
 │   └── types.ts                 # TypeScript types
 ├── supabase/
 │   └── migrations/
-│       └── 001_initial_schema.sql
+│       ├── 001_initial_schema.sql
+│       ├── 002_add_error_log.sql
+│       ├── 003_create_audit_queue.sql
+│       └── 004_add_email_sent_at.sql
 └── package.json
 ```
 
@@ -288,24 +303,51 @@ All audit modules now collect and display evidence:
   - Plain language explanations
   - Step-by-step fix instructions
 
+## Recent Updates
+
+### Queue System
+- Implemented Supabase-based queue system to handle long-running audits
+- Prevents Netlify function timeouts (10-second limit)
+- Auto-detects and fixes stuck audits with reports but wrong status
+- Timeout protection (8-minute max) with proper error handling
+
+### Email System
+- Unified email system with Resend (primary) and Zoho SMTP (fallback)
+- Atomic email deduplication to prevent duplicate emails
+- Email errors don't prevent audit completion
+- Reports saved before email sending to ensure URL works
+
+### Report Generation
+- Non-LLM report generation for faster processing
+- Evidence tables in every module showing actual values found
+- Module descriptions for context
+- Score badges and priority actions
+- Executive summary with health assessment
+
+### Admin Tools
+- Comprehensive admin endpoints for diagnostics
+- Auto-fix for stuck audits
+- Queue status monitoring
+- Audit retry functionality
+
 ## Future Enhancements
 
 - [ ] Real Lighthouse integration for Core Web Vitals (LCP, CLS, FID)
 - [ ] Full site crawler for multi-page analysis
-- [ ] Page-level breakdown (URL analysis, HTTP status codes, redirect chains)
 - [ ] Performance metrics dashboard (actual load times, bundle sizes)
 - [ ] PDF report generation
 - [ ] User dashboard to view past audits
 - [ ] Email authentication for report access
-- [ ] Rate limiting middleware
 - [ ] Analytics tracking
 - [ ] A/B testing for pricing
 
-## License
+## Copyright
 
-MIT
+Copyright © 2025 SEO CheckSite. All rights reserved.
+
+This software and associated documentation files (the "Software") are proprietary and confidential. Unauthorized copying, modification, distribution, or use of this Software, via any medium, is strictly prohibited without the express written permission of SEO CheckSite.
 
 ## Support
 
-For issues or questions, please open an issue on GitHub or contact support.
+For issues or questions, please contact support at contact@seoauditpro.net.
 
