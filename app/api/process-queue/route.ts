@@ -96,6 +96,9 @@ export async function GET(request: NextRequest) {
     }
     
     // Now find the first valid queue item
+    // Add 5-minute delay: only process audits that were created at least 5 minutes ago
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    
     const queueItem = queueItems?.find((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       if (!audit) return false
@@ -109,12 +112,34 @@ export async function GET(request: NextRequest) {
       if (audit.email_sent_at?.startsWith('sending_')) {
         return false
       }
+      
+      // CRITICAL: Skip audits created less than 5 minutes ago (delay processing)
+      // This prevents immediate processing and gives time for any duplicate queue entries to be cleaned up
+      if (item.created_at && item.created_at > fiveMinutesAgo) {
+        const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - created ${ageMinutes} minute(s) ago (need 5 minutes delay)`)
+        return false
+      }
+      
       return true
     }) || null
     
     if (!queueItem) {
-      // No pending audits - log this for debugging
-      console.log(`[${requestId}] No pending audits in queue`)
+      // Check if there are audits waiting for the 5-minute delay
+      const waitingItems = queueItems?.filter((item: any) => {
+        const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+        if (!audit) return false
+        if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) return false
+        if (audit.email_sent_at?.startsWith('sending_')) return false
+        if (item.created_at && item.created_at > fiveMinutesAgo) return true
+        return false
+      }) || []
+      
+      if (waitingItems.length > 0) {
+        console.log(`[${requestId}] No pending audits ready to process (${waitingItems.length} waiting for 5-minute delay)`)
+      } else {
+        console.log(`[${requestId}] No pending audits in queue`)
+      }
       
       // Check if there are any stuck items (processing for too long)
       const { data: stuckItems } = await supabase
