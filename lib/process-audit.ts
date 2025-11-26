@@ -241,24 +241,20 @@ export async function processAudit(auditId: string) {
     
     const emailAlreadySent = currentAudit?.email_sent_at !== null && currentAudit?.email_sent_at !== undefined
     
-    // Update audit with formatted report
-    console.log('Updating audit with formatted report...')
-    const updateData: any = {
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      formatted_report_html: html,
-      formatted_report_plaintext: plaintext,
-    }
-    
-    // Only send email if not already sent
+    // Get customer email
     const customer = audit.customers as any
     if (!customer?.email) {
       console.error('No customer email found for audit', auditId)
       throw new Error('Customer email is required to send report')
     }
     
+    // Send email BEFORE updating audit status to completed
+    // This ensures email is sent as part of the completion process
+    let emailSentAt: string | null = null
+    let emailError: Error | null = null
+    
     if (!emailAlreadySent) {
-      console.log(`📧 Attempting to send email to ${customer.email} for audit ${auditId}`)
+      console.log(`📧 Sending email to ${customer.email} for audit ${auditId}...`)
       try {
         await sendAuditReportEmail(
           customer.email,
@@ -266,18 +262,48 @@ export async function processAudit(auditId: string) {
           auditId,
           html
         )
+        emailSentAt = new Date().toISOString()
         console.log(`✅ Email sent successfully to ${customer.email}`)
-        // Mark email as sent
-        updateData.email_sent_at = new Date().toISOString()
-      } catch (emailError) {
+      } catch (err) {
+        emailError = err instanceof Error ? err : new Error(String(err))
         console.error('❌ Email sending failed:', emailError)
-        console.error('Email error details:', emailError instanceof Error ? emailError.message : String(emailError))
-        // Log email failure but don't fail the audit - report is still available via URL
-        // The audit is marked as completed, customer can access report via link
-        console.warn('⚠️  Audit completed but email failed. Report is available at /report/' + auditId)
+        console.error('Email error details:', emailError.message)
+        console.error('Email error stack:', emailError.stack)
+        // Don't throw - we still want to mark audit as completed
+        // Report is available via URL even if email fails
+        console.warn('⚠️  Email failed but audit will be marked as completed. Report available at /report/' + auditId)
       }
     } else {
       console.log(`⚠️  Email already sent for audit ${auditId} at ${currentAudit.email_sent_at}. Skipping duplicate email.`)
+      emailSentAt = currentAudit.email_sent_at
+    }
+    
+    // Update audit with formatted report and email status
+    console.log('Updating audit with formatted report and completion status...')
+    const updateData: any = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      formatted_report_html: html,
+      formatted_report_plaintext: plaintext,
+    }
+    
+    // Always set email_sent_at if email was sent (or already sent)
+    if (emailSentAt) {
+      updateData.email_sent_at = emailSentAt
+    }
+    
+    // If email failed, log it in error_log for debugging
+    if (emailError) {
+      const existingErrorLog = audit.error_log ? (typeof audit.error_log === 'string' ? JSON.parse(audit.error_log) : audit.error_log) : {}
+      updateData.error_log = JSON.stringify({
+        ...existingErrorLog,
+        email_failure: {
+          timestamp: new Date().toISOString(),
+          error: emailError.message,
+          stack: emailError.stack,
+          note: 'Audit completed successfully but email delivery failed. Report is available via URL.',
+        },
+      })
     }
     
     const { error: reportUpdateError } = await supabase
