@@ -70,13 +70,29 @@ export async function POST(request: NextRequest) {
         const fullBodyText = $('body').text()
         // Also check footer specifically for address/phone
         const footerText = $('footer').text() || ''
-        const combinedText = fullBodyText + ' ' + footerText
+        // Check common footer/contact sections
+        const contactSection = $('[class*="contact"], [id*="contact"], [class*="footer"], [id*="footer"]').text()
+        const combinedText = fullBodyText + ' ' + footerText + ' ' + contactSection
+        
+        // Extract up to 3000 chars to ensure we get footer content
+        const extractedContent = combinedText.substring(0, 3000).trim()
+        
+        console.log(`[recommend-modules] Content extraction for ${normalizedUrl}:`, {
+          bodyLength: fullBodyText.length,
+          footerLength: footerText.length,
+          contactLength: contactSection.length,
+          extractedLength: extractedContent.length,
+          hasAddress: /(\d+\s+[A-Za-z0-9\s#]+(?:road|rd|street|st|avenue|ave|drive|dr|boulevard|blvd))|address|location/i.test(extractedContent),
+          hasPhone: /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call/i.test(extractedContent),
+          hasIndustries: /industries/i.test(extractedContent),
+          contentSample: extractedContent.substring(0, 200),
+        })
         
         siteSummary = {
           title: $('title').first().text().trim(),
           description: $('meta[name="description"]').attr('content') || 
                        $('meta[property="og:description"]').attr('content') || '',
-          content: combinedText.substring(0, 2000).trim(), // Increased to 2000 to capture footer content
+          content: extractedContent,
         }
       }
     } catch (error) {
