@@ -535,8 +535,8 @@ export async function processAudit(auditId: string) {
     let emailSentAt: string | null = null
     let emailError: Error | null = null
     
-    console.log(`📧 Sending email to ${customer.email} for audit ${auditId}...`)
-    console.log(`📧 Email provider check: SENDGRID_API_KEY=${!!process.env.SENDGRID_API_KEY}, SMTP_PASSWORD=${!!process.env.SMTP_PASSWORD}, EMAIL_PROVIDER=${process.env.EMAIL_PROVIDER || 'not set'}`)
+    console.log(`[${reservationAttemptId}] 📧 Sending email to ${customer.email} for audit ${auditId}...`)
+    console.log(`[${reservationAttemptId}] 📧 Email provider check: SENDGRID_API_KEY=${!!process.env.SENDGRID_API_KEY}, SMTP_PASSWORD=${!!process.env.SMTP_PASSWORD}, EMAIL_PROVIDER=${process.env.EMAIL_PROVIDER || 'not set'}`)
     try {
       await sendAuditReportEmail(
         customer.email,
@@ -557,10 +557,10 @@ export async function processAudit(auditId: string) {
         .select('email_sent_at')
       
       if (emailUpdateError) {
-        console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
+        console.error(`[${reservationAttemptId}] ⚠️  Email sent but failed to update email_sent_at:`, emailUpdateError)
         throw new Error(`Email sent but failed to update timestamp: ${emailUpdateError.message}`)
       } else if (!updateResult || updateResult.length === 0 || !updateResult[0]?.email_sent_at) {
-        console.error('⚠️  Email sent but email_sent_at was not saved (update returned no data)')
+        console.error(`[${reservationAttemptId}] ⚠️  Email sent but email_sent_at was not saved (update returned no data)`)
         throw new Error('Email sent but timestamp was not saved to database')
       } else {
         const finalTimestamp = updateResult[0].email_sent_at
