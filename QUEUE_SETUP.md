@@ -24,12 +24,15 @@ We'll use **cron-job.org** (completely free):
 3. Click "Create cronjob"
 4. Configure:
    - **Title**: SEO CheckSite Queue Processor
-   - **Address (URL)**: `https://seochecksite.netlify.app/api/process-queue`
+   - **Address (URL)**: 
+     - **Option A (Easiest)**: `https://seochecksite.netlify.app/api/process-queue?secret=YOUR_SECRET_KEY`
+       - Replace `YOUR_SECRET_KEY` with the value you set for `QUEUE_SECRET` in Netlify
+     - **Option B (More Secure)**: `https://seochecksite.netlify.app/api/process-queue`
+       - Then add a **Request header**:
+         - Header name: `Authorization`
+         - Header value: `Bearer YOUR_SECRET_KEY`
    - **Schedule**: Every minute (`* * * * *`) - Use "Custom" option and enter `* * * * *` in the crontab expression field
    - **Request method**: GET
-   - **Request headers** (optional, for security):
-     - Header name: `Authorization`
-     - Header value: `Bearer YOUR_SECRET_KEY` (set `QUEUE_SECRET` in Netlify env vars)
 
 ### 3. Set Environment Variable (Optional but Recommended)
 
