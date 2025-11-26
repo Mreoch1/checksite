@@ -104,13 +104,26 @@ export async function POST(request: NextRequest) {
       const allText = `${titleLower} ${descLower} ${contentLower}`
       
       // Smart defaults based on content analysis
-      // Local business detection - must have strong indicators, not just generic terms
-      const hasLocalIndicators = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|location|address|phone number|visit us|come in|walk-in|appointment|booking)/i.test(allText)
-      const hasOnlineOnlyIndicators = /(online|digital|software|saas|platform|tool|service|audit|consulting|agency|freelance|remote|virtual|web-based|cloud|app|software|api|integration)/i.test(allText)
-      const isLocalBusiness = hasLocalIndicators && !hasOnlineOnlyIndicators
+      // Local business detection - check for physical address, phone, and business indicators
+      // Check for address patterns (street address, city, state, zip)
+      const hasAddressPattern = /(\d+\s+[A-Za-z0-9\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct),?\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us)/i.test(allText)
+      
+      // Check for phone number patterns
+      const hasPhonePattern = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:/i.test(allText)
+      
+      // Check for local business keywords (expanded list)
+      const hasLocalKeywords = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|installation|installer|service|services|industries|inc\.|llc|corp|company|business|local|area|region|city|town|neighborhood|community)/i.test(allText)
+      
+      // Check for online-only indicators (more specific to avoid false positives)
+      const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront)/i.test(allText)
+      
+      // A site is local if it has (address OR phone) AND (local keywords OR business name with "Inc"/"LLC") AND NOT online-only
+      const hasPhysicalPresence = hasAddressPattern || hasPhonePattern
+      const isLocalBusiness = hasPhysicalPresence && (hasLocalKeywords || /(inc\.|llc|corp|company|industries)/i.test(allText)) && !hasOnlineOnlyIndicators
       
       const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
-      const isBusiness = /business|company|services|products|about|contact|pricing|plans/i.test(allText)
+      // Business detection - check for business indicators (name, services, contact info, etc.)
+      const isBusiness = /(business|company|services|products|about|contact|pricing|plans|inc\.|llc|corp|industries|industries inc)/i.test(allText) || hasAddressPattern || hasPhonePattern
       
       const defaultRecommendations = {
         local: isLocalBusiness,

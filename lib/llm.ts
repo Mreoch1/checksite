@@ -255,7 +255,7 @@ export async function recommendModules(
   reasons: Record<string, string>
 }> {
   // Optimized prompt - shorter and more focused for faster response
-  const contentSample = (siteSummary.content || '').substring(0, 300) // Reduced from 500
+  const contentSample = (siteSummary.content || '').substring(0, 500) // Increased for better detection
   const prompt = `Analyze this website and recommend optional SEO checks.
 
 URL: ${url}
@@ -265,14 +265,24 @@ Content: ${contentSample}
 
 For each module, set true if recommended, false if not needed, and provide a one-sentence reason:
 
-1. local - ONLY set true if this is a LOCAL business with a physical location (restaurant, cafe, barber shop, plumber, dentist, local store). Set FALSE for online-only services, SaaS, digital agencies, consulting firms, or remote services.
-2. accessibility - Should accessibility be checked? (Usually yes for all sites)
-3. security - Should security be verified? (Usually yes for all sites)
-4. schema - Would structured data help? (Usually yes for businesses)
-5. social - Would social sharing optimization help? (If content is shareable or has blog/articles)
-6. competitor_overview - Would competitor analysis help? (For businesses in competitive markets)
+1. local - Set TRUE if this business has:
+   - A physical address (street address, city, state, zip code)
+   - A phone number
+   - Serves a local geographic area
+   - Examples: restaurants, contractors, installation services, local stores, service businesses
+   - Set FALSE ONLY for: pure online services, SaaS platforms, digital agencies, remote-only consulting, websites with no physical location
 
-CRITICAL for local: Only recommend local SEO if the site has a physical location, serves a local area, or is a local service business. Online services, SaaS, agencies, and consulting firms should be FALSE.
+2. accessibility - Should accessibility be checked? (Usually yes for all sites)
+
+3. security - Should security be verified? (Usually yes for all sites)
+
+4. schema - Would structured data help? (Usually yes for businesses - helps search engines understand business info)
+
+5. social - Would social sharing optimization help? (If content is shareable, has blog/articles, or is a business website)
+
+6. competitor_overview - Would competitor analysis help? (For businesses in competitive markets - most businesses benefit from this)
+
+CRITICAL for local: Look for physical addresses, phone numbers, and local service indicators. If you see an address like "123 Main St, City, State 12345" or a phone number, it's likely a local business. Installation services, contractors, and businesses with physical locations should be TRUE.
 
 Respond with ONLY valid JSON:
 {
