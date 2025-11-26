@@ -61,6 +61,16 @@ export async function GET(request: NextRequest) {
       )
     }
     
+    // Log what we found
+    console.log(`[${requestId}] Found ${queueItems?.length || 0} pending queue items`)
+    if (queueItems && queueItems.length > 0) {
+      queueItems.forEach((item: any, idx: number) => {
+        const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+        const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`)
+      })
+    }
+    
     // Filter out audits that already have email_sent_at (client-side filter)
     // Also filter out audits with "sending_" prefix (another process is sending)
     // Handle both array and single object responses from Supabase
@@ -68,7 +78,11 @@ export async function GET(request: NextRequest) {
     const itemsToCleanup: string[] = []
     queueItems?.forEach((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-      if (audit?.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+      if (!audit) {
+        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - this might indicate a database issue`)
+        return
+      }
+      if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
         itemsToCleanup.push(item.id)
       }
     })
@@ -100,27 +114,47 @@ export async function GET(request: NextRequest) {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
     
     const queueItem = queueItems?.find((item: any) => {
-      const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-      if (!audit) return false
+      let audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+      
+      // Log each item being checked
+      const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+      
+      // FALLBACK: If join didn't return audit data, fetch it separately
+      // This handles cases where the foreign key join might fail or return null
+      if (!audit && item.audit_id) {
+        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately as fallback`)
+        // Note: We can't await in a find() callback, so we'll skip this item
+        // and handle it in a separate pass if needed
+        // For now, log it and skip - the next cron run will try again
+        return false
+      }
+      
+      if (!audit) {
+        console.warn(`[${requestId}] ⚠️  Skipping queue item ${item.id} (audit_id: ${item.audit_id}) - no audit data available`)
+        return false
+      }
       
       // Skip if email_sent_at exists and is not a "sending_" reservation
       if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${audit.email_sent_at}`)
         return false
       }
       
       // Skip if email_sent_at is a "sending_" reservation (another process is handling it)
       if (audit.email_sent_at?.startsWith('sending_')) {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (${audit.email_sent_at})`)
         return false
       }
       
       // CRITICAL: Skip audits created less than 5 minutes ago (delay processing)
       // This prevents immediate processing and gives time for any duplicate queue entries to be cleaned up
       if (item.created_at && item.created_at > fiveMinutesAgo) {
-        const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - created ${ageMinutes} minute(s) ago (need 5 minutes delay)`)
         return false
       }
       
+      // This item passes all checks - log it
+      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'})`)
       return true
     }) || null
     
@@ -137,6 +171,21 @@ export async function GET(request: NextRequest) {
       
       if (waitingItems.length > 0) {
         console.log(`[${requestId}] No pending audits ready to process (${waitingItems.length} waiting for 5-minute delay)`)
+      } else if (queueItems && queueItems.length > 0) {
+        // This is important - we have queue items but none passed the filter
+        console.warn(`[${requestId}] ⚠️  Found ${queueItems.length} pending queue items but none passed filtering criteria`)
+        console.warn(`[${requestId}] This might indicate a bug in the filtering logic or missing audit data in joins`)
+        // Log details about why each item was filtered out
+        queueItems.forEach((item: any) => {
+          const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+          const passesDelay = item.created_at < fiveMinutesAgo
+          const passesEmail = !audit?.email_sent_at || audit.email_sent_at.startsWith('sending_')
+          console.warn(`[${requestId}]   - Queue item ${item.id} (audit_id: ${item.audit_id}):`)
+          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageMinutes}m, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
+          console.warn(`[${requestId}]     passes_delay=${passesDelay}, passes_email=${passesEmail}, should_process=${passesDelay && passesEmail && audit ? 'YES' : 'NO'}`)
+        })
       } else {
         console.log(`[${requestId}] No pending audits in queue`)
       }

@@ -110,6 +110,12 @@ async function sendViaSendGrid(options: {
         'X-Entity-Ref-ID': `audit-${Date.now()}`,
         // Add Message-ID for better deliverability
         'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seoauditpro.net>`,
+        // Additional headers to improve deliverability
+        'X-Priority': '3',
+        'Importance': 'normal',
+        'Auto-Submitted': 'no', // Important: indicates this is NOT an auto-reply
+        'Content-Type': 'text/html; charset=UTF-8',
+        'MIME-Version': '1.0',
       },
       // SendGrid-specific settings to improve deliverability
       mailSettings: {
@@ -190,10 +196,11 @@ async function sendViaZoho(options: {
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Priority': '3',
         'Importance': 'normal',
-        // Removed 'Precedence: bulk' and 'Auto-Submitted' - these can trigger spam filters
+        'Auto-Submitted': 'no', // Important: indicates this is NOT an auto-reply
         'Content-Type': 'text/html; charset=UTF-8',
         'MIME-Version': '1.0',
         'X-Entity-Ref-ID': messageId,
+        // Removed 'Precedence: bulk' - this can trigger spam filters
       },
       priority: 'normal',
       encoding: 'UTF-8',
@@ -335,10 +342,13 @@ export async function sendAuditReportEmail(
           </div>
         </div>
         
-        <h2 style="color: #0369a1; font-size: 24px; margin-top: 0;">Your Website Report is Ready!</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi there,</p>
+        <h2 style="color: #0369a1; font-size: 24px; margin-top: 0;">Your Website Analysis is Complete</h2>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hello,</p>
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          Your website report for <strong style="color: #0369a1;">${domain}</strong> is complete and ready to view.
+          We've completed the analysis of <strong style="color: #0369a1;">${domain}</strong>. Your detailed report is available below.
+        </p>
+        <p style="color: #6b7280; font-size: 13px; margin-top: 10px; padding: 10px; background-color: #f9fafb; border-radius: 4px;">
+          <strong>Note:</strong> If this email appears in your junk folder, please mark it as "Not Junk" to ensure you receive future updates.
         </p>
         
         <div style="margin: 30px 0; text-align: center;">
@@ -349,9 +359,9 @@ export async function sendAuditReportEmail(
         </div>
         
         <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 20px 0; border-radius: 4px;">
-          <p style="color: #0369a1; font-size: 14px; margin: 0; font-weight: 600;">What's in your report?</p>
+          <p style="color: #0369a1; font-size: 14px; margin: 0; font-weight: 600;">What's included?</p>
           <p style="color: #374151; font-size: 14px; margin: 8px 0 0 0; line-height: 1.5;">
-            Your report contains actionable insights in plain language to improve your website's performance, SEO, and visibility. No technical jargon - just clear recommendations you can act on.
+            Your analysis includes actionable insights to improve your website's performance and visibility. All recommendations are explained in plain language.
           </p>
         </div>
         
@@ -378,8 +388,10 @@ export async function sendAuditReportEmail(
     </div>
   `
   
-  // Use a more professional subject line to avoid spam filters
-  const subject = `Your SEO Audit Report for ${domain}`
+  // Use a more transactional subject line to avoid spam filters
+  // Avoid words like "SEO", "Report", "Ready" which can trigger filters
+  // Make it sound more like a service notification
+  const subject = `Website Analysis Complete - ${domain}`
   
   await sendEmail({
     to: email,
