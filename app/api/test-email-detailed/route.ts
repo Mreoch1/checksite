@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAuditReportEmail } from '@/lib/email'
+import { sendAuditReportEmail } from '@/lib/email-unified'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
