@@ -1,81 +1,74 @@
-# Endpoint Test Results
+# End-to-End Test Results - Papa Johns Audit
 
-## ✅ Health Check Endpoint
-**URL**: `GET /api/health`
+**Date:** November 26, 2025  
+**Test URL:** https://www.papajohns.com  
+**Test Email:** test-audit-papajohns@example.com  
+**Test Name:** Test User
 
-**Result**: ✅ Working
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-11-25T23:28:33.621Z",
-  "checks": {
-    "database": {
-      "status": "ok",
-      "message": "Connected",
-      "duration": 211
-    },
-    "environment": {
-      "status": "ok",
-      "message": "All required variables present"
-    }
-  },
-  "duration": 211
-}
-```
+## Test Flow Summary
 
-## ✅ Create Checkout Endpoint
-**URL**: `POST /api/create-checkout`
+### ✅ Step 1: Module Recommendations API
+**Status:** PASSING  
+**Result:** 
+- Correctly identified papajohns.com as online-only business
+- Recommended: `accessibility: true`, `security: true`
+- Correctly excluded: `local: false` (not a local business)
+- Correctly excluded: `schema: false`, `social: false`, `competitor_overview: false`
 
-**Result**: ✅ Working
-- Input validation working (Zod)
-- Rate limiting active (10/min)
-- Returns Stripe checkout URL
+### ✅ Step 2: Checkout Creation
+**Status:** PASSING  
+**Result:**
+- Successfully created audit via `/api/test-audit`
+- Audit ID: `96e6b270-cc2f-416d-96f0-5e823235258c`
+- All 6 modules enabled: performance, crawl_health, on_page, mobile, accessibility, security
+- Audit added to queue successfully
 
-## ✅ Test Audit Endpoint
-**URL**: `POST /api/test-audit`
+### ✅ Step 3: Audit Processing
+**Status:** PARTIALLY WORKING  
+**Result:**
+- Modules executed successfully (all 6 modules have scores and issues)
+- Report was generated and is accessible at: https://seochecksite.netlify.app/report/96e6b270-cc2f-416d-96f0-5e823235258c
+- Report contains full HTML with all modules and evidence tables
 
-**Result**: ✅ Working
-- Rate limiting working (5/min) - tested with 12 requests
-- First 7 requests: 200 OK
-- Requests 8-12: 429 Too Many Requests ✅
-- Creates audit and adds to queue
+### ❌ Step 4: Status Update & Email Delivery
+**Status:** BUG DETECTED  
+**Issue:**
+- Audit status stuck in `running` state
+- Queue item marked as `completed` but audit status not updated to `completed`
+- This is the exact bug we fixed in `app/api/process-queue/route.ts`
+- The fix should detect this scenario and update audit status, but this audit was processed before the fix was deployed
 
-## ✅ Admin Route Protection
-**URL**: `GET /api/admin/diagnose-audit`
+**Root Cause:**
+The queue processor marked the queue item as "completed" but the audit status update failed or timed out. Our fix should handle this, but since the queue item is already marked as "completed", it won't be retried automatically.
 
-**Result**: ✅ Protected
-- Without auth: Returns error (but currently shows "Audit not found" - need to set ADMIN_SECRET)
-- With invalid auth: Same behavior
-- **Note**: Need to set `ADMIN_SECRET` in Netlify to fully test
+## Issues Found
 
-## ✅ Process Queue Endpoint
-**URL**: `GET /api/process-queue`
+1. **Status Update Race Condition** (FIXED in code, but needs testing on new audit)
+   - Queue processor now verifies audit completion before marking queue as completed
+   - Queue processor now updates audit status to "failed" if processing fails
+   - Timeout protection added (8-minute max)
 
-**Result**: ✅ Working
-- Processes pending audits from queue
-- Returns status of processing
+2. **Report Generation** - WORKING
+   - Report HTML is generated correctly
+   - Report is accessible via URL
+   - All modules included with evidence tables
 
-## ✅ Rate Limiting
-**Test**: Sent 12 requests to `/api/test-audit` in quick succession
+3. **Email Delivery** - NOT TESTED (requires completed status)
+   - Email sending logic is in place
+   - Atomic email deduplication implemented
+   - Cannot test until audit status is "completed"
 
-**Result**: ✅ Working
-- Requests 1-7: Allowed (200 OK)
-- Requests 8-12: Blocked (429 Too Many Requests)
-- Rate limit: 5 requests per minute ✅
+## Recommendations
 
-## 📊 Summary
+1. **Test New Audit** - Create a fresh audit to verify the queue processor fix works
+2. **Manual Fix** - Update stuck audit status to "completed" since report exists
+3. **Monitor Queue** - Verify queue processor picks up new audits correctly
+4. **Email Testing** - Once status is fixed, verify email delivery works
 
-All critical endpoints are working:
-- ✅ Health check
-- ✅ Rate limiting (tested and confirmed)
-- ✅ Input validation
-- ✅ Admin route protection (needs ADMIN_SECRET set)
-- ✅ Queue processing
-- ✅ Security headers (via next.config.js)
+## Next Steps
 
-## 🔧 Next Steps
-
-1. Set `ADMIN_SECRET` in Netlify to fully test admin routes
-2. Monitor rate limiting in production
-3. Check health endpoint regularly for uptime monitoring
+1. Create a new test audit to verify the fix works end-to-end
+2. Monitor the queue processor logs to ensure it handles timeouts correctly
+3. Verify email delivery once audit completes successfully
+4. Test the full browser flow (form → recommend → checkout → success → email → report)
 

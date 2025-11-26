@@ -174,6 +174,41 @@ export async function GET(request: NextRequest) {
         })
       }
       
+      // FIX: If audit has report but status is wrong, fix it first
+      if (auditData.formatted_report_html && auditData.status !== 'completed') {
+        console.log(`[${requestId}] ⚠️  Audit ${queueItem.audit_id} has report but wrong status (${auditData.status}) - fixing...`)
+        const { error: fixError } = await supabase
+          .from('audits')
+          .update({
+            status: 'completed',
+            completed_at: auditData.completed_at || new Date().toISOString(),
+          })
+          .eq('id', queueItem.audit_id)
+        
+        if (fixError) {
+          console.error(`[${requestId}] Failed to fix audit status:`, fixError)
+        } else {
+          console.log(`[${requestId}] ✅ Fixed audit status to completed`)
+          // Mark queue as completed since audit is actually done
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', queueItem.id)
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Audit status fixed - had report but wrong status',
+            processed: false,
+            auditId: queueItem.audit_id,
+            previousStatus: auditData.status,
+            newStatus: 'completed',
+          })
+        }
+      }
+      
       // Skip if audit has failed too many times (retry_count >= 3)
       if (queueItem.retry_count >= 3) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (${queueItem.retry_count})`)

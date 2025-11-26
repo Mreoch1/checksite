@@ -1,0 +1,96 @@
+=== Step 1: Test Module Recommendations ===
+{
+    "local": false,
+    "accessibility": true,
+    "security": true,
+    "schema": false,
+    "social": false,
+    "competitor_overview": false,
+    "reasons": {
+        "local": "Your site doesn't appear to need a local SEO audit because it's an online-only business without a physical location or local service area.",
+        "accessibility": "Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.",
+        "security": "Security checks help protect your site and visitors, and search engines favor secure websites.",
+        "schema": "Your site doesn't appear to need schema markup because it lacks clear business information that would benefit from structured data.",
+        "social": "Your site doesn't appear to need social metadata optimization because it lacks shareable content or social media presence.",
+        "competitor_overview": "Your site doesn't appear to need competitor analysis because it's not clearly a business competing in a market."
+    }
+}
+
+Recommended modules:
+  - accessibility: True
+  - security: True
+
+=== Step 2: Create Checkout Session ===
+{
+    "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_a159SyorshSPJ1sH0HtjQ1MirfYrUJlgfeSoPiZDFI6c4T57eoNuY4w5nZ#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdkdWxOYHwnPyd1blpxYHZxWjA0Vl1EaWkxSmlSajMzcGMydHdRRGZUVEJCYF1qf1xIVkowQnZUZzc9Y2hHR11Idn1kUEpkTUdmZFNOTl13Q3NUfHxTVUk1NFxccUZiMldjaVV1PEpNRHR3NTV%2Fb0htX0A0cicpJ2N3amhWYHdzYHcnP3F3cGApJ2dkZm5id2pwa2FGamlqdyc%2FJyZjY2NjY2MnKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdga2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl"
+}
+
+=== Step 2b: Simulate Stripe Webhook (Create Audit Directly) ===
+{
+    "success": true,
+    "auditId": "96e6b270-cc2f-416d-96f0-5e823235258c",
+    "url": "https://www.papajohns.com",
+    "email": "test-audit-papajohns@example.com",
+    "modules": [
+        "performance",
+        "crawl_health",
+        "on_page",
+        "mobile",
+        "accessibility",
+        "security"
+    ],
+    "message": "Test audit created and processing started"
+}
+
+Created audit: 96e6b270-cc2f-416d-96f0-5e823235258c
+
+=== Step 3: Check Audit Status ===
+{
+    "status": "running",
+    "created_at": "2025-11-26T02:12:38.490547+00:00"
+}
+
+=== Step 4: Monitor Queue Processing ===
+Waiting for queue processor to pick up audit...
+[1] Audit status: running
+[2] Audit status: running
+[3] Audit status: running
+[4] Audit status: running
+[5] Audit status: running
+[6] Audit status: running
+[7] Audit status: running
+[8] Audit status: running
+[9] Audit status: running
+[10] Audit status: running
+[11] Audit status: running
+[12] Audit status: running
+[13] Audit status: running
+[14] Audit status: running
+[15] Audit status: running
+[16] Audit status: running
+[17] Audit status: running
+[18] Audit status: running
+[19] Audit status: running
+[20] Audit status: running
+[21] Audit status: running
+[22] Audit status: running
+[23] Audit status: running
+[24] Audit status: running
+[25] Audit status: running
+[26] Audit status: running
+[27] Audit status: running
+[28] Audit status: running
+[29] Audit status: running
+[30] Audit status: running
+
+=== Step 5: Check Final Audit Status ===
+{
+    "status": "running",
+    "created_at": "2025-11-26T02:12:38.490547+00:00"
+}
+
+=== Summary ===
+Audit ID: 96e6b270-cc2f-416d-96f0-5e823235258c
+Has Report: False
+Email Sent: False
+Report URL: https://seochecksite.netlify.app/report/96e6b270-cc2f-416d-96f0-5e823235258c
