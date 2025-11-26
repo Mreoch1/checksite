@@ -232,6 +232,12 @@ export async function processAudit(auditId: string) {
       throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
     }
 
+    // CRITICAL: Only send email if report was successfully generated
+    if (!html || html.trim().length === 0) {
+      console.error(`❌ Cannot send email for audit ${auditId} - report HTML is empty or missing`)
+      throw new Error('Report generation failed - cannot send email without report content')
+    }
+    
     // Get customer email
     const customer = audit.customers as any
     if (!customer?.email) {

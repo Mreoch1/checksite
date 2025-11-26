@@ -52,24 +52,68 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .single()
     
-    // Additional check: skip if email was already sent (audit already completed)
-    if (queueItem && (queueItem.audits as any)?.email_sent_at) {
-      console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - email already sent at ${(queueItem.audits as any).email_sent_at}`)
-      // Mark queue item as completed since audit is done
-      await supabase
-        .from('audit_queue')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
+    // Additional checks: skip if audit is already completed
+    const auditData = queueItem.audits as any
+    if (queueItem && auditData) {
+      // Skip if email was already sent (audit already completed)
+      if (auditData.email_sent_at) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
+        // Mark queue item as completed since audit is done
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit already completed (email sent)',
+          processed: false,
+          auditId: queueItem.audit_id,
         })
-        .eq('id', queueItem.id)
+      }
       
-      return NextResponse.json({
-        success: true,
-        message: 'Audit already completed (email sent)',
-        processed: false,
-        auditId: queueItem.audit_id,
-      })
+      // Skip if audit status is 'completed' (even if email wasn't sent, report exists)
+      if (auditData.status === 'completed' && auditData.formatted_report_html) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report`)
+        // Mark queue item as completed
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit already completed (report exists)',
+          processed: false,
+          auditId: queueItem.audit_id,
+        })
+      }
+      
+      // Skip if audit has failed too many times (retry_count >= 3)
+      if (queueItem.retry_count >= 3) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (${queueItem.retry_count})`)
+        // Mark as failed permanently
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit exceeded max retries - marked as failed',
+          processed: false,
+          auditId: queueItem.audit_id,
+        })
+      }
     }
 
     if (findError || !queueItem) {
