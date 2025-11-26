@@ -382,7 +382,13 @@ Respond with ONLY valid JSON:
     // This catches cases where address format is non-standard
     const hasEntityWithDigits = hasBusinessEntity && /\d{3,}/.test(allText) // 3+ consecutive digits (phone or zip)
     
-    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits) {
+    // Ultra-aggressive: If title/URL has business entity (Industries, Inc, etc.) and any contact keywords, assume local
+    const titleHasEntity = /(industries|inc\.|llc|corp|company)/i.test(siteSummary.title || '')
+    const urlHasEntity = /(industries|inc|llc|corp|company)/i.test(url)
+    const hasContactKeywords = /(contact|phone|address|location|call|email|tel)/i.test(allText)
+    const hasEntityInTitleOrUrl = (titleHasEntity || urlHasEntity) && hasContactKeywords
+    
+    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl) {
       console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
         hasAddress,
         hasPhone,
@@ -391,6 +397,10 @@ Respond with ONLY valid JSON:
         hasAddressOrPhoneWithEntity,
         hasEntityWithContact,
         hasEntityWithDigits,
+        hasEntityInTitleOrUrl,
+        titleHasEntity,
+        urlHasEntity,
+        hasContactKeywords,
         url,
         title: siteSummary.title,
       })
