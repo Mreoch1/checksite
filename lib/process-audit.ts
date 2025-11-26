@@ -6,7 +6,7 @@ import { sendAuditReportEmail } from '@/lib/email-unified'
 // sendAuditFailureEmail disabled to preserve email quota
 import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
-import { isEmailSent, isEmailSending } from '@/lib/email-status'
+import { isEmailSent, isEmailSending, isEmailReservationAbandoned, getEmailSentAtAge } from '@/lib/email-status'
 
 /**
  * Process an audit - runs modules, generates report, sends email
@@ -357,8 +357,64 @@ export async function processAudit(auditId: string) {
     }
     
     // CRITICAL: Use atomic reservation pattern to prevent duplicate emails
-    // Step 1: Try to atomically reserve the email sending by setting email_sent_at to NOW
-    // This prevents multiple processes from sending emails simultaneously
+    // Step 1: Check for hard timeout (30 minutes) - force clear abandoned reservations
+    const reservationAttemptId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    console.log(`[${reservationAttemptId}] Starting email reservation for audit ${auditId}`)
+    
+    // First, check current state and handle hard timeout
+    const { data: currentState } = await supabase
+      .from('audits')
+      .select('email_sent_at')
+      .eq('id', auditId)
+      .single()
+    
+    if (currentState?.email_sent_at) {
+      const age = getEmailSentAtAge(currentState.email_sent_at)
+      const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+      
+      console.log(`[${reservationAttemptId}] Current email_sent_at: ${currentState.email_sent_at}, age: ${ageMinutes !== null ? `${ageMinutes}m` : 'unknown'}`)
+      
+      // Hard timeout: If reservation is >30 minutes old, force clear it (abandoned)
+      if (isEmailReservationAbandoned(currentState.email_sent_at)) {
+        console.warn(`[${reservationAttemptId}] ⚠️  Abandoned reservation detected (${ageMinutes}m old) - forcing clear with atomic update`)
+        const oldTimestamp = currentState.email_sent_at
+        // CRITICAL: Atomic clear - only clear if it still has the old value (prevents race condition)
+        const { data: clearResult, error: clearError } = await supabase
+          .from('audits')
+          .update({ email_sent_at: null })
+          .eq('id', auditId)
+          .eq('email_sent_at', oldTimestamp) // Atomic: only clear if still has old value
+          .select('email_sent_at')
+        
+        if (clearError) {
+          console.error(`[${reservationAttemptId}] ❌ Failed to clear abandoned reservation:`, clearError)
+        } else if (!clearResult || clearResult.length === 0) {
+          console.warn(`[${reservationAttemptId}] ⚠️  Clear returned no rows - another process may have cleared it`)
+        } else {
+          console.log(`[${reservationAttemptId}] ✅ Cleared abandoned reservation (old: ${oldTimestamp})`)
+        }
+      } else if (isEmailSent(currentState.email_sent_at)) {
+        // Email was already sent (timestamp is >5 minutes old)
+        console.log(`[${reservationAttemptId}] ⛔ SKIPPING email send for audit ${auditId} - email already sent at ${currentState.email_sent_at} (${ageMinutes}m old)`)
+        return {
+          success: true,
+          auditId,
+          message: 'Audit completed successfully (email was already sent by another process)',
+          emailSent: true,
+        }
+      } else if (isEmailSending(currentState.email_sent_at)) {
+        // Another process is currently sending (reservation is <5 minutes old)
+        console.log(`[${reservationAttemptId}] ⛔ SKIPPING email send for audit ${auditId} - another process is currently sending (reserved ${ageMinutes}m ago)`)
+        return {
+          success: true,
+          auditId,
+          message: 'Audit skipped - another process is sending the email',
+          emailSent: false,
+        }
+      }
+    }
+    
+    // Step 2: Try to atomically reserve the email sending
     // We use a timestamp slightly in the past to mark as "sending" (will update to actual time after success)
     const reservationTimestamp = new Date(Date.now() - 1000).toISOString() // 1 second ago
     const { data: reservationResult, error: reservationError } = await supabase
@@ -371,9 +427,15 @@ export async function processAudit(auditId: string) {
     // Track if we successfully reserved after retry
     let reservationSuccessful = reservationResult && reservationResult.length > 0 && !reservationError
     
-    // If reservation failed, check what happened
+    if (reservationSuccessful) {
+      console.log(`[${reservationAttemptId}] ✅ Initial reservation succeeded: ${reservationResult[0].email_sent_at}`)
+    } else {
+      console.warn(`[${reservationAttemptId}] ⚠️  Initial reservation failed: error=${reservationError?.message || 'null'}, result=${reservationResult?.length || 0} rows`)
+    }
+    
+    // If reservation failed, check what happened and handle stale reservations
     if (!reservationSuccessful) {
-      // Check current state of email_sent_at
+      // Re-check current state after failed reservation
       const { data: doubleCheck } = await supabase
         .from('audits')
         .select('email_sent_at')
@@ -381,69 +443,64 @@ export async function processAudit(auditId: string) {
         .single()
       
       if (doubleCheck?.email_sent_at) {
-        // email_sent_at is set - check if it's a valid reservation or already sent
-        if (isEmailSent(doubleCheck.email_sent_at)) {
-          // Email was already sent (timestamp is >5 minutes old)
-          console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${doubleCheck.email_sent_at}`)
-          return {
-            success: true,
-            auditId,
-            message: 'Audit completed successfully (email was already sent by another process)',
-            emailSent: true,
-          }
-        } else if (isEmailSending(doubleCheck.email_sent_at)) {
-          // Another process is currently sending (reservation is <5 minutes old)
-          const sentTime = new Date(doubleCheck.email_sent_at).getTime()
-          const now = Date.now()
-          console.log(`⛔ SKIPPING email send for audit ${auditId} - another process is currently sending the email (reserved ${Math.round((now - sentTime) / 1000)}s ago)`)
-          return {
-            success: true,
-            auditId,
-            message: 'Audit skipped - another process is sending the email',
-            emailSent: false,
-          }
-        } else {
-          // Stale reservation (timestamp exists but is >5 minutes old and not considered "sent")
-          // Clear it and retry
-          console.warn(`⚠️  Stale reservation detected for audit ${auditId} (${doubleCheck.email_sent_at}) - clearing and retrying`)
-          const { error: clearError } = await supabase
+        const age = getEmailSentAtAge(doubleCheck.email_sent_at)
+        const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+        
+        console.log(`[${reservationAttemptId}] Double-check: email_sent_at=${doubleCheck.email_sent_at}, age=${ageMinutes !== null ? `${ageMinutes}m` : 'unknown'}`)
+        
+        // Stale reservation (5-30 minutes old, not considered "sent" but not abandoned yet)
+        // Clear it atomically and retry
+        if (!isEmailSent(doubleCheck.email_sent_at) && !isEmailSending(doubleCheck.email_sent_at) && !isEmailReservationAbandoned(doubleCheck.email_sent_at)) {
+          const oldTimestamp = doubleCheck.email_sent_at
+          console.warn(`[${reservationAttemptId}] ⚠️  Stale reservation detected (${ageMinutes}m old) - clearing atomically and retrying`)
+          
+          // CRITICAL: Atomic clear - only clear if it still has the old value (prevents race condition)
+          const { data: clearResult, error: clearError } = await supabase
             .from('audits')
             .update({ email_sent_at: null })
             .eq('id', auditId)
+            .eq('email_sent_at', oldTimestamp) // Atomic: only clear if still has old value
+            .select('email_sent_at')
           
           if (clearError) {
-            console.error(`❌ Failed to clear stale reservation:`, clearError)
-            // Fall through to error handling
+            console.error(`[${reservationAttemptId}] ❌ Failed to clear stale reservation:`, clearError)
+            console.error(`[${reservationAttemptId}]   Old timestamp: ${oldTimestamp}`)
+          } else if (!clearResult || clearResult.length === 0) {
+            console.warn(`[${reservationAttemptId}] ⚠️  Clear returned no rows - another process may have cleared it (old: ${oldTimestamp})`)
           } else {
-            console.log(`✅ Cleared stale reservation, retrying...`)
-            // Retry the reservation
+            console.log(`[${reservationAttemptId}] ✅ Cleared stale reservation (old: ${oldTimestamp}), retrying...`)
+            
+            // Retry the reservation (idempotent - uses IS NULL guard)
             const retryTimestamp = new Date(Date.now() - 1000).toISOString()
             const { data: retryResult, error: retryError } = await supabase
               .from('audits')
               .update({ email_sent_at: retryTimestamp })
               .eq('id', auditId)
-              .is('email_sent_at', null)
+              .is('email_sent_at', null) // Atomic: only update if NULL
               .select('email_sent_at')
             
-            if (retryError || !retryResult || retryResult.length === 0) {
-              console.error(`❌ Retry reservation also failed:`, retryError)
-              // Fall through to error handling
+            if (retryError) {
+              console.error(`[${reservationAttemptId}] ❌ Retry reservation failed:`, retryError)
+            } else if (!retryResult || retryResult.length === 0) {
+              console.warn(`[${reservationAttemptId}] ⚠️  Retry reservation returned no rows - another process may have reserved it`)
             } else {
-              console.log(`✅ Retry reservation succeeded, continuing with email send`)
+              console.log(`[${reservationAttemptId}] ✅ Retry reservation succeeded: ${retryResult[0].email_sent_at}`)
               reservationSuccessful = true
-              // Continue with email sending below (skip the return statement)
             }
           }
+        } else {
+          // Should not happen - we already checked these cases above
+          console.error(`[${reservationAttemptId}] ❌ Unexpected state: email_sent_at=${doubleCheck.email_sent_at}, isSent=${isEmailSent(doubleCheck.email_sent_at)}, isSending=${isEmailSending(doubleCheck.email_sent_at)}, isAbandoned=${isEmailReservationAbandoned(doubleCheck.email_sent_at)}`)
         }
+      } else {
+        // email_sent_at is null but reservation failed - this is a database issue
+        console.error(`[${reservationAttemptId}] ⚠️  Failed to reserve email sending slot:`, reservationError)
+        console.error(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is null - this indicates a database issue`)
+        console.error(`[${reservationAttemptId}] ⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.`)
       }
       
       // If reservation still failed (no retry success), handle error
       if (!reservationSuccessful) {
-        // email_sent_at is null but reservation failed - this is a database issue
-        console.error('⚠️  Failed to reserve email sending slot:', reservationError)
-        console.error('⚠️  Reservation failed but email_sent_at is null - this indicates a database issue')
-        console.error('⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.')
-        
         // CRITICAL: Ensure status is set to completed even if email reservation failed
         // The report is already saved, so the audit is complete
         const { error: statusError } = await supabase
@@ -455,9 +512,9 @@ export async function processAudit(auditId: string) {
           .eq('id', auditId)
         
         if (statusError) {
-          console.error('⚠️  Failed to update audit status to completed:', statusError)
+          console.error(`[${reservationAttemptId}] ⚠️  Failed to update audit status to completed:`, statusError)
         } else {
-          console.log('✅ Audit status updated to completed (email reservation failed but report is saved)')
+          console.log(`[${reservationAttemptId}] ✅ Audit status updated to completed (email reservation failed but report is saved)`)
         }
         
         return {
@@ -471,6 +528,7 @@ export async function processAudit(auditId: string) {
     }
     
     // If we get here, reservation was successful (either initial or after retry)
+    console.log(`[${reservationAttemptId}] ✅ Reservation successful, proceeding with email send`)
     // Continue with email sending
     
     // Step 2: Send email ONLY if we successfully reserved the slot
@@ -505,20 +563,22 @@ export async function processAudit(auditId: string) {
         console.error('⚠️  Email sent but email_sent_at was not saved (update returned no data)')
         throw new Error('Email sent but timestamp was not saved to database')
       } else {
-        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated to ${updateResult[0].email_sent_at}`)
+        const finalTimestamp = updateResult[0].email_sent_at
+        console.log(`[${reservationAttemptId}] ✅ Email sent successfully to ${customer.email} and timestamp updated to ${finalTimestamp}`)
         // Verify the timestamp matches what we set (allowing for format differences like Z vs +00:00)
         const expectedTime = new Date(emailSentAt).getTime()
-        const actualTime = new Date(updateResult[0].email_sent_at).getTime()
+        const actualTime = new Date(finalTimestamp).getTime()
         const timeDiff = Math.abs(expectedTime - actualTime)
         if (timeDiff > 1000) { // Allow up to 1 second difference (format differences are fine)
-          console.warn(`⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${updateResult[0].email_sent_at} (difference: ${timeDiff}ms)`)
+          console.warn(`[${reservationAttemptId}] ⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${finalTimestamp} (difference: ${timeDiff}ms)`)
         }
+        console.log(`[${reservationAttemptId}] 📊 Final state: email_sent_at=${finalTimestamp}, status=completed, has_report=true`)
       }
     } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
-        console.error('❌ Email sending failed:', emailError)
-        console.error('Email error details:', emailError.message)
-        console.error('Email error stack:', emailError.stack)
+        console.error(`[${reservationAttemptId}] ❌ Email sending failed:`, emailError)
+        console.error(`[${reservationAttemptId}] Email error details:`, emailError.message)
+        console.error(`[${reservationAttemptId}] Email error stack:`, emailError.stack)
         
         // Log email error to database for debugging
         const emailErrorLog = JSON.stringify({

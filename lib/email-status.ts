@@ -59,3 +59,48 @@ export function isEmailSending(emailSentAt: string | null | undefined): boolean 
   return isEmailReservation(emailSentAt)
 }
 
+/**
+ * Check if email_sent_at represents an abandoned reservation (hard timeout)
+ * Reservations older than 30 minutes are considered abandoned and should be cleared
+ */
+export function isEmailReservationAbandoned(emailSentAt: string | null | undefined): boolean {
+  if (!emailSentAt || emailSentAt === 'null') {
+    return false
+  }
+  
+  try {
+    const sentTime = new Date(emailSentAt).getTime()
+    if (isNaN(sentTime)) {
+      return false // Invalid timestamp
+    }
+    
+    const now = Date.now()
+    const age = now - sentTime
+    // If timestamp is older than 30 minutes, it's abandoned
+    return age >= 30 * 60 * 1000 // 30 minutes
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Get the age of email_sent_at in milliseconds
+ * Returns null if email_sent_at is null or invalid
+ */
+export function getEmailSentAtAge(emailSentAt: string | null | undefined): number | null {
+  if (!emailSentAt || emailSentAt === 'null') {
+    return null
+  }
+  
+  try {
+    const sentTime = new Date(emailSentAt).getTime()
+    if (isNaN(sentTime)) {
+      return null
+    }
+    
+    return Date.now() - sentTime
+  } catch {
+    return null
+  }
+}
+
