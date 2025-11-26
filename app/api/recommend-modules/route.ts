@@ -147,19 +147,8 @@ export async function POST(request: NextRequest) {
       // We'll provide examples in the reason text to help them decide
       const isLocalBusiness = true
       
-      // Debug logging to help diagnose issues
-      console.log(`[recommend-modules] Local business detection for ${normalizedUrl}:`, {
-        hasAddressPattern,
-        hasPhonePattern,
-        hasBothAddressAndPhone,
-        hasAddressOrPhone,
-        hasLocalKeywords,
-        hasBusinessEntity,
-        hasBusinessIndicators,
-        hasOnlineOnlyIndicators,
-        isLocalBusiness,
-        contentSample: allText.substring(0, 200),
-      })
+      // Local SEO is always recommended - client decides if they need it
+      console.log(`[recommend-modules] Local SEO always recommended for ${normalizedUrl} - client will decide`)
       
       const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
       // Business detection - check for business indicators (name, services, contact info, etc.)
