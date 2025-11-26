@@ -20,14 +20,23 @@ export const runtime = 'nodejs'
 export async function GET(request: NextRequest) {
   try {
     // Optional: Add basic auth to prevent unauthorized access
-    const authHeader = request.headers.get('authorization')
+    // Supports both Bearer token header and query parameter (for easier cron-job.org setup)
     const expectedSecret = process.env.QUEUE_SECRET
     
-    if (expectedSecret && authHeader !== `Bearer ${expectedSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (expectedSecret) {
+      const authHeader = request.headers.get('authorization')
+      const querySecret = request.nextUrl.searchParams.get('secret')
+      
+      // Check both header and query parameter
+      const headerValid = authHeader === `Bearer ${expectedSecret}`
+      const queryValid = querySecret === expectedSecret
+      
+      if (!headerValid && !queryValid) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
     }
 
     // Find the oldest pending audit in the queue
