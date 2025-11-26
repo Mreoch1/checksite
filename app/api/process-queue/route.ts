@@ -75,12 +75,16 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // Check if there are any queue items at all (regardless of status)
-      // Get more items to see recent ones
-      const { data: allQueueItems } = await supabase
+      // Get more items to see recent ones - increase limit to catch very recent items
+      const { data: allQueueItems, error: allQueueError } = await supabase
         .from('audit_queue')
         .select('id, audit_id, status, created_at')
         .order('created_at', { ascending: false })
-        .limit(20) // Increased from 5 to catch recent items
+        .limit(50) // Increased from 20 to catch very recent items that might be filtered
+      
+      if (allQueueError) {
+        console.error(`[${requestId}] Error fetching all queue items:`, allQueueError)
+      }
       
       if (allQueueItems && allQueueItems.length > 0) {
         // Separate pending vs non-pending
@@ -88,13 +92,22 @@ export async function GET(request: NextRequest) {
         const nonPendingItems = allQueueItems.filter((item: any) => item.status !== 'pending')
         
         // Log all items for debugging (especially recent ones)
-        const recentItems = allQueueItems.slice(0, 10) // Show 10 most recent
-        console.log(`[${requestId}] 📊 Recent queue items (showing 10 most recent):`)
+        const recentItems = allQueueItems.slice(0, 20) // Show 20 most recent for better visibility
+        console.log(`[${requestId}] 📊 Recent queue items (showing ${recentItems.length} most recent out of ${allQueueItems.length} total):`)
         recentItems.forEach((item: any) => {
           const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
           const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
           console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m (${ageSeconds}s), Created: ${item.created_at}`)
         })
+        
+        // Also check specifically for the most recent pending item
+        const mostRecentPending = allQueueItems.find((item: any) => item.status === 'pending')
+        if (mostRecentPending) {
+          const ageSeconds = Math.round((Date.now() - new Date(mostRecentPending.created_at).getTime()) / 1000)
+          console.log(`[${requestId}] 🔍 Most recent pending item: Audit ID ${mostRecentPending.audit_id}, Age: ${ageSeconds}s`)
+        } else {
+          console.log(`[${requestId}] 🔍 No pending items found in ${allQueueItems.length} total queue items`)
+        }
         
         if (pendingItems.length > 0) {
           console.log(`[${requestId}] ⚠️  Found ${pendingItems.length} pending queue item(s) but they didn't pass filtering:`)
