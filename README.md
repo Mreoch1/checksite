@@ -247,11 +247,29 @@ Pricing is configured in `lib/types.ts`:
 export const PRICING_CONFIG: PricingConfig = {
   basePrice: 1999, // $19.99 in cents
   modules: {
-    // Core modules: 0 (included)
-    // Optional modules: additional cost in cents
+    // Core modules: 0 (included in base price)
+    performance: 0,
+    crawl_health: 0,
+    on_page: 0,
+    mobile: 0,
+    // High value modules ($10)
+    local: 1000,
+    schema: 1000,
+    competitor_overview: 1000,
+    // Medium value modules ($7)
+    accessibility: 700,
+    social: 700,
+    // Lower value modules ($5)
+    security: 500,
   },
 }
 ```
+
+**Pricing Philosophy:**
+- Pricing is based on **perceived value to customers**, not development effort
+- High value modules ($10): Directly relate to business success, ranking, and competition
+- Medium value modules ($7): Users understand them once explained but feel secondary
+- Lower value modules ($5): Less understood by non-technical users
 
 To adjust pricing, modify the `PRICING_CONFIG` object.
 

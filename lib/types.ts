@@ -69,12 +69,15 @@ export const PRICING_CONFIG: PricingConfig = {
     crawl_health: 0, // Included in base
     on_page: 0, // Included in base
     mobile: 0, // Included in base
+    // High value modules ($10)
     local: 1000, // +$10.00
-    accessibility: 1000, // +$10.00
-    security: 500, // +$5.00
     schema: 1000, // +$10.00
-    social: 500, // +$5.00
-    competitor_overview: 1500, // +$15.00
+    competitor_overview: 1000, // +$10.00
+    // Medium value modules ($7)
+    accessibility: 700, // +$7.00
+    social: 700, // +$7.00
+    // Lower value modules ($5)
+    security: 500, // +$5.00
   },
 }
 
