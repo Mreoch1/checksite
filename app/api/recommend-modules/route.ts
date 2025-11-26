@@ -66,11 +66,17 @@ export async function POST(request: NextRequest) {
         const cheerio = await import('cheerio') as typeof import('cheerio')
         const $ = cheerio.load(html)
         
+        // Extract full body text for better detection (addresses/phones often in footer)
+        const fullBodyText = $('body').text()
+        // Also check footer specifically for address/phone
+        const footerText = $('footer').text() || ''
+        const combinedText = fullBodyText + ' ' + footerText
+        
         siteSummary = {
           title: $('title').first().text().trim(),
           description: $('meta[name="description"]').attr('content') || 
                        $('meta[property="og:description"]').attr('content') || '',
-          content: $('body').text().substring(0, 1000).trim(),
+          content: combinedText.substring(0, 2000).trim(), // Increased to 2000 to capture footer content
         }
       }
     } catch (error) {
@@ -105,21 +111,30 @@ export async function POST(request: NextRequest) {
       
       // Smart defaults based on content analysis
       // Local business detection - check for physical address, phone, and business indicators
-      // Check for address patterns (street address, city, state, zip)
-      const hasAddressPattern = /(\d+\s+[A-Za-z0-9\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct),?\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us)/i.test(allText)
       
-      // Check for phone number patterns
-      const hasPhonePattern = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:/i.test(allText)
+      // Check for address patterns (more flexible - handles "1030 N Crooks Rd, Suite G, Clawson, MI 48017")
+      const hasAddressPattern = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us|physical location)/i.test(allText)
       
-      // Check for local business keywords (expanded list)
-      const hasLocalKeywords = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|installation|installer|service|services|industries|inc\.|llc|corp|company|business|local|area|region|city|town|neighborhood|community)/i.test(allText)
+      // Check for phone number patterns (handles +1 248-288-6600 format)
+      const hasPhonePattern = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
+      
+      // Check for local business keywords (expanded list including installation, industries, etc.)
+      const hasLocalKeywords = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|installation|installer|service|services|industries|inc\.|llc|corp|company|business|local|area|region|city|town|neighborhood|community|low voltage|electrical|hvac|plumbing|construction|repair|maintenance)/i.test(allText)
+      
+      // Check for business entity indicators
+      const hasBusinessEntity = /(inc\.|llc|corp|corporation|company|industries|industries inc|industries, inc)/i.test(allText)
       
       // Check for online-only indicators (more specific to avoid false positives)
-      const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront)/i.test(allText)
+      const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront|purely online|exclusively online)/i.test(allText)
       
-      // A site is local if it has (address OR phone) AND (local keywords OR business name with "Inc"/"LLC") AND NOT online-only
-      const hasPhysicalPresence = hasAddressPattern || hasPhonePattern
-      const isLocalBusiness = hasPhysicalPresence && (hasLocalKeywords || /(inc\.|llc|corp|company|industries)/i.test(allText)) && !hasOnlineOnlyIndicators
+      // A site is local if it has:
+      // 1. (address AND phone) OR (address OR phone with business entity/keywords)
+      // 2. AND NOT online-only
+      const hasBothAddressAndPhone = hasAddressPattern && hasPhonePattern
+      const hasAddressOrPhone = hasAddressPattern || hasPhonePattern
+      const hasBusinessIndicators = hasLocalKeywords || hasBusinessEntity
+      
+      const isLocalBusiness = (hasBothAddressAndPhone || (hasAddressOrPhone && hasBusinessIndicators)) && !hasOnlineOnlyIndicators
       
       const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
       // Business detection - check for business indicators (name, services, contact info, etc.)
