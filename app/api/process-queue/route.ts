@@ -68,8 +68,25 @@ export async function GET(request: NextRequest) {
       queueItems.forEach((item: any, idx: number) => {
         const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
         const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        const passesDelay = item.created_at < fiveMinutesAgo
+        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}, passes_5min_delay=${passesDelay}`)
       })
+    } else {
+      // Check if there are any queue items at all (regardless of status)
+      const { data: allQueueItems } = await supabase
+        .from('audit_queue')
+        .select('id, audit_id, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+      
+      if (allQueueItems && allQueueItems.length > 0) {
+        console.log(`[${requestId}] ⚠️  Found ${allQueueItems.length} queue item(s) but none are 'pending' status:`)
+        allQueueItems.forEach((item: any) => {
+          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+          console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
+        })
+      }
     }
     
     // Filter out audits that already have email_sent_at (client-side filter)
