@@ -19,18 +19,12 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get database timezone and current time
+    // Try to get a sample audit to see database time
     const { data: timeData, error: timeError } = await supabase
-      .rpc('get_timezone_info')
+      .from('audits')
+      .select('created_at')
+      .limit(1)
       .single()
-      .catch(async () => {
-        // If RPC doesn't exist, use a simple query
-        const { data, error } = await supabase
-          .from('audits')
-          .select('created_at')
-          .limit(1)
-          .single()
-        return { data, error }
-      })
 
     // Get current time from database
     const { data: currentTimeData, error: currentTimeError } = await supabase
