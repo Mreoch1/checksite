@@ -38,6 +38,9 @@ export async function callDeepSeek(
     controller.abort()
   }, 120000) // 2 minutes (reduced from 2.5 to fail faster)
 
+  // Declare timeoutHandle outside try block so it's accessible in catch
+  let timeoutHandle: NodeJS.Timeout | null = null
+
   try {
     const apiKey = getDeepSeekApiKey()
     const requestBody = {
@@ -66,7 +69,6 @@ export async function callDeepSeek(
     })
 
     // Race between fetch and timeout - use separate timeout to ensure it fires
-    let timeoutHandle: NodeJS.Timeout | null = null
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(() => {
         controller.abort()
