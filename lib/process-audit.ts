@@ -256,43 +256,66 @@ export async function processAudit(auditId: string) {
           // (Database constraint only allows: pending, running, completed, failed)
           console.log('Generating report (status remains: running)...')
     
-    // Generate formatted report using simple script-based generator (no LLM for now)
-    console.log('Generating formatted report (simple script-based)...')
-    console.log(`Audit result has ${auditResult.modules.length} modules`)
-    
-    let html: string, plaintext: string
-    try {
-      const result = generateSimpleReport({
-        url: audit.url,
-        pageAnalysis,
-        modules: results,
-        overallScore,
-      })
-      html = result.html
-      plaintext = result.plaintext
-      console.log('✅ Report generated successfully')
-    } catch (reportError) {
-      console.error('❌ Report generation failed:', reportError)
-      console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError))
-      throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
-    }
-
-      // Verify report was saved (double-check) - only if we just generated it
-      if (!audit.formatted_report_html) {
-        const { data: savedAudit } = await supabase
-          .from('audits')
-          .select('formatted_report_html, status')
-          .eq('id', auditId)
-          .single()
-        
-        if (!savedAudit?.formatted_report_html || savedAudit.status !== 'completed') {
-          console.error('❌ Report verification failed - report not properly saved')
-          throw new Error('Report was not properly saved to database - cannot send email')
-        }
-        console.log('✅ Report verified in database - safe to send email')
-      } else {
-        console.log('✅ Using existing report - safe to send email')
+      // Generate formatted report using simple script-based generator (no LLM for now)
+      console.log('Generating formatted report (simple script-based)...')
+      console.log(`Audit result has ${auditResult.modules.length} modules`)
+      
+      try {
+        const result = generateSimpleReport({
+          url: audit.url,
+          pageAnalysis,
+          modules: results,
+          overallScore,
+        })
+        // Assign to outer scope variables (declared at function level)
+        html = result.html
+        plaintext = result.plaintext
+        console.log('✅ Report generated successfully')
+      } catch (reportError) {
+        console.error('❌ Report generation failed:', reportError)
+        console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError))
+        throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
       }
+
+      // CRITICAL: Only proceed if report was successfully generated
+      if (!html || html.trim().length === 0) {
+        console.error(`❌ Cannot complete audit ${auditId} - report HTML is empty or missing`)
+        throw new Error('Report generation failed - cannot complete audit without report content')
+      }
+      
+      // CRITICAL: Save report to database FIRST before sending email
+      // This ensures the report URL works when the email is received
+      console.log('Saving report to database BEFORE sending email...')
+      const updateData: any = {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        formatted_report_html: html,
+        formatted_report_plaintext: plaintext,
+      }
+      
+      const { error: reportUpdateError } = await supabase
+        .from('audits')
+        .update(updateData)
+        .eq('id', auditId)
+      
+      if (reportUpdateError) {
+        console.error('❌ Error saving report to database:', reportUpdateError)
+        throw new Error(`Failed to save report to database: ${reportUpdateError.message}`)
+      }
+      console.log('✅ Report saved to database - report URL is now accessible')
+      
+      // Verify report was saved (double-check)
+      const { data: savedAudit } = await supabase
+        .from('audits')
+        .select('formatted_report_html, status')
+        .eq('id', auditId)
+        .single()
+      
+      if (!savedAudit?.formatted_report_html || savedAudit.status !== 'completed') {
+        console.error('❌ Report verification failed - report not properly saved')
+        throw new Error('Report was not properly saved to database - cannot send email')
+      }
+      console.log('✅ Report verified in database - safe to send email')
     } // End of else if (!audit.formatted_report_html) block
     
     // At this point, we either:
@@ -443,6 +466,15 @@ export async function processAudit(auditId: string) {
     }
     
     console.log('✅ Audit processing complete - report saved and email sent')
+    
+    // Return success to indicate audit was completed
+    return {
+      success: true,
+      auditId,
+      message: 'Audit completed successfully',
+      hasReport: !!html,
+      emailSent: !!emailSentAt,
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : 'No stack trace'
