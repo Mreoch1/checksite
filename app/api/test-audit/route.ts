@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 import { rateLimit, getClientId } from '@/lib/rate-limit'
+import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  // Require admin authentication to prevent unauthorized test audits
+  const authError = requireAdminAuth(request)
+  if (authError) return authError
+
   // Rate limiting: 5 requests per minute per IP (test endpoint)
   const clientId = getClientId(request)
   const rateLimitResult = rateLimit(`test-audit:${clientId}`, 5, 60000)
