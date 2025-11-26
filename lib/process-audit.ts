@@ -427,7 +427,7 @@ export async function processAudit(auditId: string) {
     // Track if we successfully reserved after retry
     let reservationSuccessful = reservationResult && reservationResult.length > 0 && !reservationError
     
-    if (reservationSuccessful) {
+    if (reservationSuccessful && reservationResult && reservationResult.length > 0) {
       console.log(`[${reservationAttemptId}] ✅ Initial reservation succeeded: ${reservationResult[0].email_sent_at}`)
     } else {
       console.warn(`[${reservationAttemptId}] ⚠️  Initial reservation failed: error=${reservationError?.message || 'null'}, result=${reservationResult?.length || 0} rows`)
