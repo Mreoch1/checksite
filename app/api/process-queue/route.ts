@@ -43,17 +43,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the oldest pending audit in the queue
-    // Also check that email hasn't been sent yet (prevent processing already-completed audits)
+    // CRITICAL: Also filter out audits that already have email_sent_at to prevent duplicate processing
+    // This prevents processing the same audit multiple times if there are duplicate queue entries
     const { data: queueItem, error: findError } = await supabase
       .from('audit_queue')
-      .select('*, audits(*)')
+      .select('*, audits!inner(*)')
       .eq('status', 'pending')
+      .is('audits.email_sent_at', null) // CRITICAL: Only process audits where email hasn't been sent
       .order('created_at', { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
     
     // Check if no queue item found first
-    if (findError || !queueItem) {
+    if (findError) {
+      console.error(`[${requestId}] Error finding queue item:`, findError)
+      return NextResponse.json(
+        { error: 'Database error finding queue item', details: findError.message },
+        { status: 500 }
+      )
+    }
+    
+    if (!queueItem) {
       // No pending audits - log this for debugging
       console.log(`[${requestId}] No pending audits in queue`)
       

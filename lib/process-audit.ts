@@ -18,6 +18,24 @@ export async function processAudit(auditId: string) {
   try {
     console.log(`[processAudit] Starting audit ${auditId} at ${new Date().toISOString()}`)
     
+    // CRITICAL: Early check - if email was already sent, skip processing entirely
+    // This prevents duplicate processing and duplicate emails
+    const { data: earlyCheck } = await supabase
+      .from('audits')
+      .select('email_sent_at, status, formatted_report_html')
+      .eq('id', auditId)
+      .single()
+    
+    if (earlyCheck?.email_sent_at) {
+      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at}`)
+      return {
+        success: true,
+        auditId,
+        message: 'Audit skipped - email already sent',
+        email_sent_at: earlyCheck.email_sent_at,
+      }
+    }
+    
     // Get audit details
     const { data: auditData, error: auditError } = await supabase
       .from('audits')
@@ -289,8 +307,8 @@ export async function processAudit(auditId: string) {
       throw new Error('Customer email is required to send report')
     }
     
-    // Use atomic update to prevent duplicate emails (race condition protection)
-    // Check if email was already sent by another process
+    // CRITICAL: Use atomic update to prevent duplicate emails (race condition protection)
+    // Check if email was already sent by another process - do this FIRST before any email sending
     const { data: existingAudit } = await supabase
       .from('audits')
       .select('email_sent_at')
@@ -299,35 +317,65 @@ export async function processAudit(auditId: string) {
     
     const emailAlreadySent = !!existingAudit?.email_sent_at
     
+    if (emailAlreadySent) {
+      console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${existingAudit.email_sent_at}`)
+      // Email was already sent by another process - this is fine, just skip
+      return {
+        success: true,
+        auditId,
+        message: 'Audit completed successfully (email was already sent)',
+      }
+    }
+    
     // Send email AFTER report is saved and verified
     let emailSentAt: string | null = null
     let emailError: Error | null = null
     
-    if (!emailAlreadySent) {
-      console.log(`📧 Sending email to ${customer.email} for audit ${auditId}...`)
-      console.log(`📧 Email provider check: SENDGRID_API_KEY=${!!process.env.SENDGRID_API_KEY}, SMTP_PASSWORD=${!!process.env.SMTP_PASSWORD}, EMAIL_PROVIDER=${process.env.EMAIL_PROVIDER || 'not set'}`)
-      try {
-        await sendAuditReportEmail(
-          customer.email,
-          audit.url,
-          auditId,
-          html
-        )
-        // Only set email_sent_at AFTER email is successfully sent
-        emailSentAt = new Date().toISOString()
-        const { error: emailUpdateError } = await supabase
+    console.log(`📧 Sending email to ${customer.email} for audit ${auditId}...`)
+    console.log(`📧 Email provider check: SENDGRID_API_KEY=${!!process.env.SENDGRID_API_KEY}, SMTP_PASSWORD=${!!process.env.SMTP_PASSWORD}, EMAIL_PROVIDER=${process.env.EMAIL_PROVIDER || 'not set'}`)
+    try {
+      await sendAuditReportEmail(
+        customer.email,
+        audit.url,
+        auditId,
+        html
+      )
+      // Only set email_sent_at AFTER email is successfully sent
+      emailSentAt = new Date().toISOString()
+      
+      // CRITICAL: Use atomic update with double-check to prevent race conditions
+      // First, try to update with the condition that email_sent_at is NULL
+      const { data: updateResult, error: emailUpdateError } = await supabase
+        .from('audits')
+        .update({ email_sent_at: emailSentAt })
+        .eq('id', auditId)
+        .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
+        .select('email_sent_at')
+      
+      // If update failed or returned no rows, check if another process already set it
+      if (emailUpdateError || !updateResult || updateResult.length === 0) {
+        // Double-check: did another process send the email?
+        const { data: doubleCheck } = await supabase
           .from('audits')
-          .update({ email_sent_at: emailSentAt })
+          .select('email_sent_at')
           .eq('id', auditId)
-          .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
+          .single()
         
-        if (emailUpdateError) {
-          console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
-          // Email was sent, but we couldn't update the timestamp - not critical
+        if (doubleCheck?.email_sent_at) {
+          console.warn(`⚠️  Email was sent but another process already set email_sent_at to ${doubleCheck.email_sent_at}`)
+          console.warn(`⚠️  This means multiple emails may have been sent - this is a race condition`)
         } else {
-          console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated`)
+          console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
+          // Try one more time without the atomic check (as fallback)
+          await supabase
+            .from('audits')
+            .update({ email_sent_at: emailSentAt })
+            .eq('id', auditId)
         }
-      } catch (err) {
+      } else {
+        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated atomically`)
+      }
+    } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
         console.error('❌ Email sending failed:', emailError)
         console.error('Email error details:', emailError.message)
@@ -365,11 +413,6 @@ export async function processAudit(auditId: string) {
           console.warn('⚠️  Email error logged to database error_log column')
         }
       }
-    } else {
-      // Email already sent by another process
-      emailSentAt = existingAudit.email_sent_at
-      console.log(`⚠️  Email already sent for audit ${auditId} at ${emailSentAt}. Skipping duplicate email.`)
-    }
     
     // If email failed, log it in error_log for debugging
     if (emailError) {
