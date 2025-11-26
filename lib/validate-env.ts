@@ -16,7 +16,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1),
   
   // Email (at least one required)
-  RESEND_API_KEY: z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   
   // Optional
@@ -39,9 +39,9 @@ export function validateEnv() {
   }
   
   // Check that at least one email provider is configured
-  if (!process.env.RESEND_API_KEY && !process.env.SMTP_PASSWORD) {
+  if (!process.env.SENDGRID_API_KEY && !process.env.SMTP_PASSWORD) {
     throw new Error(
-      'At least one email provider must be configured. Set either RESEND_API_KEY or SMTP_PASSWORD.'
+      'At least one email provider must be configured. Set either SENDGRID_API_KEY or SMTP_PASSWORD.'
     )
   }
 }

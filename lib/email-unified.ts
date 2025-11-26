@@ -1,16 +1,15 @@
 /**
- * Unified email service with Resend and Zoho SMTP fallback
+ * Unified email service with SendGrid (primary) and Zoho SMTP fallback
  */
 
 import nodemailer from 'nodemailer'
-import { Resend } from 'resend'
+import sgMail from '@sendgrid/mail'
 
 // Configuration
-// Default to Zoho SMTP if password is set (better deliverability, especially for Hotmail/Outlook)
-// Use Resend as fallback if configured
-const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+// SendGrid is primary, Zoho SMTP as fallback
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || ''
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || ''
-const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || (SMTP_PASSWORD ? 'smtp' : (RESEND_API_KEY ? 'resend' : 'smtp')) // 'resend' or 'smtp'
+const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || (SENDGRID_API_KEY ? 'sendgrid' : (SMTP_PASSWORD ? 'smtp' : 'sendgrid')) // 'sendgrid' or 'smtp'
 const USE_FALLBACK = process.env.EMAIL_USE_FALLBACK !== 'false' // Default: true (enable fallback)
 
 // Zoho SMTP Configuration
@@ -19,8 +18,8 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10)
 const SMTP_USER = process.env.SMTP_USER || 'contact@seoauditpro.net'
 const SMTP_FROM = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
 
-// Resend Configuration (RESEND_API_KEY moved up)
-const RESEND_FROM = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
+// SendGrid Configuration
+const SENDGRID_FROM = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
 const FROM_NAME = process.env.FROM_NAME || 'SEO CheckSite'
 
 // Shared
@@ -58,40 +57,27 @@ function getZohoTransporter(): nodemailer.Transporter {
   return zohoTransporter
 }
 
-// Resend Client (lazy initialization)
-let resendClient: Resend | null = null
-
-function getResendClient(): Resend {
-  if (!resendClient) {
-    if (!RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY environment variable is required for Resend')
-    }
-    resendClient = new Resend(RESEND_API_KEY)
+// SendGrid Client (lazy initialization)
+function initializeSendGrid(): void {
+  if (!SENDGRID_API_KEY) {
+    throw new Error('SENDGRID_API_KEY environment variable is required for SendGrid')
   }
-  return resendClient
+  sgMail.setApiKey(SENDGRID_API_KEY)
 }
 
 /**
- * Send email via Resend API
- * Uses FROM_EMAIL if set, otherwise falls back to onboarding@resend.dev
+ * Send email via SendGrid API
  */
-async function sendViaResend(options: {
+async function sendViaSendGrid(options: {
   to: string
   subject: string
   html: string
   text?: string
 }): Promise<void> {
-  const resend = getResendClient()
+  initializeSendGrid()
   
-  // Use FROM_EMAIL if it's a verified domain, otherwise use Resend free tier domain
-  // Check if FROM_EMAIL is set and not the default (indicates custom domain)
-  const fromEmail = process.env.FROM_EMAIL || 'contact@seoauditpro.net'
-  // If FROM_EMAIL contains @seoauditpro.net or another custom domain, use it
-  // Otherwise fall back to onboarding@resend.dev for free tier
-  const isCustomDomain = fromEmail.includes('@seoauditpro.net') || 
-    (fromEmail.includes('@') && !fromEmail.includes('onboarding@resend.dev') && !fromEmail.includes('resend.dev'))
-  const from = isCustomDomain ? fromEmail : 'onboarding@resend.dev'
-  const fromFormatted = `"${FROM_NAME}" <${from}>`
+  const fromEmail = SENDGRID_FROM
+  const fromFormatted = `${FROM_NAME} <${fromEmail}>`
   
   // Generate plain text version if not provided (better deliverability)
   const plainText = options.text || options.html
@@ -107,47 +93,37 @@ async function sendViaResend(options: {
     .trim()
   
   try {
+    const msg = {
+      to: options.to,
+      from: fromFormatted,
+      replyTo: fromEmail,
+      subject: options.subject,
+      text: plainText,
+      html: options.html,
+      // Add headers to improve deliverability
+      headers: {
+        'List-Unsubscribe': `<${SITE_URL}/unsubscribe>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }
+    
     const result = await Promise.race([
-      resend.emails.send({
-        from: fromFormatted,
-        to: options.to,
-        reply_to: from,
-        subject: options.subject,
-        html: options.html,
-        text: plainText, // Always include plain text version
-        // Add headers to improve deliverability
-        headers: {
-          'List-Unsubscribe': `<${SITE_URL}/unsubscribe>`,
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        },
-      }),
+      sgMail.send(msg),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Resend timeout')), 30000)
+        setTimeout(() => reject(new Error('SendGrid timeout')), 30000)
       )
     ]) as any
     
-    if (result?.error) {
-      const errorMsg = result.error.message || JSON.stringify(result.error)
-      console.error('Resend API error details:', result.error)
-      throw new Error(`Resend API error: ${errorMsg}`)
-    }
-    
-    // Resend API returns { id: "...", ... } on success
-    // Handle both direct id and nested data.id (if API format changes)
-    const messageId = result?.id || result?.data?.id
-    
-    if (!messageId) {
-      console.warn('Resend returned unexpected response:', JSON.stringify(result, null, 2))
-      throw new Error(`Resend API returned no message ID. Response: ${JSON.stringify(result)}`)
-    }
-    
-    console.log(`Email sent successfully via Resend (${isCustomDomain ? 'custom domain' : 'free tier'}):`, {
-      messageId: messageId,
+    console.log('Email sent successfully via SendGrid:', {
       to: options.to,
-      from: from,
+      from: fromEmail,
+      statusCode: result?.[0]?.statusCode,
     })
-  } catch (error) {
-    console.error('Resend email failed:', error)
+  } catch (error: any) {
+    console.error('SendGrid email failed:', error)
+    if (error.response) {
+      console.error('SendGrid error details:', error.response.body)
+    }
     throw error
   }
 }
@@ -219,8 +195,7 @@ async function sendViaZoho(options: {
 
 /**
  * Main email sending function with automatic fallback
- * Uses Zoho SMTP as primary (works for all recipients)
- * Resend free tier only allows sending to verified email, so we use Zoho for production
+ * Uses SendGrid as primary, Zoho SMTP as fallback
  */
 export async function sendEmail(options: {
   to: string
@@ -228,68 +203,31 @@ export async function sendEmail(options: {
   html: string
   text?: string
 }): Promise<void> {
-  // Check if Resend is on free tier (can only send to verified email)
-  // For production, use Zoho SMTP which can send to any recipient
-  const isResendFreeTier = RESEND_API_KEY && !process.env.RESEND_DOMAIN_VERIFIED
+  // Use SendGrid as primary if:
+  // 1. Explicitly set to 'sendgrid'
+  // 2. SendGrid API key is configured
+  const useSendGrid = EMAIL_PROVIDER === 'sendgrid' || 
+                      (SENDGRID_API_KEY && EMAIL_PROVIDER !== 'smtp')
   
-  // Use Zoho as primary if:
+  // Use Zoho as fallback if:
   // 1. Explicitly set to 'smtp'
-  // 2. Resend is not configured
-  // 3. Resend is on free tier (can't send to all recipients)
+  // 2. SendGrid is not configured
   const useZoho = EMAIL_PROVIDER === 'smtp' || 
-                  !RESEND_API_KEY || 
-                  isResendFreeTier ||
-                  (SMTP_PASSWORD && EMAIL_PROVIDER !== 'resend')
+                  (!SENDGRID_API_KEY && SMTP_PASSWORD)
   
-  // Use Resend only if:
-  // 1. Explicitly set to 'resend'
-  // 2. Resend is configured AND domain is verified (not free tier)
-  const useResend = EMAIL_PROVIDER === 'resend' && 
-                    RESEND_API_KEY && 
-                    !isResendFreeTier &&
-                    !SMTP_PASSWORD
-  
-  // Try Zoho first (primary for production - can send to any recipient)
-  if (useZoho && SMTP_PASSWORD) {
-    console.log('📧 Attempting to send via Zoho SMTP (primary - can send to any recipient)...')
+  // Try SendGrid first (primary)
+  if (useSendGrid && SENDGRID_API_KEY) {
+    console.log('📧 Attempting to send via SendGrid (primary)...')
     try {
-      await sendViaZoho(options)
-      console.log('✅ Email sent successfully via Zoho SMTP')
+      await sendViaSendGrid(options)
+      console.log('✅ Email sent successfully via SendGrid')
       return
     } catch (error) {
-      console.error('❌ Zoho SMTP failed:', error)
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      
-      // Fallback to Resend if enabled and configured (and not free tier)
-      if (USE_FALLBACK && useResend && RESEND_API_KEY) {
-        console.warn('Falling back to Resend...')
-        try {
-          await sendViaResend(options)
-          console.log('✅ Email sent successfully via Resend (fallback)')
-          return
-        } catch (resendError) {
-          console.error('❌ Resend fallback also failed:', resendError)
-          throw new Error(`Both Zoho and Resend failed. Zoho: ${errorMsg}, Resend: ${resendError instanceof Error ? resendError.message : String(resendError)}`)
-        }
-      }
-      
-      throw new Error(`Zoho SMTP failed: ${errorMsg}. ${USE_FALLBACK && useResend ? 'Resend fallback disabled or not configured.' : 'Fallback disabled.'}`)
-    }
-  }
-  
-  // Try Resend if configured and domain verified (not free tier)
-  if (useResend && RESEND_API_KEY) {
-    console.log('📧 Attempting to send via Resend (domain verified)...')
-    try {
-      await sendViaResend(options)
-      console.log('✅ Email sent successfully via Resend')
-      return
-    } catch (error) {
-      console.error('❌ Resend failed:', error)
+      console.error('❌ SendGrid failed:', error)
       const errorMsg = error instanceof Error ? error.message : String(error)
       
       // Fallback to Zoho if enabled and configured
-      if (USE_FALLBACK && SMTP_PASSWORD) {
+      if (USE_FALLBACK && useZoho && SMTP_PASSWORD) {
         console.warn('Falling back to Zoho SMTP...')
         try {
           await sendViaZoho(options)
@@ -297,50 +235,44 @@ export async function sendEmail(options: {
           return
         } catch (zohoError) {
           console.error('❌ Zoho SMTP fallback also failed:', zohoError)
-          throw new Error(`Both Resend and Zoho failed. Resend: ${errorMsg}, Zoho: ${zohoError instanceof Error ? zohoError.message : String(zohoError)}`)
+          throw new Error(`Both SendGrid and Zoho failed. SendGrid: ${errorMsg}, Zoho: ${zohoError instanceof Error ? zohoError.message : String(zohoError)}`)
         }
       }
       
-      throw new Error(`Resend email failed: ${errorMsg}. ${USE_FALLBACK ? 'Zoho fallback disabled or not configured.' : 'Fallback disabled.'}`)
+      throw new Error(`SendGrid email failed: ${errorMsg}. ${USE_FALLBACK && useZoho ? 'Zoho fallback disabled or not configured.' : 'Fallback disabled.'}`)
     }
   }
   
-  if (useZoho) {
-    if (!SMTP_PASSWORD) {
-      throw new Error('SMTP_PASSWORD is required but not set. Cannot send email via Zoho SMTP.')
-    }
-    
+  // Try Zoho if SendGrid is not configured
+  if (useZoho && SMTP_PASSWORD) {
+    console.log('📧 Attempting to send via Zoho SMTP (primary)...')
     try {
-      console.log('📧 Attempting to send via Zoho SMTP (primary)...')
-      console.log(`From: ${SMTP_FROM}`)
       await sendViaZoho(options)
       console.log('✅ Email sent successfully via Zoho SMTP')
       return
     } catch (error) {
       console.error('❌ Zoho SMTP failed:', error)
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error('Zoho error details:', errorMsg)
       
-      // Fallback to Resend if enabled and configured
-      if (USE_FALLBACK && RESEND_API_KEY) {
-        console.warn('Falling back to Resend...')
+      // Fallback to SendGrid if enabled and configured
+      if (USE_FALLBACK && SENDGRID_API_KEY) {
+        console.warn('Falling back to SendGrid...')
         try {
-          await sendViaResend(options)
-          console.log('✅ Email sent successfully via Resend (fallback)')
+          await sendViaSendGrid(options)
+          console.log('✅ Email sent successfully via SendGrid (fallback)')
           return
-        } catch (resendError) {
-          console.error('❌ Resend fallback also failed:', resendError)
-          throw new Error(`Both Zoho and Resend failed. Zoho: ${errorMsg}, Resend: ${resendError instanceof Error ? resendError.message : String(resendError)}`)
+        } catch (sendgridError) {
+          console.error('❌ SendGrid fallback also failed:', sendgridError)
+          throw new Error(`Both Zoho and SendGrid failed. Zoho: ${errorMsg}, SendGrid: ${sendgridError instanceof Error ? sendgridError.message : String(sendgridError)}`)
         }
       }
       
-      // No fallback - throw the Zoho error
-      throw new Error(`Zoho SMTP email failed: ${errorMsg}. ${USE_FALLBACK ? 'Resend fallback disabled or not configured.' : 'Fallback disabled.'}`)
+      throw new Error(`Zoho SMTP email failed: ${errorMsg}. ${USE_FALLBACK ? 'SendGrid fallback disabled or not configured.' : 'Fallback disabled.'}`)
     }
   }
   
-  // If we get here, neither Resend nor Zoho is configured
-  throw new Error('No email provider configured. Set either RESEND_API_KEY or SMTP_PASSWORD environment variable.')
+  // If we get here, neither SendGrid nor Zoho is configured
+  throw new Error('No email provider configured. Set either SENDGRID_API_KEY or SMTP_PASSWORD environment variable.')
 }
 
 /**
@@ -498,4 +430,5 @@ export async function sendAuditFailureEmail(
     html,
   })
 }
+
 

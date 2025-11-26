@@ -20,7 +20,7 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 - **Backend**: Next.js API Routes, Netlify Functions
 - **Database**: Supabase (PostgreSQL)
 - **Payments**: Stripe Checkout
-- **Email**: Resend
+- **Email**: SendGrid (with Zoho SMTP fallback)
 - **LLM**: DeepSeek API (OpenAI-compatible)
 
 ## Prerequisites
@@ -45,8 +45,8 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 
-# Resend
-RESEND_API_KEY=your_resend_api_key
+# SendGrid
+SENDGRID_API_KEY=your_sendgrid_api_key
 FROM_EMAIL=noreply@yourdomain.com
 
 # DeepSeek
@@ -273,11 +273,11 @@ To adjust pricing, modify the `PRICING_CONFIG` object.
 - Ensure RLS policies allow necessary operations
 
 ### Email Delivery Issues
-- Verify Resend API key (primary) or Zoho SMTP credentials (fallback)
-- Check `FROM_EMAIL` domain is verified in Resend
+- Verify SendGrid API key (primary) or Zoho SMTP credentials (fallback)
+- Check `FROM_EMAIL` domain is authenticated in SendGrid (add DNS records)
 - Check spam folder for test emails
-- Free Resend tier only allows sending to verified email addresses
-- System automatically falls back to Zoho SMTP if Resend fails
+- System automatically falls back to Zoho SMTP if SendGrid fails
+- Ensure SendGrid domain authentication DNS records are added to your DNS provider
 
 ### Queue Processing Issues
 - Verify `QUEUE_SECRET` is set in environment variables
