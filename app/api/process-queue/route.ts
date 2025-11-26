@@ -74,18 +74,35 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // Check if there are any queue items at all (regardless of status)
+      // Get more items to see recent ones
       const { data: allQueueItems } = await supabase
         .from('audit_queue')
         .select('id, audit_id, status, created_at')
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(20) // Increased from 5 to catch recent items
       
       if (allQueueItems && allQueueItems.length > 0) {
-        console.log(`[${requestId}] ⚠️  Found ${allQueueItems.length} queue item(s) but none are 'pending' status:`)
-        allQueueItems.forEach((item: any) => {
-          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-          console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
-        })
+        // Separate pending vs non-pending
+        const pendingItems = allQueueItems.filter((item: any) => item.status === 'pending')
+        const nonPendingItems = allQueueItems.filter((item: any) => item.status !== 'pending')
+        
+        if (pendingItems.length > 0) {
+          console.log(`[${requestId}] ⚠️  Found ${pendingItems.length} pending queue item(s) but they didn't pass filtering:`)
+          pendingItems.forEach((item: any) => {
+            const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+            console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
+          })
+        }
+        
+        if (nonPendingItems.length > 0) {
+          console.log(`[${requestId}] Found ${nonPendingItems.length} non-pending queue item(s) (showing 5 most recent):`)
+          nonPendingItems.slice(0, 5).forEach((item: any) => {
+            const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+            console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
+          })
+        }
+      } else {
+        console.log(`[${requestId}] ⚠️  No queue items found at all in database`)
       }
     }
     
