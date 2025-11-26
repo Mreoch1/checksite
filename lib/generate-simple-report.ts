@@ -448,13 +448,21 @@ function generateHTMLReport(data: {
               ${Object.entries(module.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
                 const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
                 let safeValue = ''
-                if (typeof value === 'string') {
+                
+                // Special handling for schema preview - use <pre> tag for better formatting
+                if (key === 'schemaPreview' && typeof value === 'string') {
+                  const truncated = value.length > 800 ? value.substring(0, 800) + '...' : value
+                  safeValue = `<pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">${escapeHtml(truncated)}</pre>`
+                } else if (typeof value === 'string') {
                   safeValue = escapeHtml(value.length > 500 ? value.substring(0, 500) + '...' : value)
                 } else if (typeof value === 'object' && value !== null) {
                   if (Array.isArray(value)) {
                     safeValue = escapeHtml(value.length > 0 ? value.slice(0, 10).join(', ') + (value.length > 10 ? ` (and ${value.length - 10} more)` : '') : 'None')
                   } else {
-                    safeValue = escapeHtml(JSON.stringify(value, null, 2).length > 500 ? JSON.stringify(value, null, 2).substring(0, 500) + '...' : JSON.stringify(value, null, 2))
+                    // For JSON objects, use <pre> tag for better formatting
+                    const jsonStr = JSON.stringify(value, null, 2)
+                    const truncated = jsonStr.length > 800 ? jsonStr.substring(0, 800) + '...' : jsonStr
+                    safeValue = `<pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">${escapeHtml(truncated)}</pre>`
                   }
                 } else {
                   safeValue = escapeHtml(String(value))
