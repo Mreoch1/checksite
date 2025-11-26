@@ -225,16 +225,6 @@ export default function RecommendPage() {
             Based on your website, we recommend the following checks:
           </p>
 
-          {error && (
-            <div 
-              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6"
-              role="alert"
-              aria-live="polite"
-            >
-              {error}
-            </div>
-          )}
-
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <p className="font-medium text-gray-900">Website: {url}</p>
           </div>
@@ -346,6 +336,16 @@ export default function RecommendPage() {
               )
             })}
           </div>
+
+          {error && (
+            <div 
+              className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6"
+              role="alert"
+              aria-live="polite"
+            >
+              {error}
+            </div>
+          )}
 
           <div className="border-t pt-6">
             <div className="space-y-2 mb-6">
