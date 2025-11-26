@@ -394,7 +394,13 @@ Respond with ONLY valid JSON:
     const hasAnyContactInfo = hasContactKeywords || /\d{3,}/.test(allText) // Contact keywords OR digits (phone/zip)
     const hasIncWithContact = urlHasInc && hasAnyContactInfo
     
-    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact) {
+    // Ultra-simple fallback: If URL has "inc" and site has any content, it's likely a local business
+    // This catches cases where content extraction fails or patterns don't match
+    const urlHasIncSimple = /inc/i.test(url.toLowerCase())
+    const hasAnyContent = allText.length > 50 // Any meaningful content
+    const simpleIncCheck = urlHasIncSimple && hasAnyContent
+    
+    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact || simpleIncCheck) {
       console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
         hasAddress,
         hasPhone,
@@ -436,7 +442,8 @@ Respond with ONLY valid JSON:
       urlHasInc,
       hasAnyContactInfo,
       hasIncWithContact,
-      overrideApplied: hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact,
+      simpleIncCheck,
+      overrideApplied: hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact || simpleIncCheck,
     })
     return parsed
   } catch (parseError) {
