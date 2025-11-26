@@ -397,7 +397,17 @@ export async function processAudit(auditId: string) {
         }
       } else {
         console.error('⚠️  Failed to reserve email sending slot:', reservationError)
-        // Fallback: try to send anyway, but log the warning
+        // CRITICAL: If reservation failed and doubleCheck shows null, something is wrong
+        // Don't send email - this could cause duplicates
+        console.error('⚠️  Reservation failed but email_sent_at is null - this indicates a database issue')
+        console.error('⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.')
+        return {
+          success: true,
+          auditId,
+          message: 'Audit completed successfully but email reservation failed - report is saved',
+          hasReport: !!html,
+          emailSent: false,
+        }
       }
     }
     
@@ -415,17 +425,29 @@ export async function processAudit(auditId: string) {
         reportHtml
       )
       // Step 3: Update email_sent_at to actual timestamp after successful send
+      // CRITICAL: Use a timestamp that's clearly in the past (not a reservation)
+      // This ensures isEmailSent() will return true after 5 minutes
       emailSentAt = new Date().toISOString()
       
-      const { error: emailUpdateError } = await supabase
+      // Update email_sent_at and verify it was actually saved
+      const { data: updateResult, error: emailUpdateError } = await supabase
         .from('audits')
         .update({ email_sent_at: emailSentAt })
         .eq('id', auditId)
+        .select('email_sent_at')
       
       if (emailUpdateError) {
         console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
+        throw new Error(`Email sent but failed to update timestamp: ${emailUpdateError.message}`)
+      } else if (!updateResult || updateResult.length === 0 || !updateResult[0]?.email_sent_at) {
+        console.error('⚠️  Email sent but email_sent_at was not saved (update returned no data)')
+        throw new Error('Email sent but timestamp was not saved to database')
       } else {
-        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated`)
+        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated to ${updateResult[0].email_sent_at}`)
+        // Verify the timestamp matches what we set
+        if (updateResult[0].email_sent_at !== emailSentAt) {
+          console.warn(`⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${updateResult[0].email_sent_at}`)
+        }
       }
     } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
