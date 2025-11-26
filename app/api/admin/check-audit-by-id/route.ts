@@ -78,12 +78,10 @@ export async function GET(request: NextRequest) {
         is_in_queue: !!queueItem,
         queue_status: queueItem?.status || 'not_queued',
         can_be_processed: passesDelay && !audit.email_sent_at && audit.status !== 'completed',
+        suggestion: (audit.status === 'pending' || audit.status === 'running') && !audit.email_sent_at && !queueItem
+          ? 'Audit should be in queue but is missing. Use POST to add it.'
+          : undefined,
       },
-    }
-
-    // If audit should be in queue but isn't, offer to add it
-    if (result.analysis.should_be_in_queue && !result.analysis.is_in_queue) {
-      result.analysis.suggestion = 'Audit should be in queue but is missing. Use POST to add it.'
     }
 
     return NextResponse.json(result)
