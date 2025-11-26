@@ -268,7 +268,7 @@ export async function GET(request: NextRequest) {
       // This is the PRIMARY check to prevent duplicate emails
       // Also skip if email is in "sending_" state (another process is handling it)
       const emailSentOrSending = auditData.email_sent_at && 
-        !auditData.email_sent_at.startsWith('sending_') && 
+        !isEmailSending(auditData.email_sent_at) && 
         auditData.email_sent_at !== 'null'
       
       if (emailSentOrSending) {
@@ -293,7 +293,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Skip if email is in "sending_" state (another process is handling it)
-      if (auditData.email_sent_at?.startsWith('sending_')) {
+      if (isEmailSending(auditData.email_sent_at)) {
         console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - another process is sending the email (${auditData.email_sent_at})`)
         // Don't mark as completed - let the other process handle it
         return NextResponse.json({
@@ -399,7 +399,7 @@ export async function GET(request: NextRequest) {
       .eq('id', auditId)
       .single()
     
-    if (finalCheck?.email_sent_at && !finalCheck.email_sent_at.startsWith('sending_')) {
+    if (isEmailSent(finalCheck?.email_sent_at)) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email was sent between initial check and processing (${finalCheck.email_sent_at})`)
       // Mark queue item as completed since email was sent
       await supabase
@@ -470,7 +470,7 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: Mark queue as completed if email was sent, regardless of status
       // This prevents the same audit from being processed again
-      if (verifyAudit.email_sent_at && !verifyAudit.email_sent_at.startsWith('sending_')) {
+      if (isEmailSent(verifyAudit.email_sent_at)) {
         // Email was sent - mark queue as completed immediately
         await supabase
           .from('audit_queue')
