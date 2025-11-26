@@ -55,27 +55,8 @@ export async function GET(request: NextRequest) {
     // Additional checks: skip if audit is already completed
     const auditData = queueItem.audits as any
     if (queueItem && auditData) {
-      // Skip if email was already sent (audit already completed)
-      if (auditData.email_sent_at) {
-        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
-        // Mark queue item as completed since audit is done
-        await supabase
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id)
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Audit already completed (email sent)',
-          processed: false,
-          auditId: queueItem.audit_id,
-        })
-      }
-      
-      // Skip if audit status is 'completed' (even if email wasn't sent, report exists)
+      // CRITICAL: Skip if audit has a report already saved (even if email wasn't sent)
+      // This prevents reprocessing audits that already have reports
       if (auditData.status === 'completed' && auditData.formatted_report_html) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report`)
         // Mark queue item as completed
@@ -93,6 +74,32 @@ export async function GET(request: NextRequest) {
           processed: false,
           auditId: queueItem.audit_id,
         })
+      }
+      
+      // Skip if email was already sent AND report exists (audit fully completed)
+      if (auditData.email_sent_at && auditData.formatted_report_html) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - email already sent and report exists`)
+        // Mark queue item as completed since audit is done
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit already completed (email sent and report exists)',
+          processed: false,
+          auditId: queueItem.audit_id,
+        })
+      }
+      
+      // WARNING: If email was sent but report doesn't exist, this is a problem
+      // But we should still try to process it to generate the report
+      if (auditData.email_sent_at && !auditData.formatted_report_html) {
+        console.warn(`[${requestId}] ⚠️  WARNING: Audit ${queueItem.audit_id} has email_sent_at but NO report! This should not happen. Processing to generate report.`)
       }
       
       // Skip if audit has failed too many times (retry_count >= 3)
