@@ -124,7 +124,32 @@ export async function GET(request: NextRequest) {
     }
 
     if (findError || !queueItem) {
-      // No pending audits
+      // No pending audits - log this for debugging
+      console.log(`[${requestId}] No pending audits in queue`)
+      
+      // Check if there are any stuck items (processing for too long)
+      const { data: stuckItems } = await supabase
+        .from('audit_queue')
+        .select('*, audits(*)')
+        .eq('status', 'processing')
+        .lt('started_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // Processing for > 10 minutes
+      
+      if (stuckItems && stuckItems.length > 0) {
+        console.warn(`[${requestId}] Found ${stuckItems.length} stuck processing items`)
+        return NextResponse.json({
+          success: true,
+          message: 'No pending audits in queue',
+          processed: false,
+          warning: `${stuckItems.length} audits stuck in processing state`,
+          stuckItems: stuckItems.map(item => ({
+            id: item.id,
+            audit_id: item.audit_id,
+            started_at: item.started_at,
+            retry_count: item.retry_count,
+          })),
+        })
+      }
+      
       return NextResponse.json({
         success: true,
         message: 'No pending audits in queue',
