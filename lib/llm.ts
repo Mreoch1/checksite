@@ -188,7 +188,7 @@ CRITICAL RULES:
     let jsonMatch = jsonText.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       console.warn('[identifyCompetitor] No JSON found in response:', response.substring(0, 200))
-      return { competitorUrl: null, reason: 'Could not identify a competitor from the analysis' }
+      return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
     }
     
     let result
@@ -197,7 +197,7 @@ CRITICAL RULES:
     } catch (parseError) {
       console.error('[identifyCompetitor] JSON parse error:', parseError)
       console.error('[identifyCompetitor] Response text:', jsonMatch[0].substring(0, 500))
-      return { competitorUrl: null, reason: 'Error parsing competitor identification response' }
+      return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
     }
     
     // Validate result
