@@ -228,7 +228,7 @@ CRITICAL RULES:
     return { competitorUrl: null, reason: result.reason || 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
   } catch (error) {
     console.error('[identifyCompetitor] Error identifying competitor:', error)
-    return { competitorUrl: null, reason: 'Error analyzing competitors' }
+    return { competitorUrl: null, reason: 'No competitor sites were identified for your industry, so this section gives general best practices instead.' }
   }
 }
 
