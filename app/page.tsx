@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 
 export default function Home() {
@@ -281,33 +282,42 @@ export default function Home() {
               <div className="bg-white rounded shadow-sm p-4 text-left">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b">
                   <h4 className="font-bold text-gray-900">Website Report</h4>
-                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">88/100</span>
+                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">81/100</span>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div>
                     <p className="font-semibold text-gray-700">Executive Summary</p>
-                    <p className="text-gray-600">Your website is in good overall health...</p>
+                    <p className="text-gray-600">Your website is in good overall health with strong SEO fundamentals.</p>
                   </div>
                   <div>
                     <p className="font-semibold text-gray-700">Top Priority Actions</p>
                     <ul className="text-gray-600 list-disc list-inside space-y-1">
-                      <li>Fix robots.txt blocking</li>
-                      <li>Optimize page loading</li>
-                      <li>Add internal links</li>
+                      <li>Sitemap file not found</li>
+                      <li>Robots.txt may be blocking search engines</li>
+                      <li>5 broken links found</li>
+                      <li>No structured data found</li>
                     </ul>
                   </div>
                   <div>
                     <p className="font-semibold text-gray-700">Module Scores</p>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div>Performance: 75/100</div>
-                      <div>Mobile: 100/100</div>
-                      <div>SEO: 95/100</div>
-                      <div>Security: 90/100</div>
+                      <div>Performance: 95/100</div>
+                      <div>Mobile: 85/100</div>
+                      <div>On-Page: 90/100</div>
+                      <div>Security: 95/100</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-center text-gray-500 mt-3">Example report preview</p>
+              <div className="mt-4">
+                <Link
+                  href="/sample-report"
+                  className="block w-full text-center bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  View Full Sample Report →
+                </Link>
+              </div>
+              <p className="text-xs text-center text-gray-500 mt-3">See a complete example report</p>
             </div>
           </div>
         </div>
@@ -484,3 +494,4 @@ export default function Home() {
     </div>
   )
 }
+
