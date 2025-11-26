@@ -127,11 +127,13 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   }
 
   // Check for images and lazy loading
+  // Count all img tags (matching pageAnalysis counting method)
   const images = siteData.$('img')
   images.each((_, el) => {
     const src = siteData.$(el).attr('src')
+    // Count all images (including data URIs) to match pageAnalysis
+    totalImages++
     if (src && !src.startsWith('data:')) {
-      totalImages++
       imageSources.push(src)
       const loading = siteData.$(el).attr('loading')
       if (loading === 'lazy') {
@@ -602,10 +604,38 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   const issues: AuditIssue[] = []
   let score = 100
 
-  // Check for address patterns
+  // Check for address patterns - more strict to avoid false positives
   const textContent = siteData.$('body').text()
-  const addressPattern = /\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct)/i
-  const hasAddress = addressPattern.test(textContent)
+  // Look for addresses in footer, contact sections, or structured data first
+  const footerText = siteData.$('footer').text() || ''
+  const contactSections = siteData.$('[class*="contact"], [id*="contact"], [class*="address"], [id*="address"]').text() || ''
+  const combinedText = (footerText + ' ' + contactSections + ' ' + textContent).toLowerCase()
+  
+  // More strict address pattern: requires street number, street name, and street type
+  // Also check for common address patterns with city/state/zip
+  const strictAddressPattern = /\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct|place|pl|parkway|pkwy)\s*,?\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}/i
+  const simpleAddressPattern = /\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct|place|pl|parkway|pkwy)/i
+  
+  // Try strict pattern first (with city/state/zip), then simple pattern
+  let addressMatch = textContent.match(strictAddressPattern)
+  if (!addressMatch) {
+    // Try simple pattern but validate it's not a false positive
+    const simpleMatch = textContent.match(simpleAddressPattern)
+    if (simpleMatch) {
+      const matchText = simpleMatch[0].toLowerCase()
+      // Validate: should be in footer/contact section, or followed by city/state within reasonable distance
+      const matchIndex = textContent.toLowerCase().indexOf(matchText)
+      const contextAfter = textContent.substring(matchIndex, matchIndex + 200).toLowerCase()
+      // Check if it's followed by city/state pattern or is in a contact section
+      if (contextAfter.match(/,\s*[a-z\s]+,\s*[a-z]{2}\s+\d{5}/i) || 
+          footerText.toLowerCase().includes(matchText) || 
+          contactSections.toLowerCase().includes(matchText)) {
+        addressMatch = simpleMatch
+      }
+    }
+  }
+  
+  const hasAddress = !!addressMatch
 
   // Check for phone patterns
   const phonePattern = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/
@@ -698,7 +728,7 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
     : 'Your local SEO needs significant work. Start by adding your complete business address and phone number.'
 
   // Extract found values for evidence
-  const addressMatch = textContent.match(addressPattern)
+  // addressMatch is already set above from the improved detection
   const phoneMatch = textContent.match(phonePattern)
   const emailMatch = textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
   const hoursMatch = textContent.match(/(?:hours?|open|closed|monday|tuesday|wednesday|thursday|friday|saturday|sunday)[\s\S]{0,100}/i)
@@ -896,12 +926,6 @@ export async function runSecurityModule(siteData: SiteData): Promise<ModuleResul
   // Note: Real security headers are in HTTP response headers, not HTML
   // This is a placeholder - in production, check actual response headers
 
-  const summary = score >= 80
-    ? 'Your site security looks good. Make sure HTTPS is enabled and keep it that way.'
-    : score >= 60
-    ? 'Your site security needs improvement. Enable HTTPS as soon as possible.'
-    : 'Your site security needs immediate attention. Enable HTTPS to protect your visitors.'
-
   // Collect security evidence
   const securityHeaders: string[] = []
   const missingHeaders: string[] = []
@@ -914,6 +938,38 @@ export async function runSecurityModule(siteData: SiteData): Promise<ModuleResul
       missingHeaders.push(header)
     }
   })
+
+  // Adjust summary based on missing headers
+  // Don't say "all checks passed" if headers are missing
+  const hasMissingHeaders = missingHeaders.length > 0
+  const summary = score >= 80
+    ? hasMissingHeaders
+      ? 'Good, but some optional security enhancements are recommended.'
+      : 'Your site security looks good. Make sure HTTPS is enabled and keep it that way.'
+    : score >= 60
+    ? 'Your site security needs improvement. Enable HTTPS as soon as possible.'
+    : 'Your site security needs immediate attention. Enable HTTPS to protect your visitors.'
+
+  // Add low severity issue if headers are missing but score is still good
+  if (hasMissingHeaders && score >= 80 && issues.length === 0) {
+    issues.push({
+      title: 'Some optional security headers are missing',
+      severity: 'low',
+      technicalExplanation: `Missing headers: ${missingHeaders.join(', ')}`,
+      plainLanguageExplanation: 'These security headers provide additional protection but are optional. Your site is still secure.',
+      suggestedFix: 'Ask your web developer to add these security headers for enhanced protection.',
+      evidence: {
+        found: securityHeaders.length > 0 ? securityHeaders.join(', ') : 'None detected',
+        actual: `Found: ${securityHeaders.length}, Missing: ${missingHeaders.length}`,
+        expected: 'All recommended security headers present',
+        details: {
+          foundHeaders: securityHeaders,
+          missingHeaders: missingHeaders,
+        },
+      },
+    })
+    score -= 5 // Small penalty for missing optional headers
+  }
 
   return {
     moduleKey: 'security',

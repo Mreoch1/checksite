@@ -473,28 +473,43 @@ function generateHTMLReport(data: {
           </div>
         ` : ''}
         
-        ${module.issues && module.issues.length > 0 ? module.issues.map((issue: any) => `
-          <div class="issue ${issue.severity}">
-            <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
-            <h3 style="margin-top: 10px;">${escapeHtml(issue.title)}</h3>
-            <p><strong>Why this matters:</strong> ${escapeHtml(issue.plainLanguageExplanation || '')}</p>
-            <p><strong>How to fix it:</strong> ${escapeHtml(issue.suggestedFix || '')}</p>
-            ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
-              <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
-                <h4>Details:</h4>
-                <table class="evidence-table">
-                  ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
-                    const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
-                    const safeValue = typeof value === 'string' ? escapeHtml(value.substring(0, 200)) : 
-                                     typeof value === 'object' ? escapeHtml(JSON.stringify(value, null, 2).substring(0, 300)) : 
-                                     escapeHtml(String(value))
-                    return `<tr><th>${escapeHtml(safeKey)}</th><td>${safeValue}</td></tr>`
-                  }).join('')}
-                </table>
-              </div>
-            ` : ''}
-          </div>
-        `).join('') : '<div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>'}
+        ${module.issues && module.issues.length > 0 ? (() => {
+          // For social module, add note if there are multiple issues
+          const isSocialModule = module.moduleKey === 'social'
+          const hasMultipleIssues = module.issues.length > 1
+          const multipleIssuesNote = isSocialModule && hasMultipleIssues 
+            ? '<p style="margin-bottom: 15px; color: #6b7280; font-style: italic;">Several social sharing enhancements are available.</p>'
+            : ''
+          
+          return multipleIssuesNote + module.issues.map((issue: any) => `
+            <div class="issue ${issue.severity}">
+              <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
+              <h3 style="margin-top: 10px;">${escapeHtml(issue.title)}</h3>
+              <p><strong>Why this matters:</strong> ${escapeHtml(issue.plainLanguageExplanation || '')}</p>
+              <p><strong>How to fix it:</strong> ${escapeHtml(issue.suggestedFix || '')}</p>
+              ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
+                <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
+                  <h4>Details:</h4>
+                  <table class="evidence-table">
+                    ${Object.entries(issue.evidence).filter(([k, v]) => v !== null && v !== undefined && v !== '').map(([key, value]) => {
+                      const safeKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+                      const safeValue = typeof value === 'string' ? escapeHtml(value.substring(0, 200)) : 
+                                       typeof value === 'object' ? escapeHtml(JSON.stringify(value, null, 2).substring(0, 300)) : 
+                                       escapeHtml(String(value))
+                      return `<tr><th>${escapeHtml(safeKey)}</th><td>${safeValue}</td></tr>`
+                    }).join('')}
+                  </table>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')
+        })() : (() => {
+          // For security module, check if headers are missing before saying "all passed"
+          if (module.moduleKey === 'security' && module.evidence && module.evidence.totalMissingHeaders > 0) {
+            return '<div class="no-issues" style="color: #6b7280;">Good, but some optional security enhancements are recommended. See details above.</div>'
+          }
+          return '<div class="no-issues">✓ All checks passed for this category. Your site looks good in this area!</div>'
+        })()}
       </div>
     `}).join('')}
 
