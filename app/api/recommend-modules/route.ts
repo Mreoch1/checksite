@@ -143,20 +143,9 @@ export async function POST(request: NextRequest) {
       // Check for online-only indicators (more specific to avoid false positives)
       const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront|purely online|exclusively online)/i.test(allText)
       
-      // A site is local if it has:
-      // 1. (address AND phone) OR (address OR phone with business entity/keywords)
-      // 2. AND NOT online-only
-      // 3. OR URL contains "inc" and has any content (ultra-simple fallback)
-      const hasBothAddressAndPhone = hasAddressPattern && hasPhonePattern
-      const hasAddressOrPhone = hasAddressPattern || hasPhonePattern
-      const hasBusinessIndicators = hasLocalKeywords || hasBusinessEntity
-      
-      // Ultra-simple fallback: URL with "inc" + any content = local business
-      const urlHasInc = /inc/i.test(normalizedUrl.toLowerCase())
-      const hasAnyContent = allText.length > 50
-      const simpleIncCheck = urlHasInc && hasAnyContent
-      
-      const isLocalBusiness = ((hasBothAddressAndPhone || (hasAddressOrPhone && hasBusinessIndicators)) && !hasOnlineOnlyIndicators) || simpleIncCheck
+      // Always recommend Local SEO - let the client decide
+      // We'll provide examples in the reason text to help them decide
+      const isLocalBusiness = true
       
       // Debug logging to help diagnose issues
       console.log(`[recommend-modules] Local business detection for ${normalizedUrl}:`, {
@@ -184,9 +173,7 @@ export async function POST(request: NextRequest) {
         social: hasSocialContent || isBusiness,
         competitor_overview: isBusiness,
         reasons: {
-          local: isLocalBusiness 
-            ? 'Your site appears to be a local business, so local SEO will help customers find you in local search results.'
-            : 'Your site doesn\'t appear to need a local SEO audit because it\'s an online-only business without a physical location or local service area.',
+          local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, this is recommended.',
           accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
           security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
           schema: isBusiness
@@ -234,7 +221,7 @@ export async function POST(request: NextRequest) {
       social: hasSocialContent || isBusiness,
       competitor_overview: isBusiness,
       reasons: {
-        local: 'Your site doesn\'t appear to need a local SEO audit because it\'s an online-only business without a physical location or local service area.',
+        local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, this is recommended.',
         accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
         security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
         schema: 'Structured data helps search engines understand your business information and can improve how your site appears in search results.',
