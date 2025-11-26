@@ -45,23 +45,28 @@ export async function GET(request: NextRequest) {
     // Find the oldest pending audit in the queue
     // CRITICAL: Also filter out audits that already have email_sent_at to prevent duplicate processing
     // This prevents processing the same audit multiple times if there are duplicate queue entries
-    const { data: queueItem, error: findError } = await supabase
+    // Use a simpler query approach to avoid join filter issues
+    const { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
-      .select('*, audits!inner(*)')
+      .select('*, audits(*)')
       .eq('status', 'pending')
-      .is('audits.email_sent_at', null) // CRITICAL: Only process audits where email hasn't been sent
       .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
+      .limit(10) // Get a few items to filter in code
     
-    // Check if no queue item found first
     if (findError) {
-      console.error(`[${requestId}] Error finding queue item:`, findError)
+      console.error(`[${requestId}] Error finding queue items:`, findError)
       return NextResponse.json(
-        { error: 'Database error finding queue item', details: findError.message },
+        { error: 'Database error finding queue items', details: findError.message },
         { status: 500 }
       )
     }
+    
+    // Filter out audits that already have email_sent_at (client-side filter)
+    // Handle both array and single object responses from Supabase
+    const queueItem = queueItems?.find((item: any) => {
+      const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
+      return audit && !audit.email_sent_at
+    }) || null
     
     if (!queueItem) {
       // No pending audits - log this for debugging
