@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { authMiddleware } from '@/lib/middleware/auth'
+import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
 export const dynamic = 'force-dynamic'
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
   console.log(`[${requestId}] /api/admin/clear-stuck-queue called`)
   
   // Require admin authentication
-  const authResult = authMiddleware(request)
-  if (authResult) return authResult
+  const authError = requireAdminAuth(request)
+  if (authError) return authError
 
   try {
     // Find all pending/processing items older than 1 hour

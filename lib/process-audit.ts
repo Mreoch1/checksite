@@ -232,11 +232,45 @@ export async function processAudit(auditId: string) {
       throw new Error(`Report generation failed: ${reportError instanceof Error ? reportError.message : String(reportError)}`)
     }
 
-    // CRITICAL: Only send email if report was successfully generated
+    // CRITICAL: Only proceed if report was successfully generated
     if (!html || html.trim().length === 0) {
-      console.error(`❌ Cannot send email for audit ${auditId} - report HTML is empty or missing`)
-      throw new Error('Report generation failed - cannot send email without report content')
+      console.error(`❌ Cannot complete audit ${auditId} - report HTML is empty or missing`)
+      throw new Error('Report generation failed - cannot complete audit without report content')
     }
+    
+    // CRITICAL: Save report to database FIRST before sending email
+    // This ensures the report URL works when the email is received
+    console.log('Saving report to database BEFORE sending email...')
+    const updateData: any = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      formatted_report_html: html,
+      formatted_report_plaintext: plaintext,
+    }
+    
+    const { error: reportUpdateError } = await supabase
+      .from('audits')
+      .update(updateData)
+      .eq('id', auditId)
+    
+    if (reportUpdateError) {
+      console.error('❌ Error saving report to database:', reportUpdateError)
+      throw new Error(`Failed to save report to database: ${reportUpdateError.message}`)
+    }
+    console.log('✅ Report saved to database - report URL is now accessible')
+    
+    // Verify report was saved (double-check)
+    const { data: savedAudit } = await supabase
+      .from('audits')
+      .select('formatted_report_html, status')
+      .eq('id', auditId)
+      .single()
+    
+    if (!savedAudit?.formatted_report_html || savedAudit.status !== 'completed') {
+      console.error('❌ Report verification failed - report not properly saved')
+      throw new Error('Report was not properly saved to database - cannot send email')
+    }
+    console.log('✅ Report verified in database - safe to send email')
     
     // Get customer email
     const customer = audit.customers as any
@@ -260,8 +294,7 @@ export async function processAudit(auditId: string) {
     // If update failed, email was already sent (another process got there first)
     const emailAlreadySent = updateError || !updateResult || updateResult.email_sent_at !== tempTimestamp
     
-    // Send email BEFORE updating audit status to completed
-    // This ensures email is sent as part of the completion process
+    // Send email AFTER report is saved and verified
     let emailSentAt: string | null = null
     let emailError: Error | null = null
     
@@ -286,9 +319,8 @@ export async function processAudit(auditId: string) {
           .from('audits')
           .update({ email_sent_at: null })
           .eq('id', auditId)
-        // Don't throw - we still want to mark audit as completed
-        // Report is available via URL even if email fails
-        console.warn('⚠️  Email failed but audit will be marked as completed. Report available at /report/' + auditId)
+        // Don't throw - report is already saved, so user can access it via URL
+        console.warn('⚠️  Email failed but report is saved. User can access report at /report/' + auditId)
       }
     } else {
       // Email already sent by another process - get the timestamp
@@ -301,44 +333,39 @@ export async function processAudit(auditId: string) {
       console.log(`⚠️  Email already sent for audit ${auditId} at ${emailSentAt}. Skipping duplicate email.`)
     }
     
-    // Update audit with formatted report and email status
-    console.log('Updating audit with formatted report and completion status...')
-    const updateData: any = {
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      formatted_report_html: html,
-      formatted_report_plaintext: plaintext,
-    }
-    
-    // Always set email_sent_at if email was sent (or already sent)
+    // Update email_sent_at if email was sent (or already sent)
     if (emailSentAt) {
-      updateData.email_sent_at = emailSentAt
+      const { error: emailUpdateError } = await supabase
+        .from('audits')
+        .update({ email_sent_at: emailSentAt })
+        .eq('id', auditId)
+      
+      if (emailUpdateError) {
+        console.error('Warning: Failed to update email_sent_at:', emailUpdateError)
+        // Don't throw - report is already saved
+      }
     }
     
     // If email failed, log it in error_log for debugging
     if (emailError) {
       const existingErrorLog = audit.error_log ? (typeof audit.error_log === 'string' ? JSON.parse(audit.error_log) : audit.error_log) : {}
-      updateData.error_log = JSON.stringify({
+      const errorLog = JSON.stringify({
         ...existingErrorLog,
         email_failure: {
           timestamp: new Date().toISOString(),
           error: emailError.message,
           stack: emailError.stack,
-          note: 'Audit completed successfully but email delivery failed. Report is available via URL.',
+          note: 'Audit completed successfully and report is saved. Email delivery failed but report is available via URL.',
         },
       })
+      
+      await supabase
+        .from('audits')
+        .update({ error_log: errorLog })
+        .eq('id', auditId)
     }
     
-    const { error: reportUpdateError } = await supabase
-      .from('audits')
-      .update(updateData)
-      .eq('id', auditId)
-    
-    if (reportUpdateError) {
-      console.error('Error updating audit with report:', reportUpdateError)
-      throw new Error(`Failed to update audit with report: ${reportUpdateError.message}`)
-    }
-    console.log('✅ Audit updated with formatted report')
+    console.log('✅ Audit processing complete - report saved and email sent')
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : 'No stack trace'
