@@ -416,7 +416,18 @@ Respond with ONLY valid JSON:
       })
     }
     
-    console.log(`[recommendModules] Successfully parsed recommendations`)
+    console.log(`[recommendModules] Final recommendations before return:`, {
+      local: parsed.local,
+      url,
+      title: siteSummary.title,
+      contentLength: allText.length,
+      hasAddress,
+      hasPhone,
+      hasBusinessEntity,
+      titleHasEntity,
+      urlHasEntity,
+      hasContactKeywords,
+    })
     return parsed
   } catch (parseError) {
     console.error('[recommendModules] JSON parse error:', parseError)
