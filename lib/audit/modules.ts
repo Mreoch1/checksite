@@ -604,34 +604,75 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   const issues: AuditIssue[] = []
   let score = 100
 
-  // Check for address patterns - more strict to avoid false positives
-  const textContent = siteData.$('body').text()
-  // Look for addresses in footer, contact sections, or structured data first
+  // Check for address patterns - strict postal address format
+  // Priority 1: Check contact/footer sections first
   const footerText = siteData.$('footer').text() || ''
-  const contactSections = siteData.$('[class*="contact"], [id*="contact"], [class*="address"], [id*="address"]').text() || ''
-  const combinedText = (footerText + ' ' + contactSections + ' ' + textContent).toLowerCase()
+  const contactSections = siteData.$('[class*="contact"], [id*="contact"], [class*="address"], [id*="address"], [class*="location"], [id*="location"]').text() || ''
+  const priorityText = (footerText + ' ' + contactSections).trim()
   
-  // More strict address pattern: requires street number, street name, and street type
-  // Also check for common address patterns with city/state/zip
-  const strictAddressPattern = /\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct|place|pl|parkway|pkwy)\s*,?\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}/i
-  const simpleAddressPattern = /\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|cir|court|ct|place|pl|parkway|pkwy)/i
+  // Priority 2: Full page text (fallback)
+  const textContent = siteData.$('body').text()
   
-  // Try strict pattern first (with city/state/zip), then simple pattern
-  let addressMatch = textContent.match(strictAddressPattern)
-  if (!addressMatch) {
-    // Try simple pattern but validate it's not a false positive
-    const simpleMatch = textContent.match(simpleAddressPattern)
-    if (simpleMatch) {
-      const matchText = simpleMatch[0].toLowerCase()
-      // Validate: should be in footer/contact section, or followed by city/state within reasonable distance
-      const matchIndex = textContent.toLowerCase().indexOf(matchText)
-      const contextAfter = textContent.substring(matchIndex, matchIndex + 200).toLowerCase()
-      // Check if it's followed by city/state pattern or is in a contact section
-      if (contextAfter.match(/,\s*[a-z\s]+,\s*[a-z]{2}\s+\d{5}/i) || 
-          footerText.toLowerCase().includes(matchText) || 
-          contactSections.toLowerCase().includes(matchText)) {
-        addressMatch = simpleMatch
+  // Strict address pattern: requires street number, street word(s), and street type
+  // Pattern: \d{1,5}\s+\w+(\s+\w+)*\s+(St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b
+  const strictStreetPattern = /\d{1,5}\s+\w+(\s+\w+)*\s+(St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)\b/i
+  
+  // Full address pattern with city, state, zip: Street + City, [A-Z]{2} \d{5}(-\d{4})?
+  const fullAddressPattern = new RegExp(
+    strictStreetPattern.source + 
+    '\\s*,?\\s*[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*,\\s*[A-Z]{2}\\s+\\d{5}(-\\d{4})?',
+    'i'
+  )
+  
+  // City/State/Zip pattern (for partial address detection)
+  const cityStateZipPattern = /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2}\s+\d{5}(-\d{4})?/i
+  
+  // Search priority sections first
+  let addressMatch: RegExpMatchArray | null = null
+  let addressText = 'Not clearly detected'
+  
+  // Try full address pattern in priority sections
+  if (priorityText) {
+    addressMatch = priorityText.match(fullAddressPattern)
+    if (!addressMatch) {
+      // Try street pattern in priority sections
+      const streetMatch = priorityText.match(strictStreetPattern)
+      if (streetMatch) {
+        // Check if city/state/zip follows within reasonable distance
+        const streetIndex = priorityText.indexOf(streetMatch[0])
+        const contextAfter = priorityText.substring(streetIndex, streetIndex + 150)
+        if (contextAfter.match(cityStateZipPattern)) {
+          addressMatch = priorityText.match(new RegExp(streetMatch[0] + '.*?' + cityStateZipPattern.source, 'i'))
+        }
       }
+    }
+  }
+  
+  // Fallback to full page if nothing found in priority sections
+  if (!addressMatch) {
+    addressMatch = textContent.match(fullAddressPattern)
+    if (!addressMatch) {
+      // Try street pattern with city/state validation
+      const streetMatch = textContent.match(strictStreetPattern)
+      if (streetMatch) {
+        const streetIndex = textContent.indexOf(streetMatch[0])
+        const contextAfter = textContent.substring(streetIndex, streetIndex + 150)
+        if (contextAfter.match(cityStateZipPattern)) {
+          addressMatch = textContent.match(new RegExp(streetMatch[0] + '.*?' + cityStateZipPattern.source, 'i'))
+        }
+      }
+    }
+  }
+  
+  // Extract address text only if we have a valid full match
+  if (addressMatch) {
+    const fullMatch = addressMatch[0].trim()
+    // Validate it looks like a real address (not random text)
+    if (fullMatch.length >= 20 && fullMatch.length <= 200) {
+      addressText = fullMatch.substring(0, 100) // Limit to 100 chars
+    } else {
+      addressText = 'Not clearly detected'
+      addressMatch = null // Invalid match
     }
   }
   
@@ -641,19 +682,35 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   const phonePattern = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/
   const hasPhone = phonePattern.test(textContent)
 
-  // Check for city/state patterns
-  const cityStatePattern = /[A-Z][a-z]+,\s*[A-Z]{2}\s+\d{5}/
-  const hasCityState = cityStatePattern.test(textContent)
+  // Check for city/state patterns (for partial address detection)
+  const cityStatePattern = /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2}\s+\d{5}(-\d{4})?/i
+  const hasCityState = cityStatePattern.test(priorityText) || cityStatePattern.test(textContent)
+  
+  // Determine address status: full address, partial (city/state only), or none
+  const hasPartialAddress = !hasAddress && hasCityState
 
   if (!hasAddress) {
-    issues.push({
-      title: 'Business address not found',
-      severity: 'high',
-      technicalExplanation: 'No address pattern detected in page content',
-      plainLanguageExplanation: 'Local customers need to find your address easily.',
-      suggestedFix: 'Add your complete business address (street, city, state, zip) to your website, preferably in the footer or contact page.',
-    })
-    score -= 25
+    if (hasPartialAddress) {
+      // Partial address found (city/state but no full street address)
+      issues.push({
+        title: 'Full street address not found',
+        severity: 'high',
+        technicalExplanation: 'City and state detected but no complete street address found',
+        plainLanguageExplanation: 'We could not detect a full street address with city and postal code. If you serve a local area, add your full address.',
+        suggestedFix: 'Add your complete business address (street number, street name, city, state, zip) to your website, preferably in the footer or contact page.',
+      })
+      score -= 20 // Slightly less penalty since we have partial info
+    } else {
+      // No address at all
+      issues.push({
+        title: 'Business address not found',
+        severity: 'high',
+        technicalExplanation: 'No address pattern detected in page content',
+        plainLanguageExplanation: 'Local customers need to find your address easily.',
+        suggestedFix: 'Add your complete business address (street, city, state, zip) to your website, preferably in the footer or contact page.',
+      })
+      score -= 25
+    }
   }
 
   if (!hasPhone) {
@@ -728,7 +785,6 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
     : 'Your local SEO needs significant work. Start by adding your complete business address and phone number.'
 
   // Extract found values for evidence
-  // addressMatch is already set above from the improved detection
   const phoneMatch = textContent.match(phonePattern)
   const emailMatch = textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
   const hoursMatch = textContent.match(/(?:hours?|open|closed|monday|tuesday|wednesday|thursday|friday|saturday|sunday)[\s\S]{0,100}/i)
@@ -746,8 +802,9 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
       cityStateFound: hasCityState,
       localSchemaFound: hasLocalSchema,
       googleMapsFound: hasGoogleMaps,
-      addressText: addressMatch ? addressMatch[0].substring(0, 100) : 'Not found',
+      addressText: addressText, // Already validated and limited above
       phoneText: phoneMatch ? phoneMatch[0] : 'Not found',
+      partialAddress: hasPartialAddress, // Indicates city/state found but no full address
     },
   }
 }
