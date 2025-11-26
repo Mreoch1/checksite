@@ -93,6 +93,19 @@ async function sendViaResend(options: {
   const from = isCustomDomain ? fromEmail : 'onboarding@resend.dev'
   const fromFormatted = `"${FROM_NAME}" <${from}>`
   
+  // Generate plain text version if not provided (better deliverability)
+  const plainText = options.text || options.html
+    .replace(/<style[^>]*>.*?<\/style>/gis, '')
+    .replace(/<script[^>]*>.*?<\/script>/gis, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+  
   try {
     const result = await Promise.race([
       resend.emails.send({
@@ -101,7 +114,12 @@ async function sendViaResend(options: {
         reply_to: from,
         subject: options.subject,
         html: options.html,
-        text: options.text,
+        text: plainText, // Always include plain text version
+        // Add headers to improve deliverability
+        headers: {
+          'List-Unsubscribe': `<${SITE_URL}/unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
       }),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Resend timeout')), 30000)
@@ -179,8 +197,7 @@ async function sendViaZoho(options: {
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Priority': '3',
         'Importance': 'normal',
-        'Precedence': 'bulk', // Changed from 'normal' to 'bulk' for transactional emails
-        'Auto-Submitted': 'auto-generated',
+        // Removed 'Precedence: bulk' and 'Auto-Submitted' - these can trigger spam filters
         'Content-Type': 'text/html; charset=UTF-8',
         'MIME-Version': '1.0',
         'X-Entity-Ref-ID': messageId,
