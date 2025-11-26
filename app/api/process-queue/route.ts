@@ -62,10 +62,20 @@ export async function GET(request: NextRequest) {
     }
     
     // Filter out audits that already have email_sent_at (client-side filter)
+    // Also filter out audits with "sending_" prefix (another process is sending)
     // Handle both array and single object responses from Supabase
     const queueItem = queueItems?.find((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-      return audit && !audit.email_sent_at
+      if (!audit) return false
+      // Skip if email_sent_at exists and is not a "sending_" reservation
+      if (audit.email_sent_at && !audit.email_sent_at.startsWith('sending_')) {
+        return false
+      }
+      // Skip if email_sent_at is a "sending_" reservation (another process is handling it)
+      if (audit.email_sent_at?.startsWith('sending_')) {
+        return false
+      }
+      return true
     }) || null
     
     if (!queueItem) {
@@ -147,7 +157,12 @@ export async function GET(request: NextRequest) {
     if (auditData) {
       // CRITICAL: Skip if email was already sent (regardless of report status)
       // This is the PRIMARY check to prevent duplicate emails
-      if (auditData.email_sent_at) {
+      // Also skip if email is in "sending_" state (another process is handling it)
+      const emailSentOrSending = auditData.email_sent_at && 
+        !auditData.email_sent_at.startsWith('sending_') && 
+        auditData.email_sent_at !== 'null'
+      
+      if (emailSentOrSending) {
         console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
         // Mark queue item as completed since email was sent
         await supabase
@@ -165,6 +180,18 @@ export async function GET(request: NextRequest) {
           auditId: queueItem.audit_id,
           email_sent_at: auditData.email_sent_at,
           has_report: !!auditData.formatted_report_html,
+        })
+      }
+      
+      // Skip if email is in "sending_" state (another process is handling it)
+      if (auditData.email_sent_at?.startsWith('sending_')) {
+        console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - another process is sending the email (${auditData.email_sent_at})`)
+        // Don't mark as completed - let the other process handle it
+        return NextResponse.json({
+          success: true,
+          message: 'Audit skipped - another process is sending the email',
+          processed: false,
+          auditId: queueItem.audit_id,
         })
       }
       

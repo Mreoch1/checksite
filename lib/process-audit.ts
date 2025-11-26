@@ -27,15 +27,30 @@ export async function processAudit(auditId: string) {
       .eq('id', auditId)
       .single()
     
-    // Only skip if BOTH email was sent AND report exists
+    // Check if email was sent (either actual timestamp or "sending_" reservation)
+    const emailSentOrSending = earlyCheck?.email_sent_at && 
+      !earlyCheck.email_sent_at.startsWith('sending_') && 
+      earlyCheck.email_sent_at !== 'null'
+    
+    // Only skip if BOTH email was sent (not just reserved) AND report exists
     // If report exists but email wasn't sent, we need to continue to send the email
-    if (earlyCheck?.email_sent_at && earlyCheck?.formatted_report_html) {
+    if (emailSentOrSending && earlyCheck?.formatted_report_html) {
       console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at} and report exists`)
       return {
         success: true,
         auditId,
         message: 'Audit skipped - email already sent and report exists',
         email_sent_at: earlyCheck.email_sent_at,
+      }
+    }
+    
+    // If email is in "sending_" state, another process is handling it - skip
+    if (earlyCheck?.email_sent_at?.startsWith('sending_')) {
+      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - another process is sending the email (${earlyCheck.email_sent_at})`)
+      return {
+        success: true,
+        auditId,
+        message: 'Audit skipped - another process is sending the email',
       }
     }
     
@@ -339,27 +354,47 @@ export async function processAudit(auditId: string) {
       throw new Error('Customer email is required to send report')
     }
     
-    // CRITICAL: Use atomic update to prevent duplicate emails (race condition protection)
-    // Check if email was already sent by another process - do this FIRST before any email sending
-    const { data: existingAudit } = await supabase
+    // CRITICAL: Use atomic reservation pattern to prevent duplicate emails
+    // Step 1: Try to atomically reserve the email sending by setting a "sending" timestamp
+    // This prevents multiple processes from sending emails simultaneously
+    const sendingTimestamp = `sending_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    const { data: reservationResult, error: reservationError } = await supabase
       .from('audits')
-      .select('email_sent_at')
+      .update({ email_sent_at: sendingTimestamp } as any) // Temporary "sending" value
       .eq('id', auditId)
-      .single()
+      .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
+      .select('email_sent_at')
     
-    const emailAlreadySent = !!existingAudit?.email_sent_at
-    
-    if (emailAlreadySent) {
-      console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${existingAudit.email_sent_at}`)
-      // Email was already sent by another process - this is fine, just skip
-      return {
-        success: true,
-        auditId,
-        message: 'Audit completed successfully (email was already sent)',
+    // If reservation failed, another process is already sending the email
+    if (reservationError || !reservationResult || reservationResult.length === 0) {
+      // Check if email was already sent by another process
+      const { data: doubleCheck } = await supabase
+        .from('audits')
+        .select('email_sent_at')
+        .eq('id', auditId)
+        .single()
+      
+      if (doubleCheck?.email_sent_at && !doubleCheck.email_sent_at.startsWith('sending_')) {
+        console.log(`⛔ SKIPPING email send for audit ${auditId} - email already sent at ${doubleCheck.email_sent_at}`)
+        return {
+          success: true,
+          auditId,
+          message: 'Audit completed successfully (email was already sent by another process)',
+        }
+      } else if (doubleCheck?.email_sent_at?.startsWith('sending_')) {
+        console.log(`⛔ SKIPPING email send for audit ${auditId} - another process is currently sending the email`)
+        return {
+          success: true,
+          auditId,
+          message: 'Audit skipped - another process is sending the email',
+        }
+      } else {
+        console.error('⚠️  Failed to reserve email sending slot:', reservationError)
+        // Fallback: try to send anyway, but log the warning
       }
     }
     
-    // Send email AFTER report is saved and verified
+    // Step 2: Send email ONLY if we successfully reserved the slot
     let emailSentAt: string | null = null
     let emailError: Error | null = null
     
@@ -372,40 +407,18 @@ export async function processAudit(auditId: string) {
         auditId,
         reportHtml
       )
-      // Only set email_sent_at AFTER email is successfully sent
+      // Step 3: Update email_sent_at to actual timestamp after successful send
       emailSentAt = new Date().toISOString()
       
-      // CRITICAL: Use atomic update with double-check to prevent race conditions
-      // First, try to update with the condition that email_sent_at is NULL
-      const { data: updateResult, error: emailUpdateError } = await supabase
+      const { error: emailUpdateError } = await supabase
         .from('audits')
         .update({ email_sent_at: emailSentAt })
         .eq('id', auditId)
-        .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
-        .select('email_sent_at')
       
-      // If update failed or returned no rows, check if another process already set it
-      if (emailUpdateError || !updateResult || updateResult.length === 0) {
-        // Double-check: did another process send the email?
-        const { data: doubleCheck } = await supabase
-          .from('audits')
-          .select('email_sent_at')
-          .eq('id', auditId)
-          .single()
-        
-        if (doubleCheck?.email_sent_at) {
-          console.warn(`⚠️  Email was sent but another process already set email_sent_at to ${doubleCheck.email_sent_at}`)
-          console.warn(`⚠️  This means multiple emails may have been sent - this is a race condition`)
-        } else {
-          console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
-          // Try one more time without the atomic check (as fallback)
-          await supabase
-            .from('audits')
-            .update({ email_sent_at: emailSentAt })
-            .eq('id', auditId)
-        }
+      if (emailUpdateError) {
+        console.error('⚠️  Email sent but failed to update email_sent_at:', emailUpdateError)
       } else {
-        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated atomically`)
+        console.log(`✅ Email sent successfully to ${customer.email} and timestamp updated`)
       }
     } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
@@ -429,11 +442,11 @@ export async function processAudit(auditId: string) {
           },
         }, null, 2)
         
-        // Ensure email_sent_at is null and log error
+        // Reset email_sent_at to null so it can be retried, and log error
         const { error: resetError } = await supabase
           .from('audits')
           .update({ 
-            email_sent_at: null,
+            email_sent_at: null, // Reset so email can be retried
             error_log: emailErrorLog,
           } as any) // Type assertion since error_log might not exist
           .eq('id', auditId)
@@ -443,6 +456,7 @@ export async function processAudit(auditId: string) {
         } else {
           console.warn('⚠️  Email failed but report is saved. User can access report at /report/' + auditId)
           console.warn('⚠️  Email error logged to database error_log column')
+          console.warn('⚠️  email_sent_at reset to null - email can be retried')
         }
       }
     
