@@ -564,6 +564,45 @@ export async function GET(request: NextRequest) {
           auditId,
           email_sent_at: verifyAudit.email_sent_at,
         })
+      } else if (verifyAudit.formatted_report_html) {
+        // CRITICAL: If report exists but status isn't completed, fix the status and mark queue as completed
+        // This handles cases where processAudit succeeded but status update failed
+        console.warn(`[${requestId}] ⚠️  Audit ${auditId} has report but status is ${verifyAudit.status} - fixing status`)
+        
+        // Fix audit status to completed
+        const { error: fixStatusError } = await supabase
+          .from('audits')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', auditId)
+        
+        if (fixStatusError) {
+          console.error(`[${requestId}] Failed to fix audit status:`, fixStatusError)
+        } else {
+          console.log(`[${requestId}] ✅ Fixed audit status to completed`)
+        }
+        
+        // Mark queue as completed
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', queueItem.id)
+        
+        console.log(`[${requestId}] ✅ Audit ${auditId} has report - marked queue as completed`)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit has report - marked as completed',
+          processed: true,
+          auditId,
+          email_sent_at: verifyAudit.email_sent_at,
+          status_fixed: true,
+        })
       } else {
         // Audit processing didn't complete properly
         throw new Error(`Audit ${auditId} processing incomplete: status=${verifyAudit.status}, has_report=${!!verifyAudit.formatted_report_html}`)
