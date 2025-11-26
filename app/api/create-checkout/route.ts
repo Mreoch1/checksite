@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
 import { createAuditSchema } from '@/lib/validate-input'
 import { rateLimit, getClientId } from '@/lib/rate-limit'
+import { normalizeUrl } from '@/lib/normalize-url'
 
 // Force dynamic rendering - this route cannot be statically analyzed
 export const dynamic = 'force-dynamic'
@@ -50,21 +51,13 @@ export async function POST(request: NextRequest) {
     
     const { url, email, name, modules, competitorUrl } = validationResult.data
 
-    // Normalize main URL - ensure it has https://
-    let normalizedUrl = url.trim()
-    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-      normalizedUrl = `https://${normalizedUrl}`
-    }
+    // Normalize main URL - add https:// and lowercase domain
+    const normalizedUrl = normalizeUrl(url)
 
-    // Normalize competitor URL if provided - ensure it has https://
+    // Normalize competitor URL if provided
     let normalizedCompetitorUrl: string | undefined = undefined
     if (competitorUrl && competitorUrl.trim()) {
-      const trimmed = competitorUrl.trim()
-      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-        normalizedCompetitorUrl = `https://${trimmed}`
-      } else {
-        normalizedCompetitorUrl = trimmed
-      }
+      normalizedCompetitorUrl = normalizeUrl(competitorUrl)
     }
 
     // Calculate total price

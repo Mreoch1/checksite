@@ -125,10 +125,18 @@ export default function RecommendPage() {
     setProcessing(true)
     setError('')
 
-    // Normalize main URL - ensure it has https://
-    let normalizedUrl = url
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      normalizedUrl = `https://${url}`
+    // Normalize main URL - ensure it has https:// and lowercase domain
+    let normalizedUrl = url.trim()
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = `https://${normalizedUrl}`
+    }
+    // Lowercase the domain part
+    try {
+      const urlObj = new URL(normalizedUrl)
+      urlObj.hostname = urlObj.hostname.toLowerCase()
+      normalizedUrl = urlObj.toString()
+    } catch {
+      normalizedUrl = normalizedUrl.toLowerCase()
     }
 
     // Validate and normalize competitor URL if Competitor Overview is selected
@@ -141,10 +149,19 @@ export default function RecommendPage() {
         return
       }
       
-      // Normalize competitor URL - ensure it has https://
-      normalizedCompetitorUrl = trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') 
+      // Normalize competitor URL - ensure it has https:// and lowercase domain
+      let tempUrl = trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') 
         ? trimmedUrl 
         : `https://${trimmedUrl}`
+      
+      // Lowercase the domain part
+      try {
+        const urlObj = new URL(tempUrl)
+        urlObj.hostname = urlObj.hostname.toLowerCase()
+        normalizedCompetitorUrl = urlObj.toString()
+      } catch {
+        normalizedCompetitorUrl = tempUrl.toLowerCase()
+      }
       
       // Basic URL validation
       try {

@@ -49,10 +49,20 @@ export default function Home() {
     setLoading(true)
 
     try {
-      // Normalize URL - ensure it has https://
+      // Normalize URL - ensure it has https:// and lowercase domain
       let normalizedUrl = url.trim()
       if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
         normalizedUrl = `https://${normalizedUrl}`
+      }
+      
+      // Lowercase the domain part (hostname) but preserve path/query/fragment
+      try {
+        const urlObj = new URL(normalizedUrl)
+        urlObj.hostname = urlObj.hostname.toLowerCase()
+        normalizedUrl = urlObj.toString()
+      } catch {
+        // If URL parsing fails, just lowercase the entire string as fallback
+        normalizedUrl = normalizedUrl.toLowerCase()
       }
       
       // Store in sessionStorage and redirect

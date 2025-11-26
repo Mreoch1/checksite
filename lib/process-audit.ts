@@ -5,6 +5,7 @@ import { generateSimpleReport } from '@/lib/generate-simple-report'
 import { sendAuditReportEmail } from '@/lib/email-unified'
 // sendAuditFailureEmail disabled to preserve email quota
 import { ModuleKey } from '@/lib/types'
+import { normalizeUrl } from '@/lib/normalize-url'
 
 /**
  * Process an audit - runs modules, generates report, sends email
@@ -107,12 +108,18 @@ export async function processAudit(auditId: string) {
       throw new Error('No enabled modules to run')
     }
 
+    // Normalize the audit URL before using it (lowercase domain)
+    const normalizedAuditUrl = normalizeUrl(audit.url)
+    if (normalizedAuditUrl !== audit.url) {
+      console.log(`⚠️  URL normalized from "${audit.url}" to "${normalizedAuditUrl}"`)
+    }
+
     // Get competitor URL from audit metadata if available
     let competitorUrl: string | null = null
     if (audit.raw_result_json && typeof audit.raw_result_json === 'object') {
       const metadata = audit.raw_result_json as any
       if (metadata.competitorUrl && typeof metadata.competitorUrl === 'string') {
-        competitorUrl = metadata.competitorUrl
+        competitorUrl = normalizeUrl(metadata.competitorUrl)
         console.log(`Using competitor URL from audit metadata: ${competitorUrl}`)
       }
     }
@@ -121,7 +128,7 @@ export async function processAudit(auditId: string) {
     console.log('Starting audit module execution...')
     let results, siteData
     try {
-      const moduleResult = await runAuditModules(audit.url, enabledModules, competitorUrl)
+      const moduleResult = await runAuditModules(normalizedAuditUrl, enabledModules, competitorUrl)
       results = moduleResult.results
       siteData = moduleResult.siteData
       console.log(`Audit modules completed. Results: ${results.length} modules`)
