@@ -11,7 +11,7 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 - **AI-Powered Recommendations**: Uses DeepSeek LLM to recommend which checks you need
 - **Plain Language Reports**: Reports written in simple, non-technical language with actionable insights
 - **Stripe Integration**: Secure payment processing
-- **Email Delivery**: Reports sent via Resend
+- **Email Delivery**: Reports sent via SendGrid
 - **Modular Architecture**: Easy to extend with new audit modules
 
 ## Tech Stack
