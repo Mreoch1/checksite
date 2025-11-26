@@ -50,17 +50,21 @@ export async function POST(request: NextRequest) {
     
     const { url, email, name, modules, competitorUrl } = validationResult.data
 
-    // Validate URL
-    let normalizedUrl = url
-    if (!url.startsWith('http')) {
-      normalizedUrl = `https://${url}`
+    // Normalize main URL - ensure it has https://
+    let normalizedUrl = url.trim()
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = `https://${normalizedUrl}`
     }
 
-    // Normalize competitor URL if provided
+    // Normalize competitor URL if provided - ensure it has https://
     let normalizedCompetitorUrl: string | undefined = undefined
     if (competitorUrl && competitorUrl.trim()) {
       const trimmed = competitorUrl.trim()
-      normalizedCompetitorUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        normalizedCompetitorUrl = `https://${trimmed}`
+      } else {
+        normalizedCompetitorUrl = trimmed
+      }
     }
 
     // Calculate total price
