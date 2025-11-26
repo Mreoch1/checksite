@@ -268,7 +268,7 @@ export default function RecommendPage() {
                         )}
                         {!isCore && !module.recommended && (
                           <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded font-medium">
-                            Not recommended
+                            {module.key === 'local' ? 'Optional' : 'Not recommended'}
                           </span>
                         )}
                       </div>
