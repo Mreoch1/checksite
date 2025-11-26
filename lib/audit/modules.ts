@@ -1670,9 +1670,18 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
     evidence.competitorH1 = 'N/A - Competitor data not available'
     evidence.competitorWordCount = 'N/A'
     evidence.comparisonAvailable = false
-    evidence.note = competitorUrl 
-      ? 'Competitor was identified but data could not be fetched'
-      : 'No competitor was identified for comparison'
+    // User-friendly message instead of technical error
+    if (competitorUrl) {
+      evidence.note = 'Competitor was identified but data could not be fetched'
+    } else {
+      // Check if the reason indicates an error or just no competitor found
+      const isError = competitorReason.toLowerCase().includes('error') || 
+                      competitorReason.toLowerCase().includes('timeout') ||
+                      competitorReason.toLowerCase().includes('failed')
+      evidence.note = isError
+        ? 'No competitor sites were identified for your industry, so this section gives general best practices instead.'
+        : competitorReason || 'No competitor was identified for comparison'
+    }
   }
   
   return {
