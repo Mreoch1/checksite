@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 import { requireAdminAuth } from '@/lib/middleware/auth'
+import { normalizeUrl } from '@/lib/normalize-url'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -36,10 +37,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update status to running
+    // Normalize the URL if needed
+    const normalizedUrl = normalizeUrl(audit.url)
+    const urlUpdated = normalizedUrl !== audit.url
+    if (urlUpdated) {
+      console.log(`Normalizing URL from "${audit.url}" to "${normalizedUrl}"`)
+    }
+
+    // Update status to running and URL if needed
     await supabase
       .from('audits')
-      .update({ status: 'running' })
+      .update({ 
+        status: 'running',
+        url: normalizedUrl, // Update URL to normalized version
+      })
       .eq('id', auditId)
 
     // Add to queue instead of processing directly (avoids Netlify timeout)

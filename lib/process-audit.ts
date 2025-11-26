@@ -112,6 +112,12 @@ export async function processAudit(auditId: string) {
     const normalizedAuditUrl = normalizeUrl(audit.url)
     if (normalizedAuditUrl !== audit.url) {
       console.log(`⚠️  URL normalized from "${audit.url}" to "${normalizedAuditUrl}"`)
+      // Update the database with the normalized URL to prevent future issues
+      await supabase
+        .from('audits')
+        .update({ url: normalizedAuditUrl })
+        .eq('id', auditId)
+      console.log(`✅ Updated audit URL in database to normalized version`)
     }
 
     // Get competitor URL from audit metadata if available
