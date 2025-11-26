@@ -15,8 +15,7 @@ Your emails are going to junk because **SPF record is missing**. This is the #1 
 
 **Why this matters**: SPF tells email providers that SendGrid is authorized to send emails on behalf of your domain. Without it, emails are marked as spam.
 
-### 2. SendGrid DNS Records (Already documented)
-See `sendgrid-dns-records.txt` for complete list:
+### 2. SendGrid DNS Records
 - CNAME: `url5121` → `sendgrid.net`
 - CNAME: `51760082` → `sendgrid.net`
 - CNAME: `em1811` → `u51760082.wl083.sendgrid.net`
