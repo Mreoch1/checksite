@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
   try {
-    const { auditId } = await request.json()
+    const body = await request.json()
+    const { auditId, force } = body
 
     if (!auditId) {
       return NextResponse.json(
@@ -50,15 +51,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if email was already sent (prevent duplicates)
-    if (audit.email_sent_at) {
+    // Check if email was already sent (prevent duplicates unless force=true)
+    if (audit.email_sent_at && !force) {
       return NextResponse.json({
         success: false,
         message: 'Email already sent for this audit',
         auditId,
         email: customer.email,
         emailSentAt: audit.email_sent_at,
-        note: 'To resend, use a different method or clear email_sent_at first',
+        note: 'To resend, include "force": true in the request body',
       })
     }
 
