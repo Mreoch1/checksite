@@ -136,6 +136,20 @@ export async function POST(request: NextRequest) {
       
       const isLocalBusiness = (hasBothAddressAndPhone || (hasAddressOrPhone && hasBusinessIndicators)) && !hasOnlineOnlyIndicators
       
+      // Debug logging to help diagnose issues
+      console.log(`[recommend-modules] Local business detection for ${normalizedUrl}:`, {
+        hasAddressPattern,
+        hasPhonePattern,
+        hasBothAddressAndPhone,
+        hasAddressOrPhone,
+        hasLocalKeywords,
+        hasBusinessEntity,
+        hasBusinessIndicators,
+        hasOnlineOnlyIndicators,
+        isLocalBusiness,
+        contentSample: allText.substring(0, 200),
+      })
+      
       const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
       // Business detection - check for business indicators (name, services, contact info, etc.)
       const isBusiness = /(business|company|services|products|about|contact|pricing|plans|inc\.|llc|corp|industries|industries inc)/i.test(allText) || hasAddressPattern || hasPhonePattern
