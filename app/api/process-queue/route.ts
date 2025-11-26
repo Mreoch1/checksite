@@ -87,6 +87,15 @@ export async function GET(request: NextRequest) {
         const pendingItems = allQueueItems.filter((item: any) => item.status === 'pending')
         const nonPendingItems = allQueueItems.filter((item: any) => item.status !== 'pending')
         
+        // Log all items for debugging (especially recent ones)
+        const recentItems = allQueueItems.slice(0, 10) // Show 10 most recent
+        console.log(`[${requestId}] 📊 Recent queue items (showing 10 most recent):`)
+        recentItems.forEach((item: any) => {
+          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+          const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
+          console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m (${ageSeconds}s), Created: ${item.created_at}`)
+        })
+        
         if (pendingItems.length > 0) {
           console.log(`[${requestId}] ⚠️  Found ${pendingItems.length} pending queue item(s) but they didn't pass filtering:`)
           pendingItems.forEach((item: any) => {
