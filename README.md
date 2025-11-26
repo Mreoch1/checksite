@@ -10,8 +10,12 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 - **Evidence-Based Reports**: Shows actual values found (title tags, meta descriptions, robots.txt content, etc.) with data tables
 - **AI-Powered Recommendations**: Uses DeepSeek LLM to recommend which checks you need
 - **Plain Language Reports**: Reports written in simple, non-technical language with actionable insights
+- **URL Normalization**: Automatically normalizes URLs (adds https://, lowercases domain) to prevent DNS resolution issues
 - **Stripe Integration**: Secure payment processing
-- **Email Delivery**: Reports sent via SendGrid
+- **Email Delivery**: Reports sent via SendGrid (with Zoho SMTP fallback)
+- **Atomic Email Deduplication**: Prevents duplicate emails using timestamp-based reservation system
+- **Queue System**: Asynchronous processing to handle long-running audits without timeouts
+- **Admin Tools**: Comprehensive diagnostic and management endpoints
 - **Modular Architecture**: Easy to extend with new audit modules
 
 ## Tech Stack
@@ -28,7 +32,7 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 - Node.js 18+ and npm
 - Supabase account and project
 - Stripe account
-- Resend account
+- SendGrid account (or Zoho SMTP for fallback)
 - DeepSeek API key
 
 ## Environment Variables
@@ -45,9 +49,18 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
 
-# SendGrid
+# Email (SendGrid primary, Zoho SMTP fallback)
 SENDGRID_API_KEY=your_sendgrid_api_key
 FROM_EMAIL=noreply@yourdomain.com
+FROM_NAME=SEO CheckSite
+EMAIL_PROVIDER=sendgrid  # Options: sendgrid, zoho
+EMAIL_USE_FALLBACK=true  # Automatically fallback to Zoho if SendGrid fails
+
+# Zoho SMTP (fallback email provider)
+SMTP_HOST=smtp.zoho.com
+SMTP_PORT=587
+SMTP_USER=your_zoho_email@yourdomain.com
+SMTP_PASSWORD=your_zoho_app_password
 
 # DeepSeek
 DEEPSEEK_BASE_URL=https://api.deepseek.com
@@ -55,6 +68,10 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 
 # Site URL (for webhooks and links)
 NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+
+# Security (for admin endpoints and queue processing)
+ADMIN_SECRET=your_admin_secret_key
+QUEUE_SECRET=your_queue_secret_key
 ```
 
 ## Database Setup
@@ -223,9 +240,11 @@ seo-checksite/
 ├── lib/
 │   ├── audit/
 │   │   └── modules.ts           # Audit module implementations
-│   ├── email-unified.ts         # Unified email sending (Resend + Zoho SMTP)
+│   ├── email-unified.ts         # Unified email sending (SendGrid + Zoho SMTP)
+│   ├── email-status.ts          # Email status helpers (reservation, sent, abandoned)
 │   ├── generate-simple-report.ts # Report generation (non-LLM)
 │   ├── llm.ts                   # DeepSeek integration
+│   ├── normalize-url.ts         # URL normalization utility
 │   ├── process-audit.ts         # Main audit processing logic
 │   ├── stripe.ts                # Stripe helpers
 │   ├── supabase.ts              # Supabase client
@@ -296,6 +315,10 @@ To adjust pricing, modify the `PRICING_CONFIG` object.
 - Check spam folder for test emails
 - System automatically falls back to Zoho SMTP if SendGrid fails
 - Ensure SendGrid domain authentication DNS records are added to your DNS provider
+- Check `EMAIL_PROVIDER` and `EMAIL_USE_FALLBACK` environment variables
+- Verify `FROM_NAME` is set for email sender name
+- If receiving duplicate emails, check for stale reservations using admin endpoints
+- Email reservation system prevents duplicates: check `email_sent_at` timestamp in database
 
 ### Queue Processing Issues
 - Verify `QUEUE_SECRET` is set in environment variables
@@ -332,17 +355,36 @@ All audit modules now collect and display evidence:
 
 ## Recent Updates
 
+### URL Normalization
+- **Automatic URL Normalization**: All URLs are normalized before processing
+  - Adds `https://` if no protocol is provided
+  - Lowercases domain name (preserves path/query/fragment case)
+  - Prevents DNS resolution issues from inconsistent casing
+  - Applied at checkout creation, module recommendation, and audit processing
+
 ### Queue System
 - Implemented Supabase-based queue system to handle long-running audits
 - Prevents Netlify function timeouts (10-second limit)
 - Auto-detects and fixes stuck audits with reports but wrong status
 - Timeout protection (8-minute max) with proper error handling
+- 5-minute delay before processing to ensure payment webhook completes
+- Queue processor requires `QUEUE_SECRET` for security
 
 ### Email System
-- Unified email system with Resend (primary) and Zoho SMTP (fallback)
-- Atomic email deduplication to prevent duplicate emails
+- Unified email system with SendGrid (primary) and Zoho SMTP (fallback)
+- **Atomic Email Reservation**: Timestamp-based reservation system prevents duplicate emails
+  - Uses `UPDATE ... WHERE email_sent_at IS NULL` for atomic reservation
+  - Only one process can reserve email sending at a time
+- **Stale Reservation Handling**: Automatically detects and clears:
+  - **Abandoned reservations** (>30 minutes old): Hard timeout, force clear
+  - **Stale reservations** (5-30 minutes old): Likely failed, clear and retry
+- **Email Status Management**: Tracks email state using `email_sent_at` timestamp:
+  - `null`: Email not sent (pending)
+  - Recent timestamp (<5 min): Reservation (actively sending)
+  - Old timestamp (>5 min): Email sent successfully
 - Email errors don't prevent audit completion
 - Reports saved before email sending to ensure URL works
+- Comprehensive logging with reservation attempt IDs for debugging
 
 ### Report Generation
 - Non-LLM report generation for faster processing
@@ -352,10 +394,26 @@ All audit modules now collect and display evidence:
 - Executive summary with health assessment
 
 ### Admin Tools
-- Comprehensive admin endpoints for diagnostics
-- Auto-fix for stuck audits
-- Queue status monitoring
-- Audit retry functionality
+Comprehensive admin endpoints (all require `ADMIN_SECRET` header):
+- **`/api/admin/check-audit-by-id`**: Get detailed audit status, queue entry, modules, and analysis (GET) or fix status/add to queue (POST)
+- **`/api/admin/retry-audit`**: Retry a failed audit with URL normalization
+- **`/api/admin/check-duplicates`**: Find duplicate audits by URL and customer
+- **`/api/admin/check-queue-status`**: Monitor queue processing status
+- **`/api/admin/check-audit`**: Quick audit status check
+- **`/api/admin/check-audits`**: Batch audit status check
+- **`/api/admin/fix-stuck-audit`**: Fix a single stuck audit
+- **`/api/admin/fix-stuck-audits`**: Fix multiple stuck audits
+- **`/api/admin/cleanup-queue`**: Clean up completed queue entries
+- **`/api/admin/clear-stuck-queue`**: Clear stuck queue entries
+- **`/api/admin/complete-audit`**: Manually complete an audit
+- **`/api/admin/reset-audit`**: Reset an audit to pending
+- **`/api/admin/send-report-email`**: Manually send report email
+- **`/api/admin/test-audit-step`**: Test individual audit processing steps
+- **`/api/admin/diagnose-audit`**: Comprehensive audit diagnosis
+- **`/api/admin/check-timezone`**: Check timezone configuration
+- **`/api/admin/check-id`**: Validate audit ID format
+
+All admin endpoints require `Authorization: Bearer YOUR_ADMIN_SECRET` header.
 
 ## Future Enhancements
 
