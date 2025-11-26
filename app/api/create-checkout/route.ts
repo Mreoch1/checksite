@@ -134,6 +134,45 @@ export async function POST(request: NextRequest) {
       // Continue anyway - modules can be added later
     }
 
+    // TEST MODE: Bypass payment for test email
+    const TEST_EMAILS = ['mreoch82@hotmail.com']
+    const isTestEmail = TEST_EMAILS.includes(email.toLowerCase())
+    
+    if (isTestEmail) {
+      console.log(`🧪 TEST MODE: Bypassing payment for ${email}`)
+      
+      // Update audit status to running
+      await supabase
+        .from('audits')
+        .update({ status: 'running' })
+        .eq('id', audit.id)
+      
+      // Add to queue instead of processing directly (avoids Netlify timeout)
+      const { error: queueError } = await supabase
+        .from('audit_queue')
+        .upsert({
+          audit_id: audit.id,
+          status: 'pending',
+          retry_count: 0,
+          last_error: null,
+        }, {
+          onConflict: 'audit_id',
+        })
+      
+      if (queueError) {
+        console.error('Error adding audit to queue:', queueError)
+      } else {
+        console.log(`✅ Test audit ${audit.id} added to queue - will be processed by queue worker`)
+      }
+      
+      // Return success URL directly (bypassing Stripe)
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+      return NextResponse.json({ 
+        checkoutUrl: `${siteUrl}/success?audit_id=${audit.id}`,
+        testMode: true,
+      })
+    }
+
     // Create Stripe checkout session
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const session = await createCheckoutSession(
