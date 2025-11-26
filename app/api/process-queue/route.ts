@@ -264,14 +264,9 @@ export async function GET(request: NextRequest) {
     // Now we know queueItem exists, so we can safely access its properties
     const auditData = (queueItem.audits as any) || null
     if (auditData) {
-      // CRITICAL: Skip if email was already sent (regardless of report status)
+      // CRITICAL: Skip if email was already sent (not a reservation)
       // This is the PRIMARY check to prevent duplicate emails
-      // Also skip if email is in "sending_" state (another process is handling it)
-      const emailSentOrSending = auditData.email_sent_at && 
-        !isEmailSending(auditData.email_sent_at) && 
-        auditData.email_sent_at !== 'null'
-      
-      if (emailSentOrSending) {
+      if (isEmailSent(auditData.email_sent_at)) {
         console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
         // Mark queue item as completed since email was sent
         await supabase
