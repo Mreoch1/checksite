@@ -273,9 +273,18 @@ To adjust pricing, modify the `PRICING_CONFIG` object.
 - Ensure RLS policies allow necessary operations
 
 ### Email Delivery Issues
-- Verify Resend API key
+- Verify Resend API key (primary) or Zoho SMTP credentials (fallback)
 - Check `FROM_EMAIL` domain is verified in Resend
 - Check spam folder for test emails
+- Free Resend tier only allows sending to verified email addresses
+- System automatically falls back to Zoho SMTP if Resend fails
+
+### Queue Processing Issues
+- Verify `QUEUE_SECRET` is set in environment variables
+- Check cron job is configured and running (see `QUEUE_SETUP.md`)
+- Verify `/api/process-queue` endpoint is accessible
+- Check for stuck audits using admin endpoints
+- Queue processor auto-fixes audits with reports but wrong status
 
 ## Security Considerations
 
