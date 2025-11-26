@@ -271,7 +271,7 @@ Content: ${contentSample}
 
 For each module, set true if recommended, false if not needed, and provide a one-sentence reason:
 
-1. local - ALWAYS set to TRUE. Local SEO helps businesses with physical locations or local service areas. The client will decide if they need it based on examples provided.
+1. local - Set to FALSE. Local SEO is optional and helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. The client will decide if they need it.
 
 2. accessibility - Should accessibility be checked? (Usually yes for all sites)
 
@@ -342,96 +342,18 @@ Respond with ONLY valid JSON:
       throw new Error(`Invalid response structure: missing ${missingKeys.join(', ')}`)
     }
     
-    // Post-process: Override local recommendation if we detect clear local business indicators
-    // This catches cases where LLM misses obvious local businesses
-    // Use the full content we stored earlier, not just the sample
-    
-    // More flexible address pattern - handles formats like:
-    // "1030 N Crooks Rd, Suite G, Clawson, MI 48017"
-    // "123 Main St, City, State 12345"
-    // Also matches just "address", "location", etc.
-    const hasAddress = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct)(?:[,\s]+(?:suite|ste|unit|apt|apartment|#)[\sA-Za-z0-9]+)?[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct)(?:[,\s]+(?:suite|ste|unit|apt|apartment|#)[\sA-Za-z0-9]+)?[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us|physical location)/i.test(allText)
-    
-    // Phone pattern - handles +1 248-288-6600, (248) 288-6600, 248-288-6600, etc.
-    const hasPhone = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
-    
-    // Business entity - check for Inc, LLC, Corp, Industries, Company
-    const hasBusinessEntity = /(inc\.|llc|corp|industries|company|corporation)/i.test(allText)
-    
-    // More aggressive: If we have address AND phone, definitely local
-    // OR if we have address/phone with business entity (Industries, Inc, LLC, etc.)
-    // OR if we have business entity with any contact info
-    // OR if we have business entity with any digits (likely address/phone even if pattern doesn't match)
-    const hasBothAddressAndPhone = hasAddress && hasPhone
-    const hasAddressOrPhoneWithEntity = (hasAddress || hasPhone) && hasBusinessEntity
-    const hasEntityWithContact = hasBusinessEntity && (hasAddress || hasPhone)
-    
-    // Fallback: If we see "Industries" or business entity with digits, it's likely a local business
-    // This catches cases where address format is non-standard
-    const hasEntityWithDigits = hasBusinessEntity && /\d{3,}/.test(allText) // 3+ consecutive digits (phone or zip)
-    
-    // Ultra-aggressive: If title/URL has business entity (Industries, Inc, etc.) and any contact keywords, assume local
-    const titleHasEntity = /(industries|inc\.|llc|corp|company)/i.test(siteSummary.title || '')
-    // Check URL for business indicators - "rcbiinc" contains "inc", "industries" might be in domain
-    const urlHasEntity = /(industries|inc|llc|corp|company|industriesinc|rcbiinc)/i.test(url.toLowerCase())
-    const hasContactKeywords = /(contact|phone|address|location|call|email|tel|sales@)/i.test(allText)
-    const hasEntityInTitleOrUrl = (titleHasEntity || urlHasEntity) && hasContactKeywords
-    
-    // Even more aggressive: If URL contains "inc" (like rcbiinc.com) and we have any digits or contact words, assume local
-    const urlHasInc = /inc/i.test(url)
-    const hasAnyContactInfo = hasContactKeywords || /\d{3,}/.test(allText) // Contact keywords OR digits (phone/zip)
-    const hasIncWithContact = urlHasInc && hasAnyContactInfo
-    
-    // Ultra-simple fallback: If URL has "inc" and site has any content, it's likely a local business
-    // This catches cases where content extraction fails or patterns don't match
-    const urlHasIncSimple = /inc/i.test(url.toLowerCase())
-    const hasAnyContent = allText.length > 50 // Any meaningful content
-    const simpleIncCheck = urlHasIncSimple && hasAnyContent
-    
-    if (hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact || simpleIncCheck) {
-      console.log(`[recommendModules] Overriding local recommendation to true - detected local business indicators:`, {
-        hasAddress,
-        hasPhone,
-        hasBusinessEntity,
-        hasBothAddressAndPhone,
-        hasAddressOrPhoneWithEntity,
-        hasEntityWithContact,
-        hasEntityWithDigits,
-        hasEntityInTitleOrUrl,
-        titleHasEntity,
-        urlHasEntity,
-        hasContactKeywords,
-        url,
-        title: siteSummary.title,
-      })
-      parsed.local = true
-      parsed.reasons.local = 'Your site has a physical address and phone number, indicating a local business that would benefit from local SEO optimization.'
-    } else {
-      console.log(`[recommendModules] Not overriding local - no clear indicators found:`, {
-        hasAddress,
-        hasPhone,
-        hasBusinessEntity,
-        contentLength: allText.length,
-        contentSample: allText.substring(0, 500),
-      })
+    // Local SEO is optional - always set to false, with helpful explanation text
+    // The client will decide if they need it based on the examples provided
+    parsed.local = false
+    if (!parsed.reasons.local || parsed.reasons.local.includes('not needed') || parsed.reasons.local.includes('online-only')) {
+      parsed.reasons.local = 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, you may want to add this.'
     }
     
-    console.log(`[recommendModules] Final recommendations before return:`, {
+    console.log(`[recommendModules] Final recommendations:`, {
       local: parsed.local,
       url,
       title: siteSummary.title,
       contentLength: allText.length,
-      hasAddress,
-      hasPhone,
-      hasBusinessEntity,
-      titleHasEntity,
-      urlHasEntity,
-      hasContactKeywords,
-      urlHasInc,
-      hasAnyContactInfo,
-      hasIncWithContact,
-      simpleIncCheck,
-      overrideApplied: hasBothAddressAndPhone || hasAddressOrPhoneWithEntity || hasEntityWithContact || hasEntityWithDigits || hasEntityInTitleOrUrl || hasIncWithContact || simpleIncCheck,
     })
     return parsed
   } catch (parseError) {
