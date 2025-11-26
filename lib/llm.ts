@@ -117,6 +117,103 @@ export async function callDeepSeek(
 /**
  * Recommend modules based on website analysis
  */
+/**
+ * Identify a competitor URL for a given website using LLM
+ */
+export async function identifyCompetitor(
+  url: string,
+  siteSummary: { title?: string; description?: string; content?: string }
+): Promise<{ competitorUrl: string | null; reason: string }> {
+  const contentSample = (siteSummary.content || '').substring(0, 500)
+  const prompt = `Identify a direct competitor website URL for this business:
+
+Website URL: ${url}
+Title: ${siteSummary.title || 'Not found'}
+Description: ${siteSummary.description || 'Not found'}
+Content sample: ${contentSample}
+
+Your task: Identify ONE direct competitor website that:
+1. Offers similar products/services
+2. Targets the same customer base
+3. Operates in the same market/industry
+4. Has an accessible website (not a social media page)
+
+Respond with ONLY valid JSON:
+{
+  "competitorUrl": "https://competitor-domain.com" or null if no clear competitor found,
+  "reason": "One sentence explaining why this is a competitor"
+}
+
+IMPORTANT:
+- Return a full URL (https://...) if you find a competitor
+- Return null for competitorUrl if you cannot identify a clear competitor
+- Do NOT return the same URL as the input
+- Do NOT return generic directories (like Yelp, Google Business, etc.)
+- Focus on actual business websites that compete directly`
+
+  const messages: DeepSeekMessage[] = [
+    {
+      role: 'system',
+      content: 'You are an SEO analyst who identifies direct business competitors. Always respond with valid JSON only.',
+    },
+    {
+      role: 'user',
+      content: prompt,
+    },
+  ]
+
+  try {
+    console.log(`[identifyCompetitor] Identifying competitor for ${url}...`)
+    const response = await callDeepSeek(messages, 0.5)
+    
+    // Extract JSON from response
+    let jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      const codeBlockMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+      if (codeBlockMatch) {
+        jsonMatch = [codeBlockMatch[1], codeBlockMatch[1]]
+      }
+    }
+    
+    if (!jsonMatch) {
+      console.warn('[identifyCompetitor] No JSON found in response, returning null')
+      return { competitorUrl: null, reason: 'Could not identify a competitor from the analysis' }
+    }
+    
+    const result = JSON.parse(jsonMatch[1])
+    
+    // Validate result
+    if (result.competitorUrl && typeof result.competitorUrl === 'string') {
+      // Ensure it's a valid URL and not the same as input
+      try {
+        const competitorUrlObj = new URL(result.competitorUrl)
+        const inputUrlObj = new URL(url)
+        
+        // Don't return the same domain
+        if (competitorUrlObj.hostname === inputUrlObj.hostname) {
+          console.warn('[identifyCompetitor] LLM returned same URL as competitor, returning null')
+          return { competitorUrl: null, reason: 'No clear competitor identified' }
+        }
+        
+        console.log(`[identifyCompetitor] ✅ Found competitor: ${result.competitorUrl}`)
+        return {
+          competitorUrl: result.competitorUrl,
+          reason: result.reason || 'Identified as a direct competitor',
+        }
+      } catch (urlError) {
+        console.warn('[identifyCompetitor] Invalid competitor URL format:', result.competitorUrl)
+        return { competitorUrl: null, reason: 'Invalid competitor URL format' }
+      }
+    }
+    
+    console.log('[identifyCompetitor] No competitor URL in response')
+    return { competitorUrl: null, reason: result.reason || 'No competitor identified' }
+  } catch (error) {
+    console.error('[identifyCompetitor] Error identifying competitor:', error)
+    return { competitorUrl: null, reason: 'Error analyzing competitors' }
+  }
+}
+
 export async function recommendModules(
   url: string,
   siteSummary: { title?: string; description?: string; content?: string }
