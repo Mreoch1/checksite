@@ -219,7 +219,8 @@ async function sendViaZoho(options: {
 
 /**
  * Main email sending function with automatic fallback
- * Defaults to Zoho SMTP for better deliverability (especially Hotmail/Outlook)
+ * Uses Zoho SMTP as primary (works for all recipients)
+ * Resend free tier only allows sending to verified email, so we use Zoho for production
  */
 export async function sendEmail(options: {
   to: string
@@ -227,14 +228,58 @@ export async function sendEmail(options: {
   html: string
   text?: string
 }): Promise<void> {
-  // Prefer Resend for better deliverability to Hotmail/Outlook (they have better reputation)
-  // Use Zoho as fallback if Resend is not configured
-  const useResend = EMAIL_PROVIDER === 'resend' || (!SMTP_PASSWORD && RESEND_API_KEY)
-  const useZoho = EMAIL_PROVIDER === 'smtp' || (EMAIL_PROVIDER !== 'resend' && SMTP_PASSWORD && !RESEND_API_KEY)
+  // Check if Resend is on free tier (can only send to verified email)
+  // For production, use Zoho SMTP which can send to any recipient
+  const isResendFreeTier = RESEND_API_KEY && !process.env.RESEND_DOMAIN_VERIFIED
   
-  // Try Resend first if available (better deliverability, especially for Hotmail/Outlook)
+  // Use Zoho as primary if:
+  // 1. Explicitly set to 'smtp'
+  // 2. Resend is not configured
+  // 3. Resend is on free tier (can't send to all recipients)
+  const useZoho = EMAIL_PROVIDER === 'smtp' || 
+                  !RESEND_API_KEY || 
+                  isResendFreeTier ||
+                  (SMTP_PASSWORD && EMAIL_PROVIDER !== 'resend')
+  
+  // Use Resend only if:
+  // 1. Explicitly set to 'resend'
+  // 2. Resend is configured AND domain is verified (not free tier)
+  const useResend = EMAIL_PROVIDER === 'resend' && 
+                    RESEND_API_KEY && 
+                    !isResendFreeTier &&
+                    !SMTP_PASSWORD
+  
+  // Try Zoho first (primary for production - can send to any recipient)
+  if (useZoho && SMTP_PASSWORD) {
+    console.log('📧 Attempting to send via Zoho SMTP (primary - can send to any recipient)...')
+    try {
+      await sendViaZoho(options)
+      console.log('✅ Email sent successfully via Zoho SMTP')
+      return
+    } catch (error) {
+      console.error('❌ Zoho SMTP failed:', error)
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      
+      // Fallback to Resend if enabled and configured (and not free tier)
+      if (USE_FALLBACK && useResend && RESEND_API_KEY) {
+        console.warn('Falling back to Resend...')
+        try {
+          await sendViaResend(options)
+          console.log('✅ Email sent successfully via Resend (fallback)')
+          return
+        } catch (resendError) {
+          console.error('❌ Resend fallback also failed:', resendError)
+          throw new Error(`Both Zoho and Resend failed. Zoho: ${errorMsg}, Resend: ${resendError instanceof Error ? resendError.message : String(resendError)}`)
+        }
+      }
+      
+      throw new Error(`Zoho SMTP failed: ${errorMsg}. ${USE_FALLBACK && useResend ? 'Resend fallback disabled or not configured.' : 'Fallback disabled.'}`)
+    }
+  }
+  
+  // Try Resend if configured and domain verified (not free tier)
   if (useResend && RESEND_API_KEY) {
-    console.log('📧 Attempting to send via Resend (primary - better deliverability)...')
+    console.log('📧 Attempting to send via Resend (domain verified)...')
     try {
       await sendViaResend(options)
       console.log('✅ Email sent successfully via Resend')
