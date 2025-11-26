@@ -55,6 +55,22 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   competitor_overview: 'Competitor Overview',
 }
 
+function getModuleDescription(moduleKey: string): string {
+  const descriptions: Record<string, string> = {
+    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This looks at your HTTPS status, images, scripts, and page resources.</p>',
+    crawl_health: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks robots.txt, sitemap, internal links, and broken links.</p>',
+    on_page: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your page title, description, headings, and content quality.</p>',
+    mobile: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks how well your site works on phones and tablets.</p>',
+    local: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for business address, phone, and local business information.</p>',
+    accessibility: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks if your site is usable by everyone, including people with disabilities.</p>',
+    security: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks HTTPS, security headers, and mixed content issues.</p>',
+    schema: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for structured data that helps search engines understand your content.</p>',
+    social: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks Open Graph and Twitter Card tags for social sharing.</p>',
+    competitor_overview: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This provides general best practices for competing in your industry.</p>',
+  }
+  return descriptions[moduleKey] || ''
+}
+
 function escapeHtml(text: string | null | undefined): string {
   if (!text) return ''
   return String(text)
@@ -82,12 +98,37 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
   // Count issues by severity
   const highIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'high').length, 0)
   const mediumIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'medium').length, 0)
+  const lowIssuesCount = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'low').length, 0)
+  const totalIssues = highIssues + mediumIssues + lowIssuesCount
   
-  if (highIssues > 0) {
-    executiveSummary.push(`Found ${highIssues} high-priority issue${highIssues > 1 ? 's' : ''} that need immediate attention.`)
+  // Add modules checked and total issues
+  executiveSummary.push(`We checked ${auditResult.modules.length} areas of your website.`)
+  
+  // Issue summary
+  if (totalIssues === 0) {
+    executiveSummary.push('No issues found! Your site is performing well across all checked areas.')
+  } else {
+    executiveSummary.push(`Found ${totalIssues} issue${totalIssues > 1 ? 's' : ''} total.`)
+    if (highIssues > 0) {
+      executiveSummary.push(`${highIssues} high-priority issue${highIssues > 1 ? 's' : ''} need${highIssues === 1 ? 's' : ''} immediate attention.`)
+    }
+    if (mediumIssues > 0) {
+      executiveSummary.push(`${mediumIssues} medium-priority issue${mediumIssues > 1 ? 's' : ''} to address.`)
+    }
+    if (lowIssuesCount > 0 && highIssues === 0 && mediumIssues === 0) {
+      executiveSummary.push(`${lowIssuesCount} minor issue${lowIssuesCount > 1 ? 's' : ''} that can be improved over time.`)
+    }
   }
-  if (mediumIssues > 0) {
-    executiveSummary.push(`Found ${mediumIssues} medium-priority issue${mediumIssues > 1 ? 's' : ''} to address.`)
+  
+  // Module performance summary
+  const excellentModules = auditResult.modules.filter(m => m.score >= 80).length
+  const needsWorkModules = auditResult.modules.filter(m => m.score < 60).length
+  
+  if (excellentModules > 0) {
+    executiveSummary.push(`${excellentModules} of ${auditResult.modules.length} checked areas are performing excellently.`)
+  }
+  if (needsWorkModules > 0) {
+    executiveSummary.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} significant improvement.`)
   }
   
   // Quick fix checklist - top 5 high priority issues (deduplicated by title)
@@ -102,15 +143,32 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     }
   })
   
-  // Top actions - first 5 unique issues (deduplicated)
+  // Top actions - prioritize medium+ severity issues, or top 3 if <3 total issues
+  // Only include low severity if we have fewer than 3 medium+ issues
+  const mediumPlusIssues = allIssues.filter(i => i.severity === 'high' || i.severity === 'medium')
+  const lowIssues = allIssues.filter(i => i.severity === 'low')
+  
   const uniqueIssues: any[] = []
   const seenActionTitles = new Set<string>()
-  for (const issue of allIssues) {
+  
+  // First, add medium+ severity issues (up to 5)
+  for (const issue of mediumPlusIssues) {
     if (!seenActionTitles.has(issue.title) && uniqueIssues.length < 5) {
       seenActionTitles.add(issue.title)
       uniqueIssues.push(issue)
     }
   }
+  
+  // If we have fewer than 3 issues total, add low severity issues to fill up to 3
+  if (uniqueIssues.length < 3) {
+    for (const issue of lowIssues) {
+      if (!seenActionTitles.has(issue.title) && uniqueIssues.length < 3) {
+        seenActionTitles.add(issue.title)
+        uniqueIssues.push(issue)
+      }
+    }
+  }
+  
   const topActions = uniqueIssues.map((issue: any) => ({
     title: issue.title,
     why: issue.plainLanguageExplanation || 'This affects your website\'s performance.',
@@ -381,6 +439,7 @@ function generateHTMLReport(data: {
           <span style="color: #6b7280; font-size: 0.9em;">Score: ${module.score}/100</span>
         </div>
         <p style="margin-bottom: 15px;">${escapeHtml(module.summary || `This section checks ${displayName.toLowerCase()}.`)}</p>
+        ${getModuleDescription(module.moduleKey)}
         
         ${module.evidence && Object.keys(module.evidence).length > 0 ? `
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
