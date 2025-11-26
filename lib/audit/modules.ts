@@ -225,8 +225,12 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   const totalStylesheets = siteData.$('link[rel="stylesheet"]').length
   const totalResources = totalImages + totalScripts + totalStylesheets
 
+  // Adjust summary based on whether there are issues
+  const hasIssues = issues.length > 0
   const summary = score >= 80
-    ? 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
+    ? hasIssues 
+      ? 'Your site performance looks good. We found one small improvement opportunity.'
+      : 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
     : score >= 60
     ? 'Your site performance needs improvement. Focus on enabling HTTPS and optimizing images.'
     : 'Your site performance needs significant improvement. Start with HTTPS and image optimization.'
@@ -1697,12 +1701,8 @@ export async function runCompetitorOverviewModule(siteData: SiteData): Promise<M
       evidence.note = 'Competitor was identified but data could not be fetched'
     } else {
       // Check if the reason indicates an error or just no competitor found
-      const isError = competitorReason.toLowerCase().includes('error') || 
-                      competitorReason.toLowerCase().includes('timeout') ||
-                      competitorReason.toLowerCase().includes('failed')
-      evidence.note = isError
-        ? 'No competitor sites were identified for your industry, so this section gives general best practices instead.'
-        : competitorReason || 'No competitor was identified for comparison'
+      // Always use friendly message - never show technical errors
+      evidence.note = 'We could not find competitor sites in your category, so this section gives general best practices instead.'
     }
   }
   
