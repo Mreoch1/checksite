@@ -55,6 +55,30 @@ export async function POST(request: NextRequest) {
     const defaultModules = ['performance', 'crawl_health', 'on_page', 'mobile']
     const selectedModules = modules || defaultModules
 
+    // Check for recent duplicate audit (same URL + customer within last 30 minutes)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    const { data: recentAudit } = await supabase
+      .from('audits')
+      .select('id, created_at, status')
+      .eq('customer_id', customer.id)
+      .eq('url', url)
+      .gte('created_at', thirtyMinutesAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (recentAudit) {
+      const ageMinutes = Math.round((Date.now() - new Date(recentAudit.created_at).getTime()) / 1000 / 60)
+      return NextResponse.json(
+        { 
+          error: 'Duplicate audit',
+          message: `An audit for this URL was created ${ageMinutes} minute(s) ago. Please wait before creating another audit.`,
+          existingAuditId: recentAudit.id,
+        },
+        { status: 409 } // Conflict
+      )
+    }
+
     // Create audit
     const { data: audit, error: auditError } = await supabase
       .from('audits')
