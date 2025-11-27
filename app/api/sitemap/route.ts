@@ -5,11 +5,8 @@ export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the base URL from the request (supports both netlify.app and custom domain)
-    const host = request.headers.get('host') || 'seochecksite.netlify.app'
-    const protocol = request.headers.get('x-forwarded-proto') || 
-                     (request.url.startsWith('https') ? 'https' : 'http')
-    const baseUrl = `${protocol}://${host}`
+    // Use the netlify.app domain (no custom domain)
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
     
     // Generate sitemap XML with dynamic domain
     const pages = [
