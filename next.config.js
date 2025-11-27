@@ -49,14 +49,6 @@ const nextConfig = {
       },
     ]
   },
-  async rewrites() {
-    return [
-      {
-        source: '/sitemap.xml',
-        destination: '/api/serve-sitemap',
-      },
-    ]
-  },
 }
 
 module.exports = nextConfig

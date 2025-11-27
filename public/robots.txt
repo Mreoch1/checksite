@@ -14,6 +14,7 @@ Allow: /recommend
 Allow: /success
 Allow: /report/
 
-# Sitemap
+# Sitemap (works for both netlify.app and custom domain)
 Sitemap: https://seochecksite.netlify.app/sitemap.xml
+Sitemap: https://seochecksite.net/sitemap.xml
 
