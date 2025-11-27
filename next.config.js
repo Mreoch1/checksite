@@ -49,14 +49,8 @@ const nextConfig = {
       },
     ]
   },
-  async rewrites() {
-    return [
-      {
-        source: '/sitemap.xml',
-        destination: '/api/sitemap',
-      },
-    ]
-  },
+  // Removed sitemap rewrite - using Next.js built-in sitemap.ts instead
+  // This is more reliable on Netlify
 }
 
 module.exports = nextConfig
