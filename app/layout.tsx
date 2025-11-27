@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import Footer from '@/components/Footer'
 import SkipLink from '@/components/SkipLink'
@@ -101,18 +102,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google tag (gtag.js) */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-D7TTYQRCRG"></script>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-D7TTYQRCRG');
-            `,
-          }}
-        />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/logo-icon.svg" type="image/svg+xml" sizes="any" />
         <link rel="apple-touch-icon" href="/logo-icon.svg" />
@@ -122,6 +111,19 @@ export default function RootLayout({
         />
       </head>
       <body>
+        {/* Google tag (gtag.js) - Using Next.js Script component for optimization */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-D7TTYQRCRG"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-D7TTYQRCRG');
+          `}
+        </Script>
         <SkipLink />
         <main id="main-content">{children}</main>
         <Footer />
