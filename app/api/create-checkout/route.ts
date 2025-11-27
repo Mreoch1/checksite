@@ -92,6 +92,30 @@ export async function POST(request: NextRequest) {
       customer = newCustomer
     }
 
+    // Check for recent duplicate audit (same URL + customer within last 30 minutes)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    const { data: recentAudit } = await supabase
+      .from('audits')
+      .select('id, created_at, status')
+      .eq('customer_id', customer.id)
+      .eq('url', normalizedUrl)
+      .gte('created_at', thirtyMinutesAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (recentAudit) {
+      const ageMinutes = Math.round((Date.now() - new Date(recentAudit.created_at).getTime()) / 1000 / 60)
+      return NextResponse.json(
+        { 
+          error: 'Duplicate audit',
+          message: `An audit for this URL was created ${ageMinutes} minute(s) ago. Please wait before creating another audit.`,
+          existingAuditId: recentAudit.id,
+        },
+        { status: 409 } // Conflict
+      )
+    }
+
     // Create audit record
     // Store competitor URL in raw_result_json as metadata for now
     const auditMetadata = normalizedCompetitorUrl ? { competitorUrl: normalizedCompetitorUrl } : {}
