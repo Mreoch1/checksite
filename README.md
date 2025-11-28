@@ -171,7 +171,7 @@ Quick steps:
 - **On-Page SEO**: Complete with evidence collection (title, meta description, H1/H2/H3 counts, word count, alt text)
 - **Mobile Optimization**: Viewport checks, responsive design validation, touch target sizes
 - **Crawl Health**: Sitemap.xml detection, robots.txt content analysis, internal link counting
-- **Local SEO**: Address/phone detection, LocalBusiness schema validation, Google Maps integration
+- **Local SEO**: Enhanced address/phone detection (handles split addresses, HTML blocks, CMS structures), LocalBusiness schema validation, Google Maps integration
 - **Accessibility**: Alt text, form labels, heading hierarchy, color contrast checks
 - **Security**: HTTPS validation, mixed content detection
 - **Schema Markup**: JSON-LD detection and validation, Organization/LocalBusiness schema checks
@@ -355,6 +355,16 @@ All audit modules now collect and display evidence:
 
 ## Recent Updates
 
+### Local SEO Address Detection Improvements
+- **Enhanced Address Detection**: Improved Local SEO module to reliably detect business addresses
+  - Normalizes whitespace (handles `<br>` tags and newlines)
+  - Searches multiple content areas: footer, contact sections, HTML content blocks, and raw HTML
+  - Handles addresses split across lines (e.g., "950 N. River Street<br>Ypsilanti, MI 48198")
+  - Supports directional abbreviations with periods (e.g., "N." or "N")
+  - Combines street and city/state when found separately
+  - Works with Squarespace and other CMS platforms that use HTML content blocks
+  - Final fallback searches raw HTML for JavaScript-rendered or complex structures
+
 ### URL Normalization
 - **Automatic URL Normalization**: All URLs are normalized before processing
   - Adds `https://` if no protocol is provided
@@ -414,6 +424,12 @@ Comprehensive admin endpoints (all require `ADMIN_SECRET` header):
 - **`/api/admin/check-id`**: Validate audit ID format
 
 All admin endpoints require `Authorization: Bearer YOUR_ADMIN_SECRET` header.
+
+## Recent Fixes
+
+- **Local SEO Address Detection**: Fixed issue where addresses in footers (especially with `<br>` tags) were not being detected. Now searches multiple content areas and raw HTML for reliable detection.
+- **Sitemap Generation**: Implemented Next.js built-in sitemap feature (`app/sitemap.ts`) for reliable sitemap.xml generation at root path.
+- **Email Click Tracking**: Disabled SendGrid click tracking for report links to prevent SSL certificate errors.
 
 ## Future Enhancements
 
