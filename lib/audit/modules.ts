@@ -608,10 +608,16 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   // Priority 1: Check contact/footer sections first
   const footerText = siteData.$('footer').text() || ''
   const contactSections = siteData.$('[class*="contact"], [id*="contact"], [class*="address"], [id*="address"], [class*="location"], [id*="location"]').text() || ''
-  const priorityText = (footerText + ' ' + contactSections).trim()
+  // Also check HTML content blocks and paragraphs (Squarespace and similar CMS often use these)
+  const htmlBlocks = siteData.$('[class*="html"], [data-sqsp-text-block-content], p').text() || ''
+  // Normalize whitespace (convert all whitespace including newlines to single spaces for easier matching)
+  const priorityText = (footerText + ' ' + contactSections + ' ' + htmlBlocks).replace(/\s+/g, ' ').trim()
   
-  // Priority 2: Full page text (fallback)
-  const textContent = siteData.$('body').text()
+  // Priority 2: Full page text (fallback) - also search raw HTML for addresses that might be missed
+  // Normalize whitespace here too
+  const textContent = siteData.$('body').text().replace(/\s+/g, ' ')
+  // Also search raw HTML (normalized) as fallback for JavaScript-rendered or complex structures
+  const rawHtmlNormalized = siteData.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   
   // Strict address pattern: requires street number, optional directional, street word(s), and street type
   // Handles: "1030 N Crooks Rd", "123 Main St", "456 S Park Avenue", "950 N. River Street" (with period)
@@ -621,10 +627,9 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
   
   // Full address pattern with optional suite/unit, city, state, zip
   // Handles: "1030 N Crooks Rd, Suite G, Clawson, MI 48017" and "950 N. River Street Ypsilanti, MI 48198"
+  // Also handles addresses split by <br> tags: "950 N. River Street Ypsilanti, MI 48198" (after whitespace normalization)
   // Pattern: Street (optional: Suite/Unit/Apt) City, State ZIP
   // Note: Comma between street and city is optional to handle formats like "950 N. River Street Ypsilanti, MI 48198"
-  // Full address pattern - match street followed by city/state/zip
-  // The pattern needs to handle: "Street Ypsilanti, MI 48198" (no comma) or "Street, Ypsilanti, MI 48198" (with comma)
   // Create street pattern without trailing word boundary to allow matching city immediately after
   const streetPatternNoBoundary = /\d{1,5}\s+(?:(?:N|S|E|W|NE|NW|SE|SW)\.?\s+)?\w+(?:\s+\w+)*\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Parkway)/i
   const fullAddressPattern = new RegExp(
@@ -648,17 +653,18 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
       // Try street pattern in priority sections, then look for city/state/zip nearby
       const streetMatch = priorityText.match(strictStreetPattern)
       if (streetMatch) {
-        // Check if city/state/zip follows within reasonable distance (up to 300 chars to allow for suite/unit and spacing)
+        // Check if city/state/zip follows within reasonable distance (up to 100 chars - increased for better detection)
         const streetIndex = priorityText.indexOf(streetMatch[0])
         const streetEndIndex = streetIndex + streetMatch[0].length
-        const contextAfter = priorityText.substring(streetEndIndex, streetEndIndex + 300)
+        const contextAfter = priorityText.substring(streetEndIndex, streetEndIndex + 100)
         const cityStateMatch = contextAfter.match(cityStateZipPattern)
         if (cityStateMatch && cityStateMatch.index !== undefined) {
           // Construct full address: street + city/state/zip
           // Check if there's reasonable spacing between them (not too much text)
           const textBetween = contextAfter.substring(0, cityStateMatch.index).trim()
-          // If there's less than 50 chars between street and city, they're likely part of same address
-          if (textBetween.length < 50) {
+          // If there's less than 30 chars between street and city (after normalization), they're likely part of same address
+          // This handles cases like "Street\nCity" or "Street City" or "Street, City"
+          if (textBetween.length < 30) {
             // Construct the full address by combining street + city/state/zip
             const fullAddress = streetMatch[0] + ' ' + cityStateMatch[0]
             // Validate it's a reasonable address length
@@ -683,15 +689,15 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
       if (streetMatch) {
         const streetIndex = textContent.indexOf(streetMatch[0])
         const streetEndIndex = streetIndex + streetMatch[0].length
-        // Look for city/state/zip within 300 chars (increased from 200 for better detection)
-        const contextAfter = textContent.substring(streetEndIndex, streetEndIndex + 300)
+        // Look for city/state/zip within 100 chars (normalized text, so this should be enough)
+        const contextAfter = textContent.substring(streetEndIndex, streetEndIndex + 100)
         const cityStateMatch = contextAfter.match(cityStateZipPattern)
         if (cityStateMatch && cityStateMatch.index !== undefined) {
           // Construct full address: street + city/state/zip
           // Check if there's reasonable spacing between them (not too much text)
           const textBetween = contextAfter.substring(0, cityStateMatch.index).trim()
-          // If there's less than 50 chars between street and city, they're likely part of same address
-          if (textBetween.length < 50) {
+          // If there's less than 30 chars between street and city (after normalization), they're likely part of same address
+          if (textBetween.length < 30) {
             // Construct the full address by combining street + city/state/zip
             const fullAddress = streetMatch[0] + ' ' + cityStateMatch[0]
             // Validate it's a reasonable address length
@@ -700,6 +706,31 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
               addressMatch = [fullAddress] as RegExpMatchArray
               addressMatch.index = streetIndex
               addressMatch.input = textContent
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Final fallback: search raw HTML (for cases where cheerio text extraction misses content)
+  if (!addressMatch) {
+    addressMatch = rawHtmlNormalized.match(fullAddressPattern)
+    if (!addressMatch) {
+      const streetMatch = rawHtmlNormalized.match(strictStreetPattern)
+      if (streetMatch) {
+        const streetIndex = rawHtmlNormalized.indexOf(streetMatch[0])
+        const streetEndIndex = streetIndex + streetMatch[0].length
+        const contextAfter = rawHtmlNormalized.substring(streetEndIndex, streetEndIndex + 100)
+        const cityStateMatch = contextAfter.match(cityStateZipPattern)
+        if (cityStateMatch && cityStateMatch.index !== undefined) {
+          const textBetween = contextAfter.substring(0, cityStateMatch.index).trim()
+          if (textBetween.length < 30) {
+            const fullAddress = streetMatch[0] + ' ' + cityStateMatch[0]
+            if (fullAddress.length >= 20 && fullAddress.length <= 200) {
+              addressMatch = [fullAddress] as RegExpMatchArray
+              addressMatch.index = streetIndex
+              addressMatch.input = rawHtmlNormalized
             }
           }
         }
