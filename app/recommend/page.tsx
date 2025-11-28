@@ -450,7 +450,7 @@ export default function RecommendPage() {
                 ))}
               <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t">
                 <span>Total:</span>
-                <span>${calculateTotal().toFixed(2)}</span>
+                <span>${(calculateTotal() / 100).toFixed(2)}</span>
               </div>
             </div>
 
