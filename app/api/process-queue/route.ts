@@ -1,6 +1,6 @@
 /**
  * Process queue endpoint - processes one pending audit at a time
- * This endpoint should be called by a free cron service (e.g., cron-job.org) every minute
+ * This endpoint is called by Netlify's scheduled functions (cron jobs) every 2 minutes
  * 
  * IMPORTANT: With Netlify Pro (26s timeout), this endpoint:
  * - Attempts full audit processing with early return if timeout approaches
@@ -8,12 +8,7 @@
  * - Fast operations (email sending) complete within timeout
  * - Full audits may timeout but continue processing in background
  * 
- * Setup instructions:
- * 1. Go to https://cron-job.org (free)
- * 2. Create a new cron job
- * 3. URL: https://seochecksite.netlify.app/api/process-queue?secret=YOUR_SECRET
- * 4. Schedule: Every minute (* * * * *)
- * 5. Secret: Set QUEUE_SECRET in Netlify environment variables
+ * The cron job is configured in netlify.toml and managed via Netlify CLI
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,7 +25,7 @@ export async function GET(request: NextRequest) {
   console.log(`[${requestId}] /api/process-queue called`)
   try {
     // Optional: Add basic auth to prevent unauthorized access
-    // Supports both Bearer token header and query parameter (for easier cron-job.org setup)
+      // Supports both Bearer token header and query parameter (for Netlify cron job setup)
     const expectedSecret = process.env.QUEUE_SECRET
     
     if (expectedSecret) {
