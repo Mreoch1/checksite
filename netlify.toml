@@ -20,16 +20,8 @@
   # Consider using Netlify Background Functions or external queue for long-running tasks
   
   # Scheduled function for processing audit queue
-  # This function calls the Next.js API route /api/process-queue
-  # Schedule is configured in netlify.toml or via dashboard
-  [functions.process-queue]
-    schedule = "*/2 * * * *"  # Every 2 minutes
-
-# Scheduled Functions (Cron Jobs)
-# Netlify scheduled functions run on a schedule and call API endpoints
-# The process-queue endpoint is configured to run every 2 minutes
-# Configure via Netlify dashboard: Site settings → Functions → Scheduled functions
-# Or use Netlify API to create/update the scheduled function
+  # The schedule is configured in netlify/functions/process-queue.js using @netlify/functions
+  # Runs every 2 minutes automatically on Netlify
 
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
