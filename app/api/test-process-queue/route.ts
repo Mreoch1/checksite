@@ -41,22 +41,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Filter for processable items (5-minute delay, no email sent)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-
+    // Filter for processable items (no delay - process immediately)
     const queueItem = queueItems.find((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       if (!audit) return false
       if (isEmailSent(audit.email_sent_at)) return false
       if (isEmailSending(audit.email_sent_at)) return false
-      if (item.created_at && item.created_at > fiveMinutesAgo) return false
       return true
     }) || null
 
     if (!queueItem) {
       return NextResponse.json({
         success: true,
-        message: 'No audits ready to process (waiting for delay or already processed)',
+        message: 'No audits ready to process (all already processed)',
         processed: 0,
         queueItems: queueItems.length,
       })
