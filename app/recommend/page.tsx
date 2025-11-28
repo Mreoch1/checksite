@@ -80,14 +80,15 @@ export default function RecommendPage() {
 
       setModules(moduleList)
       
-      // Select recommended modules by default
-      const recommended = new Set<ModuleKey>()
+      // Only select core modules by default (not add-ons like local or competitor_overview)
+      // Users can manually check Local SEO and Competitor Overview if they want them
+      const coreOnly = new Set<ModuleKey>()
       moduleList.forEach(m => {
-        if (m.recommended) {
-          recommended.add(m.key)
+        if (CORE_MODULES.includes(m.key)) {
+          coreOnly.add(m.key)
         }
       })
-      setSelectedModules(recommended)
+      setSelectedModules(coreOnly)
       
       setLoading(false)
     } catch (err) {
@@ -381,17 +382,15 @@ export default function RecommendPage() {
                             onChange={(e) => {
                               setCompetitorUrl(e.target.value)
                               const trimmedValue = e.target.value.trim()
-                              // If URL is provided and competitor_overview is not selected, auto-select it
-                              if (trimmedValue && !selectedModules.has('competitor_overview')) {
-                                const newSelected = new Set(selectedModules)
-                                newSelected.add('competitor_overview')
-                                setSelectedModules(newSelected)
-                              }
                               // If URL is cleared and competitor_overview is selected, unselect it
                               if (!trimmedValue && selectedModules.has('competitor_overview')) {
                                 const newSelected = new Set(selectedModules)
                                 newSelected.delete('competitor_overview')
                                 setSelectedModules(newSelected)
+                              }
+                              // Clear error when URL is provided
+                              if (trimmedValue && error) {
+                                setError('')
                               }
                             }}
                             placeholder="competitor.com or https://competitor.com"
