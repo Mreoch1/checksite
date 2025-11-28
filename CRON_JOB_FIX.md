@@ -71,7 +71,9 @@ The cron job will now:
 
 ## Monitoring
 
-Check cron job status at: `https://console.cron-job.org/dashboard`
+Check cron job status in Netlify dashboard:
+- Go to your site → Functions → Scheduled functions
+- View execution logs and status
 
 The endpoint will return:
 - `success: true` - Operation completed

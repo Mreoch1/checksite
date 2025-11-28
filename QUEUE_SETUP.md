@@ -6,7 +6,7 @@ Since Netlify functions have timeout limits (10s free, 26s Pro), we use a queue 
 
 1. When an audit is created, it's added to the `audit_queue` table
 2. A separate `/api/process-queue` endpoint processes one audit at a time
-3. A free cron service calls this endpoint every minute
+3. Netlify's scheduled function (cron job) calls this endpoint every 2 minutes
 4. **With Netlify Pro**: The endpoint attempts full audit processing
    - Returns early if processing takes too long (20s safety margin)
    - Processing continues in background after function returns
@@ -18,37 +18,39 @@ Since Netlify functions have timeout limits (10s free, 26s Pro), we use a queue 
 
 The migration `003_create_audit_queue.sql` creates the queue table. It should run automatically on your next deploy, or you can run it manually in Supabase.
 
-### 2. Set Up Free Cron Service
+### 2. Set Up Netlify Cron Job
 
-We'll use **cron-job.org** (completely free):
+The cron job is configured in `netlify.toml` and managed via Netlify CLI:
 
-1. Go to https://cron-job.org
-2. Sign up for a free account
-3. Click "Create cronjob"
-4. Configure:
-   - **Title**: SEO CheckSite Queue Processor
-   - **Address (URL)**: 
-     - **Option A (Easiest)**: `https://seochecksite.netlify.app/api/process-queue?secret=YOUR_SECRET_KEY`
-       - Replace `YOUR_SECRET_KEY` with the value you set for `QUEUE_SECRET` in Netlify
-     - **Option B (More Secure)**: `https://seochecksite.netlify.app/api/process-queue`
-       - Then add a **Request header**:
-         - Header name: `Authorization`
-         - Header value: `Bearer YOUR_SECRET_KEY`
-   - **Schedule**: Every minute (`* * * * *`) - Use "Custom" option and enter `* * * * *` in the crontab expression field
-   - **Request method**: GET
+1. **Configure in netlify.toml** (already done):
+   ```toml
+   [[functions]]
+     [functions.process-queue]
+       schedule = "*/2 * * * *"  # Every 2 minutes
+   ```
+
+2. **Deploy the configuration**:
+   ```bash
+   netlify deploy --prod
+   ```
+
+3. **Or update via CLI**:
+   ```bash
+   netlify functions:update process-queue --schedule "*/2 * * * *"
+   ```
 
 ### 3. Set Environment Variable (Optional but Recommended)
 
 In Netlify:
 1. Go to Site settings → Environment variables
 2. Add: `QUEUE_SECRET` = (any random string, e.g., generate with `openssl rand -hex 32`)
-3. Update the cron job header to use this secret
+3. The cron job will use this secret for authentication
 
 ### 4. Test the Queue
 
 1. Create a test audit via `/api/test-audit`
 2. Check the queue: `SELECT * FROM audit_queue ORDER BY created_at DESC;`
-3. Wait up to 1 minute for the cron job to process it
+3. Wait up to 2 minutes for the cron job to process it
 4. Check the audit status
 
 ## Alternative: Manual Processing

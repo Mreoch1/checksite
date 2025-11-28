@@ -325,8 +325,9 @@ To adjust pricing, modify the `PRICING_CONFIG` object.
 
 ### Queue Processing Issues
 - Verify `QUEUE_SECRET` is set in environment variables
-- Check cron job is configured and running (see `QUEUE_SETUP.md`)
+- Check Netlify cron job is configured and running (see `QUEUE_SETUP.md`)
 - Verify `/api/process-queue` endpoint is accessible
+- Check Netlify dashboard → Functions → Scheduled functions for cron job status
 - Check for stuck audits using admin endpoints
 - Queue processor auto-fixes audits with reports but wrong status
 

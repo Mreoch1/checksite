@@ -19,6 +19,12 @@
   # Background processing continues after function returns, but may be killed on timeout
   # Consider using Netlify Background Functions or external queue for long-running tasks
 
+# Scheduled Functions (Cron Jobs)
+# Netlify scheduled functions run on a schedule and call API endpoints
+# The process-queue endpoint is configured to run every 2 minutes
+# Configure via Netlify dashboard: Site settings → Functions → Scheduled functions
+# Or use Netlify API to create/update the scheduled function
+
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
 # NEXT_PUBLIC_* variables are required at build time
