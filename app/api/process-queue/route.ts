@@ -2,12 +2,17 @@
  * Process queue endpoint - processes one pending audit at a time
  * This endpoint should be called by a free cron service (e.g., cron-job.org) every minute
  * 
+ * IMPORTANT: Due to Netlify function timeout limits (10-26 seconds), this endpoint:
+ * - Only processes audits that already have reports (just need email sending - fast)
+ * - Skips audits that need full processing (to avoid 503 timeout errors)
+ * - Full audits should be processed via admin endpoints or scripts
+ * 
  * Setup instructions:
  * 1. Go to https://cron-job.org (free)
  * 2. Create a new cron job
- * 3. URL: https://seochecksite.netlify.app/api/process-queue
+ * 3. URL: https://seochecksite.netlify.app/api/process-queue?secret=YOUR_SECRET
  * 4. Schedule: Every minute (* * * * *)
- * 5. Add header: Authorization: Bearer YOUR_SECRET_KEY (set in env as QUEUE_SECRET)
+ * 5. Secret: Set QUEUE_SECRET in Netlify environment variables
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -490,20 +495,64 @@ export async function GET(request: NextRequest) {
     }
 
     // Process the audit (this may take several minutes)
-    // Add timeout wrapper to prevent infinite hangs (8 minutes max - Netlify functions have 10s limit, but cron can run longer)
-    const PROCESS_TIMEOUT_MS = 8 * 60 * 1000 // 8 minutes
+    // CRITICAL: Netlify functions timeout at 10-26 seconds, so we need to return quickly
+    // Strategy: Only process audits that are already completed and just need email sending
+    // For audits that need full processing, we'll skip them here and let them be processed
+    // by a different mechanism (or they'll be retried on the next cron run after timeout)
+    
+    // Check if audit already has a report (just needs email sending - fast)
+    const { data: quickCheck } = await supabase
+      .from('audits')
+      .select('status, formatted_report_html, email_sent_at')
+      .eq('id', auditId)
+      .single()
+    
+    const hasReport = !!quickCheck?.formatted_report_html
+    const needsFullProcessing = !hasReport
+    
+    // If audit needs full processing (no report yet), skip it to avoid timeout
+    // The audit will be retried on the next cron run, or can be processed manually
+    if (needsFullProcessing) {
+      console.log(`[${requestId}] ⚠️  Audit ${auditId} needs full processing (no report yet) - skipping to avoid Netlify timeout`)
+      console.log(`[${requestId}] This audit will be processed by a different mechanism or retried later`)
+      
+      // Reset queue item to pending so it can be retried
+      await supabase
+        .from('audit_queue')
+        .update({
+          status: 'pending',
+          started_at: null,
+          last_error: 'Skipped to avoid Netlify function timeout - needs full processing',
+        })
+        .eq('id', queueItem.id)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Audit skipped - needs full processing (will timeout on Netlify)',
+        processed: false,
+        auditId,
+        reason: 'needs_full_processing',
+        note: 'Use admin endpoint or background job to process audits that need full module execution',
+      })
+    }
+    
+    // Audit has report - just needs email sending (fast, should complete within timeout)
+    console.log(`[${requestId}] Audit ${auditId} has report - processing email sending only (fast)`)
+    
+    // Set a shorter timeout for email-only processing (20 seconds max)
+    const EMAIL_TIMEOUT_MS = 20 * 1000 // 20 seconds
     let processTimedOut = false
     
     try {
-      console.log(`[${requestId}] Processing audit ${auditId} from queue`)
+      console.log(`[${requestId}] Processing email sending for audit ${auditId}`)
       
-      // Wrap processAudit in a timeout
+      // Wrap processAudit in a timeout (it will skip module execution since report exists)
       const processPromise = processAudit(auditId)
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           processTimedOut = true
-          reject(new Error(`Audit processing timeout after ${PROCESS_TIMEOUT_MS / 1000} seconds`))
-        }, PROCESS_TIMEOUT_MS)
+          reject(new Error(`Email processing timeout after ${EMAIL_TIMEOUT_MS / 1000} seconds`))
+        }, EMAIL_TIMEOUT_MS)
       })
       
       await Promise.race([processPromise, timeoutPromise])
