@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // This prevents processing the same audit multiple times if there are duplicate queue entries
     // Use a simpler query approach to avoid join filter issues
     // NOTE: Get more items to ensure we catch recent ones that might be filtered out
-    const { data: queueItems, error: findError } = await supabase
+    let { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'pending')
@@ -322,6 +322,7 @@ export async function GET(request: NextRequest) {
       return true
     }) || null
     
+    if (!queueItem) {
       // No delay - all pending items should be processable
       if (queueItems && queueItems.length > 0) {
         // This is important - we have queue items but none passed the filter
@@ -411,7 +412,7 @@ export async function GET(request: NextRequest) {
     
     // Additional checks: skip if audit is already completed
     // Now we know queueItem exists, so we can safely access its properties
-    const auditData = (queueItem.audits as any) || null
+    const auditData = (queueItem.audits as any) || null;
     if (auditData) {
       // CRITICAL: Skip if email was already sent (not a reservation)
       // This is the PRIMARY check to prevent duplicate emails
@@ -848,7 +849,7 @@ export async function GET(request: NextRequest) {
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
-    )
+    );
   }
 }
 
