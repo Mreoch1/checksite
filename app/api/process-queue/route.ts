@@ -181,6 +181,7 @@ export async function GET(request: NextRequest) {
       
       // Log each item being checked
       const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
+      const ageMinutes = Math.round(ageSeconds / 60)
       
       // FALLBACK: If join didn't return audit data, fetch it separately
       // This handles cases where the foreign key join might fail or return null
