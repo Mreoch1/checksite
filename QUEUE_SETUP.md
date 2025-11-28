@@ -7,7 +7,9 @@ Since Netlify's free tier has a 10-second function timeout, we use a queue syste
 1. When an audit is created, it's added to the `audit_queue` table
 2. A separate `/api/process-queue` endpoint processes one audit at a time
 3. A free cron service calls this endpoint every minute
-4. The endpoint processes the oldest pending audit
+4. **IMPORTANT**: The endpoint only processes audits that already have reports (just need email sending - fast)
+   - Full audits (that need module execution) are skipped to avoid Netlify timeout
+   - Full audits should be processed via admin endpoints or scripts (see below)
 
 ## Setup Steps
 
@@ -74,9 +76,38 @@ WHERE status = 'processing'
   AND started_at < NOW() - INTERVAL '10 minutes';
 ```
 
+## Processing Full Audits
+
+The cron job endpoint skips audits that need full processing (to avoid Netlify timeout). To process these:
+
+### Option 1: Admin Endpoint (Recommended)
+```bash
+curl -X POST https://seochecksite.netlify.app/api/admin/retry-audit \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ADMIN_SECRET" \
+  -d '{"auditId": "AUDIT_ID"}'
+```
+
+### Option 2: Direct Script (Local)
+```bash
+node scripts/process-audit-direct.js AUDIT_ID
+```
+
+### Option 3: Test Endpoint (For Testing)
+```bash
+curl -X POST https://seochecksite.netlify.app/api/test-process-queue \
+  -H "Content-Type: application/json"
+```
+
 ## Troubleshooting
 
+- **503 Service Unavailable**: This was fixed - the endpoint now skips full audits to avoid timeout
 - **Queue not processing**: Check cron job is running, check Netlify function logs
 - **Audits stuck**: Check for errors in `last_error` column, manually reset status if needed
+- **Full audits not processing**: Use admin endpoint or script to process them (see above)
 - **Too many retries**: Increase retry limit in `app/api/process-queue/route.ts` if needed
+
+## See Also
+
+- `CRON_JOB_FIX.md` - Detailed explanation of the 503 error fix
 
