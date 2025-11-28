@@ -104,21 +104,28 @@ export default function RecommendPage() {
       return
     }
 
-    // For competitor_overview, require competitor URL
-    if (key === 'competitor_overview') {
+    const newSelected = new Set(selectedModules)
+    const isCurrentlySelected = newSelected.has(key)
+    
+    // If trying to SELECT competitor_overview, require competitor URL
+    if (key === 'competitor_overview' && !isCurrentlySelected) {
       if (!competitorUrl || !competitorUrl.trim()) {
         setError('Please enter a competitor URL first to enable Competitor Overview.')
         return
       }
     }
-
-    const newSelected = new Set(selectedModules)
-    if (newSelected.has(key)) {
+    
+    // Allow unchecking (deselecting) at any time
+    if (isCurrentlySelected) {
       newSelected.delete(key)
     } else {
       newSelected.add(key)
     }
     setSelectedModules(newSelected)
+    // Clear error when successfully toggling
+    if (error) {
+      setError('')
+    }
   }
 
   const calculateTotal = (): number => {
@@ -236,6 +243,7 @@ export default function RecommendPage() {
     )
   }
 
+  // Calculate total dynamically (updates when selectedModules or competitorUrl changes)
   const totalCents = calculateTotal()
   const totalDollars = (totalCents / 100).toFixed(2)
 
@@ -442,7 +450,7 @@ export default function RecommendPage() {
                 ))}
               <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t">
                 <span>Total:</span>
-                <span>${totalDollars}</span>
+                <span>${calculateTotal().toFixed(2)}</span>
               </div>
             </div>
 
