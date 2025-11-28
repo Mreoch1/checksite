@@ -8,29 +8,34 @@ The cron job at `https://seochecksite.netlify.app/api/process-queue` was failing
 
 1. **Netlify Function Timeout Limits:**
    - Free tier: 10 seconds
-   - Pro tier: 26 seconds
+   - Pro tier: 26 seconds (with Netlify Pro)
    - Enterprise: up to 26 seconds
 
 2. **Audit Processing Time:**
-   - Full audit processing (running all modules) takes **several minutes**
+   - Full audit processing (running all modules) can take **1-3 minutes**
    - The endpoint was trying to process audits synchronously
    - This exceeded Netlify's timeout, causing 503 errors
 
+3. **Netlify Pro Benefits:**
+   - 26-second timeout (vs 10 seconds on free tier)
+   - Background processing continues after function returns
+   - Can attempt full audit processing with early return pattern
+
 ## Solution
 
-The `/api/process-queue` endpoint has been optimized to **return quickly** and avoid timeouts:
+The `/api/process-queue` endpoint has been optimized for **Netlify Pro** to handle full audits:
 
 ### What It Does Now
 
-1. **Fast Operations Only:**
-   - Only processes audits that **already have reports** (just need email sending)
-   - Email sending completes in < 10 seconds
-   - Returns quickly to prevent 503 errors
+1. **Attempts Full Processing:**
+   - With Netlify Pro (26s timeout), attempts to process full audits
+   - Returns early if processing takes too long (20s safety margin)
+   - Processing continues in background after function returns
 
-2. **Skips Full Processing:**
-   - Audits that need full module execution are **skipped** in the cron job
-   - These are marked with `last_error: 'Skipped to avoid Netlify function timeout - needs full processing'`
-   - They remain in the queue for manual processing
+2. **Fast Operations:**
+   - Email-only operations complete within timeout
+   - Full audits may timeout but continue processing in background
+   - No more 503 errors - function always returns successfully
 
 ### Processing Full Audits
 
@@ -60,8 +65,9 @@ Full audits (that need module execution) should be processed via:
 The cron job will now:
 - ✅ Return 200 OK (no more 503 errors)
 - ✅ Process email sending for completed audits
-- ⚠️ Skip full audits (to avoid timeout)
-- 📝 Log skipped audits for manual processing
+- ✅ Attempt full audit processing (with Netlify Pro)
+- 🔄 Continue processing in background if timeout occurs
+- 📝 Log processing status for monitoring
 
 ## Monitoring
 

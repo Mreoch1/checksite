@@ -1,15 +1,16 @@
 # Audit Queue Setup Instructions
 
-Since Netlify's free tier has a 10-second function timeout, we use a queue system to process audits outside of that limit.
+Since Netlify functions have timeout limits (10s free, 26s Pro), we use a queue system to process audits asynchronously.
 
 ## How It Works
 
 1. When an audit is created, it's added to the `audit_queue` table
 2. A separate `/api/process-queue` endpoint processes one audit at a time
 3. A free cron service calls this endpoint every minute
-4. **IMPORTANT**: The endpoint only processes audits that already have reports (just need email sending - fast)
-   - Full audits (that need module execution) are skipped to avoid Netlify timeout
-   - Full audits should be processed via admin endpoints or scripts (see below)
+4. **With Netlify Pro**: The endpoint attempts full audit processing
+   - Returns early if processing takes too long (20s safety margin)
+   - Processing continues in background after function returns
+   - Fast operations (email sending) complete within timeout
 
 ## Setup Steps
 
