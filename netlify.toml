@@ -18,6 +18,12 @@
   # Pro tier: up to 26s
   # Background processing continues after function returns, but may be killed on timeout
   # Consider using Netlify Background Functions or external queue for long-running tasks
+  
+  # Scheduled function for processing audit queue
+  # This function calls the Next.js API route /api/process-queue
+  # Schedule is configured in netlify.toml or via dashboard
+  [functions.process-queue]
+    schedule = "*/2 * * * *"  # Every 2 minutes
 
 # Scheduled Functions (Cron Jobs)
 # Netlify scheduled functions run on a schedule and call API endpoints
