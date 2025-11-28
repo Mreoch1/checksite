@@ -174,14 +174,13 @@ export async function GET(request: NextRequest) {
     }
     
     // Now find the first valid queue item
-    // Add 5-minute delay: only process audits that were created at least 5 minutes ago
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    // No delay - process audits immediately (duplicate prevention handled by other mechanisms)
     
     const queueItem = queueItems?.find((item: any) => {
       let audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       
       // Log each item being checked
-      const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
+      const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
       
       // FALLBACK: If join didn't return audit data, fetch it separately
       // This handles cases where the foreign key join might fail or return null
@@ -210,45 +209,25 @@ export async function GET(request: NextRequest) {
         return false
       }
       
-      // CRITICAL: Skip audits created less than 5 minutes ago (delay processing)
-      // This prevents immediate processing and gives time for any duplicate queue entries to be cleaned up
-      if (item.created_at && item.created_at > fiveMinutesAgo) {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - created ${ageMinutes} minute(s) ago (need 5 minutes delay)`)
-        return false
-      }
-      
       // This item passes all checks - log it
       console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'})`)
       return true
     }) || null
     
     if (!queueItem) {
-      // Check if there are audits waiting for the 5-minute delay
-      const waitingItems = queueItems?.filter((item: any) => {
-        const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-        if (!audit) return false
-        if (isEmailSent(audit.email_sent_at)) return false
-        if (isEmailSending(audit.email_sent_at)) return false
-        if (item.created_at && item.created_at > fiveMinutesAgo) return true
-        return false
-      }) || []
-      
-      if (waitingItems.length > 0) {
-        console.log(`[${requestId}] No pending audits ready to process (${waitingItems.length} waiting for 5-minute delay)`)
-      } else if (queueItems && queueItems.length > 0) {
+      // No delay - all pending items should be processable
+      if (queueItems && queueItems.length > 0) {
         // This is important - we have queue items but none passed the filter
         console.warn(`[${requestId}] ⚠️  Found ${queueItems.length} pending queue items but none passed filtering criteria`)
         console.warn(`[${requestId}] This might indicate a bug in the filtering logic or missing audit data in joins`)
         // Log details about why each item was filtered out
         queueItems.forEach((item: any) => {
           const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-          const passesDelay = item.created_at < fiveMinutesAgo
+          const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
           const passesEmail = !isEmailSent(audit?.email_sent_at) && !isEmailSending(audit?.email_sent_at)
           console.warn(`[${requestId}]   - Queue item ${item.id} (audit_id: ${item.audit_id}):`)
-          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageMinutes}m, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
-          console.warn(`[${requestId}]     passes_delay=${passesDelay}, passes_email=${passesEmail}, should_process=${passesDelay && passesEmail && audit ? 'YES' : 'NO'}`)
+          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageSeconds}s, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
+          console.warn(`[${requestId}]     passes_email=${passesEmail}, should_process=${passesEmail && audit ? 'YES' : 'NO'}`)
         })
       } else {
         console.log(`[${requestId}] No pending audits in queue`)
