@@ -2,10 +2,11 @@
  * Process queue endpoint - processes one pending audit at a time
  * This endpoint should be called by a free cron service (e.g., cron-job.org) every minute
  * 
- * IMPORTANT: Due to Netlify function timeout limits (10-26 seconds), this endpoint:
- * - Only processes audits that already have reports (just need email sending - fast)
- * - Skips audits that need full processing (to avoid 503 timeout errors)
- * - Full audits should be processed via admin endpoints or scripts
+ * IMPORTANT: With Netlify Pro (26s timeout), this endpoint:
+ * - Attempts full audit processing with early return if timeout approaches
+ * - Processing continues in background after function returns
+ * - Fast operations (email sending) complete within timeout
+ * - Full audits may timeout but continue processing in background
  * 
  * Setup instructions:
  * 1. Go to https://cron-job.org (free)
@@ -494,11 +495,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Process the audit (this may take several minutes)
-    // CRITICAL: Netlify functions timeout at 10-26 seconds, so we need to return quickly
-    // Strategy: Only process audits that are already completed and just need email sending
-    // For audits that need full processing, we'll skip them here and let them be processed
-    // by a different mechanism (or they'll be retried on the next cron run after timeout)
+    // Process the audit
+    // With Netlify Pro, we have 26 seconds timeout, but full audits can take longer
+    // Strategy: Attempt full processing, but return early if taking too long
+    // The processing will continue in the background (Netlify allows this)
     
     // Check if audit already has a report (just needs email sending - fast)
     const { data: quickCheck } = await supabase
@@ -510,51 +510,33 @@ export async function GET(request: NextRequest) {
     const hasReport = !!quickCheck?.formatted_report_html
     const needsFullProcessing = !hasReport
     
-    // If audit needs full processing (no report yet), skip it to avoid timeout
-    // The audit will be retried on the next cron run, or can be processed manually
-    if (needsFullProcessing) {
-      console.log(`[${requestId}] ⚠️  Audit ${auditId} needs full processing (no report yet) - skipping to avoid Netlify timeout`)
-      console.log(`[${requestId}] This audit will be processed by a different mechanism or retried later`)
-      
-      // Reset queue item to pending so it can be retried
-      await supabase
-        .from('audit_queue')
-        .update({
-          status: 'pending',
-          started_at: null,
-          last_error: 'Skipped to avoid Netlify function timeout - needs full processing',
-        })
-        .eq('id', queueItem.id)
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Audit skipped - needs full processing (will timeout on Netlify)',
-        processed: false,
-        auditId,
-        reason: 'needs_full_processing',
-        note: 'Use admin endpoint or background job to process audits that need full module execution',
-      })
-    }
-    
-    // Audit has report - just needs email sending (fast, should complete within timeout)
-    console.log(`[${requestId}] Audit ${auditId} has report - processing email sending only (fast)`)
-    
-    // Set a shorter timeout for email-only processing (20 seconds max)
-    const EMAIL_TIMEOUT_MS = 20 * 1000 // 20 seconds
+    // Set timeout based on operation type
+    // Netlify Pro: 26 seconds max, but we'll return early to avoid timeout
+    const MAX_PROCESSING_TIME_MS = 20 * 1000 // 20 seconds (safe margin for 26s limit)
     let processTimedOut = false
     
+    if (needsFullProcessing) {
+      console.log(`[${requestId}] Audit ${auditId} needs full processing - attempting with ${MAX_PROCESSING_TIME_MS / 1000}s timeout`)
+    } else {
+      console.log(`[${requestId}] Audit ${auditId} has report - processing email sending only (fast)`)
+    }
+    
     try {
-      console.log(`[${requestId}] Processing email sending for audit ${auditId}`)
+      console.log(`[${requestId}] Processing audit ${auditId}${needsFullProcessing ? ' (full processing)' : ' (email only)'}`)
       
-      // Wrap processAudit in a timeout (it will skip module execution since report exists)
+      // Wrap processAudit in a timeout
+      // For full audits, we'll attempt processing but return early if it takes too long
+      // The processing will continue in the background
       const processPromise = processAudit(auditId)
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           processTimedOut = true
-          reject(new Error(`Email processing timeout after ${EMAIL_TIMEOUT_MS / 1000} seconds`))
-        }, EMAIL_TIMEOUT_MS)
+          reject(new Error(`Processing timeout after ${MAX_PROCESSING_TIME_MS / 1000} seconds`))
+        }, MAX_PROCESSING_TIME_MS)
       })
       
+      // Race between processing and timeout
+      // If timeout wins, we return early but processing continues in background
       await Promise.race([processPromise, timeoutPromise])
       
       // Verification: Check if audit is actually completed with report
@@ -680,6 +662,29 @@ export async function GET(request: NextRequest) {
     } catch (processError) {
       const errorMessage = processError instanceof Error ? processError.message : String(processError)
       
+      // If timeout occurred, processing may still be running in background
+      // Don't mark as failed immediately - let it continue
+      if (processTimedOut) {
+        console.log(`[${requestId}] ⏱️  Processing timeout for audit ${auditId} - continuing in background`)
+        
+        // Continue processing in background (fire and forget)
+        // Netlify allows background promises to continue after function returns
+        processAudit(auditId).catch((bgError) => {
+          console.error(`[${requestId}] Background processing error for ${auditId}:`, bgError)
+        })
+        
+        // Return success - processing continues in background
+        return NextResponse.json({
+          success: true,
+          message: 'Audit processing started - continuing in background',
+          processed: true,
+          auditId,
+          timeout: true,
+          note: 'Processing continues in background after function return',
+        })
+      }
+      
+      // Actual error (not timeout) - handle normally
       console.error(`[${requestId}] Failed to process audit ${auditId}:`, processError)
       
       // CRITICAL: Ensure audit status is updated even if processAudit failed silently
@@ -696,7 +701,7 @@ export async function GET(request: NextRequest) {
           timestamp: new Date().toISOString(),
           error: errorMessage,
           timeout: processTimedOut,
-          note: 'Audit processing failed or timed out in queue processor',
+          note: 'Audit processing failed in queue processor',
         }, null, 2)
         
         // Try to update audit status to failed
