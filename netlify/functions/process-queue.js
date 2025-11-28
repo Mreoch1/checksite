@@ -1,17 +1,15 @@
 /**
- * Netlify Scheduled Function wrapper for process-queue API route
- * This function is called by Netlify's scheduled functions feature
- * and then calls the Next.js API route
+ * Netlify Scheduled Function for processing audit queue
+ * This function runs every 2 minutes and calls the Next.js API route
  * 
  * Schedule: Every 2 minutes (*/2 * * * *)
  */
 
+const { schedule } = require('@netlify/functions');
 const https = require('https');
 const { URL } = require('url');
 
-// For Netlify scheduled functions, we can use the schedule export
-// But for simplicity, we'll use a regular function and configure schedule in netlify.toml
-exports.handler = async (event, context) => {
+const handler = async (event, context) => {
   const siteUrl = process.env.URL || 'https://seochecksite.netlify.app';
   const endpoint = `${siteUrl}/api/process-queue`;
   const queueSecret = process.env.QUEUE_SECRET;
@@ -83,3 +81,5 @@ exports.handler = async (event, context) => {
   }
 };
 
+// Export as scheduled function - runs every 2 minutes
+exports.handler = schedule('*/2 * * * *', handler);
