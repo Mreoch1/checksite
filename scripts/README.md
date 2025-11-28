@@ -1,46 +1,58 @@
 # Scripts Directory
 
-Helper scripts for development and deployment.
+Helper scripts for development, testing, and debugging.
 
-## Setup Scripts
+## Testing Scripts
 
-- **`create-local-env.sh`** - Creates `.env.local` from template
-- **`setup-stripe-webhook.sh`** - Sets up Stripe webhook for local development
-- **`setup-git-remote.sh`** - Configures Git remote repository
+- **`test-audit-end-to-end.js`** - Full end-to-end audit test (creates audit, processes queue, monitors progress)
+  - Usage: `node scripts/test-audit-end-to-end.js <url> <competitor> <email>`
+  - Example: `node scripts/test-audit-end-to-end.js https://example.com https://competitor.com user@example.com`
 
-## Netlify Scripts
+- **`test-audit-direct.js`** - Direct audit creation and processing test
+- **`test-full-audit-flow.js`** - Complete audit flow testing
+- **`test-full-audit-with-competitor.js`** - Audit testing with competitor comparison
+- **`test-own-site-audit.js`** - Test audit on the SEO CheckSite itself
 
-- **`deploy-netlify.sh`** - Deploys to Netlify
-- **`set-netlify-env-secure.sh`** - Sets Netlify environment variables (reads from `.env.local` or prompts)
-- **`set-all-netlify-env-final.sh`** - Template for setting all Netlify env vars (update with your keys)
-- **`netlify-setup-complete.sh`** - Complete Netlify setup (one-time use)
-- **`verify-netlify-env.sh`** - Verifies Netlify environment variables are set
+## Debugging Scripts
 
-## Database Scripts
+- **`check-audit-status.js`** - Check status of an audit by ID
+- **`check-audit.js`** - Quick audit status check
+- **`check-specific-audit.js`** - Detailed audit information
+- **`check-duplicate-audits.js`** - Find duplicate audits by URL and customer
+- **`check-queue.js`** - Check queue processing status
+- **`debug-queue.js`** - Debug queue issues
 
-- **`apply-migration.sh`** - Applies Supabase database migrations
+## Email Scripts
 
-## Git Scripts
+- **`send-audit-email.js`** - Manually send audit report email
+- **`resend-email.js`** - Resend email for a specific audit
 
-- **`final-commit.sh`** - Commits and pushes changes to GitHub
-- **`verify-git-setup.sh`** - Verifies Git remote is configured
+## Direct Processing Scripts
 
-## Utility Scripts
-
-- **`get-webhook-secret.sh`** - Gets Stripe webhook secret from CLI
-- **`set-resend-key.sh`** - Sets Resend API key in Netlify
+- **`process-audit-direct.js`** - Process an audit directly (bypasses queue)
+- **`create-audit-direct.ts`** - Create audit directly in database
 
 ## Usage
 
-All scripts are executable. Run them from the project root:
+All scripts require environment variables from `.env.local`. Load them before running:
 
 ```bash
-./scripts/script-name.sh
+export $(cat .env.local | grep -v '^#' | xargs)
+node scripts/script-name.js [arguments]
 ```
 
-Or make them executable if needed:
+Or use the test scripts with proper authentication:
 
 ```bash
-chmod +x scripts/script-name.sh
+node scripts/test-audit-end-to-end.js https://example.com https://competitor.com email@example.com
 ```
+
+## Requirements
+
+- Node.js 18+
+- Environment variables set in `.env.local`:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `ADMIN_SECRET` (for admin operations)
+  - `QUEUE_SECRET` (for queue operations)
 
