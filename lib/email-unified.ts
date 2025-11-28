@@ -300,7 +300,14 @@ export async function sendEmail(options: {
   }
   
   // If we get here, neither SendGrid nor Zoho is configured
-  throw new Error('No email provider configured. Set either SENDGRID_API_KEY or SMTP_PASSWORD environment variable.')
+  const errorMsg = 'No email provider configured. Set either SENDGRID_API_KEY or SMTP_PASSWORD environment variable in Netlify environment variables.'
+  console.error('❌', errorMsg)
+  console.error('📧 Email Configuration Check:')
+  console.error('   SENDGRID_API_KEY:', SENDGRID_API_KEY ? 'SET' : 'NOT SET')
+  console.error('   SMTP_PASSWORD:', SMTP_PASSWORD ? 'SET' : 'NOT SET')
+  console.error('   EMAIL_PROVIDER:', EMAIL_PROVIDER || 'not set')
+  console.error('   FROM_EMAIL:', SMTP_FROM || 'not set')
+  throw new Error(errorMsg)
 }
 
 /**
@@ -312,6 +319,13 @@ export async function sendAuditReportEmail(
   auditId: string,
   reportHtml: string
 ): Promise<void> {
+  // Validate email configuration before attempting to send
+  if (!SENDGRID_API_KEY && !SMTP_PASSWORD) {
+    const errorMsg = 'Email configuration error: Neither SENDGRID_API_KEY nor SMTP_PASSWORD is set. Please configure at least one email provider in Netlify environment variables.'
+    console.error('❌', errorMsg)
+    throw new Error(errorMsg)
+  }
+  
   // Safely extract domain from URL
   let domain = url
   try {
