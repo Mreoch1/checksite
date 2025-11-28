@@ -82,19 +82,21 @@ async function createAudit() {
     customer = newCustomer
   }
 
-  // Calculate price
-  const basePrice = 1999
+  // Calculate price (new pricing model: $24.99 base + add-ons)
+  const basePrice = 2499 // $24.99 - includes all base modules
   const modulePrices = {
+    // Base package modules (included)
     performance: 0,
     crawl_health: 0,
     on_page: 0,
     mobile: 0,
-    local: 1000,
-    accessibility: 700,
-    security: 500,
-    schema: 1000,
-    social: 700,
-    competitor_overview: 1000,
+    accessibility: 0,
+    security: 0,
+    schema: 0,
+    social: 0,
+    // Add-ons
+    local: 1000, // +$10.00
+    competitor_overview: 1000, // +$10.00 (only charged when competitor URL provided)
   }
   const totalCents = basePrice + ALL_MODULES.reduce((sum, m) => sum + (modulePrices[m] || 0), 0)
 

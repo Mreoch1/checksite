@@ -63,21 +63,20 @@ export interface PricingConfig {
 }
 
 export const PRICING_CONFIG: PricingConfig = {
-  basePrice: 1999, // $19.99
+  basePrice: 2499, // $24.99 - "Website Audit" package
   modules: {
+    // Base package modules (included in $24.99)
     performance: 0, // Included in base
     crawl_health: 0, // Included in base
     on_page: 0, // Included in base
     mobile: 0, // Included in base
-    // High value modules ($10)
-    local: 1000, // +$10.00
-    schema: 1000, // +$10.00
-    competitor_overview: 1000, // +$10.00
-    // Medium value modules ($7)
-    accessibility: 700, // +$7.00
-    social: 700, // +$7.00
-    // Lower value modules ($5)
-    security: 500, // +$5.00
+    accessibility: 0, // Included in base
+    security: 0, // Included in base
+    schema: 0, // Included in base
+    social: 0, // Included in base
+    // Add-ons ($10 each)
+    local: 1000, // +$10.00 - Local SEO
+    competitor_overview: 1000, // +$10.00 - Competitor Overview (only charged when competitor URL provided)
   },
 }
 
@@ -86,6 +85,10 @@ export const CORE_MODULES: ModuleKey[] = [
   'crawl_health',
   'on_page',
   'mobile',
+  'accessibility',
+  'security',
+  'schema',
+  'social',
 ]
 
 export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {

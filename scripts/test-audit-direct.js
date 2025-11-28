@@ -58,7 +58,7 @@ async function createAudit() {
       customer_id: customer.id,
       url: TEST_URL,
       status: 'pending',
-      total_price_cents: 1999,
+      total_price_cents: 2499, // $24.99 base package
     })
     .select()
     .single()

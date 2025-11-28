@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { recommendModules } from '@/lib/llm'
 import { rateLimit, getClientId } from '@/lib/rate-limit'
 
 // Force dynamic rendering - this route cannot be statically analyzed
@@ -98,83 +97,39 @@ export async function POST(request: NextRequest) {
       // Continue with empty summary
     }
 
-    // Get recommendations from DeepSeek with a short timeout (8 seconds to avoid Netlify 10s limit)
-    // If LLM times out, return smart defaults based on site content
-    console.log(`[recommend-modules] Starting analysis for ${normalizedUrl}`)
+    // Return smart defaults based on site content (no LLM needed)
+    console.log(`[recommend-modules] Analyzing site content for ${normalizedUrl}`)
     
-    try {
-      const recommendationsPromise = recommendModules(normalizedUrl, siteSummary)
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Recommendation request timeout'))
-        }, 8000) // 8 seconds - must complete before Netlify's 10s limit
-      })
-
-      const recommendations = await Promise.race([recommendationsPromise, timeoutPromise])
-      console.log(`[recommend-modules] Analysis complete for ${normalizedUrl}`)
-      return NextResponse.json(recommendations)
-    } catch (timeoutError) {
-      // If LLM times out or fails, return smart defaults based on site content
-      const errorMsg = timeoutError instanceof Error ? timeoutError.message : String(timeoutError)
-      console.warn(`[recommend-modules] LLM error for ${normalizedUrl}: ${errorMsg}, using smart defaults`)
-      
-      const titleLower = (siteSummary.title || '').toLowerCase()
-      const descLower = (siteSummary.description || '').toLowerCase()
-      const contentLower = (siteSummary.content || '').toLowerCase()
-      const allText = `${titleLower} ${descLower} ${contentLower}`
-      
-      // Smart defaults based on content analysis
-      // Local business detection - check for physical address, phone, and business indicators
-      
-      // Check for address patterns (more flexible - handles "1030 N Crooks Rd, Suite G, Clawson, MI 48017")
-      const hasAddressPattern = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us|physical location)/i.test(allText)
-      
-      // Check for phone number patterns (handles +1 248-288-6600 format)
-      const hasPhonePattern = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
-      
-      // Check for local business keywords (expanded list including installation, industries, etc.)
-      const hasLocalKeywords = /(restaurant|cafe|barber|salon|plumber|electrician|contractor|dentist|doctor|clinic|store|shop|gym|fitness|spa|auto repair|car wash|dry cleaner|bakery|pizza|delivery|takeout|menu|hours|installation|installer|service|services|industries|inc\.|llc|corp|company|business|local|area|region|city|town|neighborhood|community|low voltage|electrical|hvac|plumbing|construction|repair|maintenance)/i.test(allText)
-      
-      // Check for business entity indicators
-      const hasBusinessEntity = /(inc\.|llc|corp|corporation|company|industries|industries inc|industries, inc)/i.test(allText)
-      
-      // Check for online-only indicators (more specific to avoid false positives)
-      const hasOnlineOnlyIndicators = /(online-only|digital-only|software as a service|saas platform|web-based tool|cloud-based|api service|remote only|virtual only|no physical location|no storefront|purely online|exclusively online)/i.test(allText)
-      
-      // Local SEO is optional - not recommended by default, but available for clients to choose
-      const isLocalBusiness = false
-      
-      console.log(`[recommend-modules] Local SEO available as optional add-on for ${normalizedUrl}`)
-      
-      const hasSocialContent = /blog|article|news|share|social|facebook|twitter|instagram|linkedin/i.test(allText)
-      // Business detection - check for business indicators (name, services, contact info, etc.)
-      const isBusiness = /(business|company|services|products|about|contact|pricing|plans|inc\.|llc|corp|industries|industries inc)/i.test(allText) || hasAddressPattern || hasPhonePattern
-      
-      const defaultRecommendations = {
-        local: isLocalBusiness,
-        accessibility: true, // Always recommended
-        security: true, // Always recommended
-        schema: isBusiness, // Recommended for businesses
-        social: hasSocialContent || isBusiness,
-        competitor_overview: isBusiness,
-        reasons: {
-          local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, you may want to add this.',
-          accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
-          security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
-          schema: isBusiness
-            ? 'Structured data helps search engines understand your business information and can improve how your site appears in search results.'
-            : 'Your site doesn\'t appear to need schema markup because it lacks clear business information that would benefit from structured data.',
-          social: hasSocialContent || isBusiness
-            ? 'Social media optimization helps your content look great when shared on social platforms, increasing visibility and engagement.'
-            : 'Your site doesn\'t appear to need social metadata optimization because it lacks shareable content or social media presence.',
-          competitor_overview: isBusiness
-            ? 'Competitor analysis helps you understand your market position and identify opportunities to improve your SEO strategy.'
-            : 'Your site doesn\'t appear to need competitor analysis because it\'s not clearly a business competing in a market.',
-        },
-      }
-      
-      return NextResponse.json(defaultRecommendations)
+    const titleLower = (siteSummary.title || '').toLowerCase()
+    const descLower = (siteSummary.description || '').toLowerCase()
+    const contentLower = (siteSummary.content || '').toLowerCase()
+    const allText = `${titleLower} ${descLower} ${contentLower}`
+    
+    // Check for address patterns (more flexible - handles "1030 N Crooks Rd, Suite G, Clawson, MI 48017")
+    const hasAddressPattern = /(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(\d+\s+[A-Za-z0-9\s#]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct|place|pl|court|ct|suite|ste|unit|apt|apartment)[,\s]*[A-Za-z\s]+,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5})|(address|location|visit us|come in|our location|find us|physical location)/i.test(allText)
+    
+    // Check for phone number patterns (handles +1 248-288-6600 format)
+    const hasPhonePattern = /(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|phone|call us|contact us|tel:|telephone/i.test(allText)
+    
+    // Business detection - check for business indicators (name, services, contact info, etc.)
+    const isBusiness = /(business|company|services|products|about|contact|pricing|plans|inc\.|llc|corp|industries|industries inc)/i.test(allText) || hasAddressPattern || hasPhonePattern
+    
+    // New pricing model: Only local and competitor_overview are optional add-ons
+    // All other modules (accessibility, security, schema, social) are included in base package
+    const defaultRecommendations = {
+      local: hasAddressPattern && hasPhonePattern,
+      competitor_overview: isBusiness,
+      reasons: {
+        local: hasAddressPattern && hasPhonePattern
+          ? 'We detected a physical address and phone number on your site. Local SEO can help improve your visibility in local search results and Google Maps.'
+          : 'Local SEO helps businesses with physical locations or local service areas. If you have a physical address or serve a local area, consider adding this module.',
+        competitor_overview: isBusiness
+          ? 'Competitor analysis helps you understand your market position and identify opportunities to improve your SEO strategy.'
+          : 'Competitor analysis is available for businesses that want to compare their SEO against competitors.',
+      },
     }
+    
+    return NextResponse.json(defaultRecommendations)
   } catch (error) {
     // If we get here, it's an error in URL validation or site fetching
     // For LLM errors, we should have already returned smart defaults
@@ -198,19 +153,12 @@ export async function POST(request: NextRequest) {
     const hasSocialContent = false
     const isBusiness = true // Default to business recommendations
     
+    // New pricing model: Only local and competitor_overview are optional add-ons
     const defaultRecommendations = {
-      local: isLocalBusiness,
-      accessibility: true,
-      security: true,
-      schema: isBusiness,
-      social: hasSocialContent || isBusiness,
+      local: false,
       competitor_overview: isBusiness,
       reasons: {
-        local: 'Local SEO helps businesses with physical locations or local service areas. Examples: restaurants, contractors, plumbers, dentists, local stores, service businesses, or any business that serves customers in a specific geographic area. If you have a physical address or serve a local area, this is recommended.',
-        accessibility: 'Accessibility checks help ensure your site is usable by everyone, including people with disabilities, and can improve your SEO.',
-        security: 'Security checks help protect your site and visitors, and search engines favor secure websites.',
-        schema: 'Structured data helps search engines understand your business information and can improve how your site appears in search results.',
-        social: 'Social media optimization helps your content look great when shared on social platforms, increasing visibility and engagement.',
+        local: 'Local SEO helps businesses with physical locations or local service areas. If you have a physical address or serve a local area, consider adding this module.',
         competitor_overview: 'Competitor analysis helps you understand your market position and identify opportunities to improve your SEO strategy.',
       },
     }

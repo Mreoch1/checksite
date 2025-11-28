@@ -68,8 +68,8 @@ export default function RecommendPage() {
         moduleList.push({ key, recommended: true })
       })
 
-      // Optional modules
-      const optionalModules: ModuleKey[] = ['local', 'accessibility', 'security', 'schema', 'social', 'competitor_overview']
+      // Optional modules (add-ons only)
+      const optionalModules: ModuleKey[] = ['local', 'competitor_overview']
       optionalModules.forEach(key => {
         moduleList.push({
           key,
@@ -104,6 +104,14 @@ export default function RecommendPage() {
       return
     }
 
+    // For competitor_overview, require competitor URL
+    if (key === 'competitor_overview') {
+      if (!competitorUrl || !competitorUrl.trim()) {
+        setError('Please enter a competitor URL first to enable Competitor Overview.')
+        return
+      }
+    }
+
     const newSelected = new Set(selectedModules)
     if (newSelected.has(key)) {
       newSelected.delete(key)
@@ -116,7 +124,14 @@ export default function RecommendPage() {
   const calculateTotal = (): number => {
     let total = PRICING_CONFIG.basePrice
     selectedModules.forEach(key => {
-      total += PRICING_CONFIG.modules[key]
+      // Only charge for competitor_overview if competitor URL is provided
+      if (key === 'competitor_overview') {
+        if (competitorUrl && competitorUrl.trim()) {
+          total += PRICING_CONFIG.modules[key] || 0
+        }
+      } else {
+        total += PRICING_CONFIG.modules[key] || 0
+      }
     })
     return total
   }
@@ -145,6 +160,16 @@ export default function RecommendPage() {
       const trimmedUrl = competitorUrl.trim()
       if (!trimmedUrl) {
         setError('Please enter a competitor URL to compare against, or uncheck Competitor Overview.')
+        setProcessing(false)
+        return
+      }
+      
+      // Remove competitor_overview from selected modules if URL is invalid
+      if (!trimmedUrl) {
+        const newSelected = new Set(selectedModules)
+        newSelected.delete('competitor_overview')
+        setSelectedModules(newSelected)
+        setError('Competitor Overview requires a valid competitor URL. It has been removed from your selection.')
         setProcessing(false)
         return
       }
@@ -336,23 +361,40 @@ export default function RecommendPage() {
                           </p>
                         </div>
                       )}
-                      {module.key === 'competitor_overview' && isSelected && (
+                      {module.key === 'competitor_overview' && (
                         <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
                           <label htmlFor="competitor-url" className="block text-sm font-medium text-gray-700 mb-2">
-                            Competitor Website URL <span className="text-red-500">*</span>
+                            Competitor Website URL {isSelected && <span className="text-red-500">*</span>}
                           </label>
                           <input
                             type="text"
                             id="competitor-url"
                             value={competitorUrl}
-                            onChange={(e) => setCompetitorUrl(e.target.value)}
+                            onChange={(e) => {
+                              setCompetitorUrl(e.target.value)
+                              const trimmedValue = e.target.value.trim()
+                              // If URL is provided and competitor_overview is not selected, auto-select it
+                              if (trimmedValue && !selectedModules.has('competitor_overview')) {
+                                const newSelected = new Set(selectedModules)
+                                newSelected.add('competitor_overview')
+                                setSelectedModules(newSelected)
+                              }
+                              // If URL is cleared and competitor_overview is selected, unselect it
+                              if (!trimmedValue && selectedModules.has('competitor_overview')) {
+                                const newSelected = new Set(selectedModules)
+                                newSelected.delete('competitor_overview')
+                                setSelectedModules(newSelected)
+                              }
+                            }}
                             placeholder="competitor.com or https://competitor.com"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            aria-required="true"
+                            aria-required={isSelected}
                             aria-describedby="competitor-url-help"
                           />
                           <p id="competitor-url-help" className="mt-1 text-xs text-gray-500">
-                            Enter the URL of a competitor website you want to compare against.
+                            {isSelected 
+                              ? 'Enter the URL of a competitor website you want to compare against.'
+                              : 'Enter a competitor URL to enable Competitor Overview (+$10.00)'}
                           </p>
                         </div>
                       )}
@@ -379,11 +421,19 @@ export default function RecommendPage() {
           <div className="border-t pt-6">
             <div className="space-y-2 mb-6">
               <div className="flex justify-between text-gray-600">
-                <span>Base Package:</span>
+                <span>Website Audit (Base Package):</span>
                 <span>${(PRICING_CONFIG.basePrice / 100).toFixed(2)}</span>
               </div>
               {Array.from(selectedModules)
-                .filter(key => PRICING_CONFIG.modules[key] > 0)
+                .filter(key => {
+                  // Only show add-ons with price > 0
+                  if (PRICING_CONFIG.modules[key] <= 0) return false
+                  // For competitor_overview, only show if competitor URL is provided
+                  if (key === 'competitor_overview' && (!competitorUrl || !competitorUrl.trim())) {
+                    return false
+                  }
+                  return true
+                })
                 .map(key => (
                   <div key={key} className="flex justify-between text-gray-600">
                     <span>{MODULE_DISPLAY_NAMES[key]}:</span>

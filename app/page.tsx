@@ -135,7 +135,7 @@ export default function Home() {
           </p>
           <div className="mb-4">
             <p className="text-2xl font-bold text-blue-600 mb-2">
-              Basic audit starting at $19.99
+              Website Audit starting at $24.99
             </p>
             <p className="text-lg text-gray-500">
               No jargon. No technical knowledge needed. Just clear, actionable insights.
@@ -239,7 +239,7 @@ export default function Home() {
             {/* Pricing Clarity */}
             <div className="text-center pt-2">
               <p className="text-base font-semibold text-gray-900 mb-1">
-                Starting at $19.99
+                Starting at $24.99
               </p>
               <p className="text-sm text-gray-600">
                 <strong>One-time audit.</strong> Flat price. <strong>No subscription.</strong>
@@ -505,7 +505,7 @@ export default function Home() {
             Get your complete audit report in minutes
           </p>
           <p className="text-lg font-semibold text-white mb-8">
-            Starting at just $19.99
+            Starting at just $24.99
           </p>
           <a
             href="#main-content"
