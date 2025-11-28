@@ -220,7 +220,17 @@ export default function RecommendPage() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to create checkout')
+        // Handle duplicate audit error with more helpful message
+        if (response.status === 409 && errorData.error === 'Duplicate audit') {
+          const existingAuditLink = errorData.existingAuditId 
+            ? `\n\nYou can view your existing audit here: ${window.location.origin}/report/${errorData.existingAuditId}`
+            : ''
+          throw new Error(
+            (errorData.message || `An audit for this URL was created ${errorData.ageMinutes || 'recently'}. Please wait before creating another audit.`) + 
+            existingAuditLink
+          )
+        }
+        throw new Error(errorData.error || errorData.message || 'Failed to create checkout')
       }
 
       const { checkoutUrl } = await response.json()
