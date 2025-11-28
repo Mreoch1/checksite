@@ -61,9 +61,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total price
+    // Base price: $24.99
     let totalCents = PRICING_CONFIG.basePrice
     modules.forEach((module: ModuleKey) => {
-      totalCents += PRICING_CONFIG.modules[module] || 0
+      // Only charge for competitor_overview if competitor URL is provided
+      if (module === 'competitor_overview') {
+        if (normalizedCompetitorUrl && normalizedCompetitorUrl.trim()) {
+          totalCents += PRICING_CONFIG.modules[module] || 0
+        }
+        // If competitor_overview is selected but no URL provided, don't charge for it
+      } else {
+        totalCents += PRICING_CONFIG.modules[module] || 0
+      }
     })
 
     // Create or get customer

@@ -264,31 +264,34 @@ Pricing is configured in `lib/types.ts`:
 
 ```typescript
 export const PRICING_CONFIG: PricingConfig = {
-  basePrice: 1999, // $19.99 in cents
+  basePrice: 2499, // $24.99 - "Website Audit" package
   modules: {
-    // Core modules: 0 (included in base price)
+    // Base package modules (included in $24.99)
     performance: 0,
     crawl_health: 0,
     on_page: 0,
     mobile: 0,
-    // High value modules ($10)
-    local: 1000,
-    schema: 1000,
-    competitor_overview: 1000,
-    // Medium value modules ($7)
-    accessibility: 700,
-    social: 700,
-    // Lower value modules ($5)
-    security: 500,
+    accessibility: 0,
+    security: 0,
+    schema: 0,
+    social: 0,
+    // Add-ons ($10 each)
+    local: 1000, // +$10.00 - Local SEO
+    competitor_overview: 1000, // +$10.00 - Competitor Overview (only charged when competitor URL provided)
   },
 }
 ```
 
-**Pricing Philosophy:**
-- Pricing is based on **perceived value to customers**, not development effort
-- High value modules ($10): Directly relate to business success, ranking, and competition
-- Medium value modules ($7): Users understand them once explained but feel secondary
-- Lower value modules ($5): Less understood by non-technical users
+**Pricing Model:**
+- **Base Package ($24.99)**: "Website Audit" - Always includes Performance, Crawl Health, On-Page SEO, Mobile Optimization, Accessibility, Security, Schema Markup, and Social Metadata
+- **Add-ons**:
+  - Local SEO: +$10.00
+  - Competitor Overview: +$10.00 (only charged when a competitor URL is provided)
+
+**Total Calculation:**
+```
+total = 24.99 + (localSeo ? 10 : 0) + (competitorProvided ? 10 : 0)
+```
 
 To adjust pricing, modify the `PRICING_CONFIG` object.
 
