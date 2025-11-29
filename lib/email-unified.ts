@@ -173,7 +173,7 @@ async function sendViaZoho(options: {
   const from = SMTP_USER
   const fromFormatted = `"${FROM_NAME}" <${from}>`
   
-  const messageId = `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seochecksite.net>`
+  const messageId = `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@checksite.net>`
   
   // Generate plain text version if not provided (better deliverability)
   const plainText = options.text || options.html
