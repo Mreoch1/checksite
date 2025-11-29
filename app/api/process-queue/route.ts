@@ -63,13 +63,17 @@ export async function GET(request: NextRequest) {
     if (queueItems && queueItems.length > 0) {
       const verifiedQueueItems = []
       for (const item of queueItems) {
-        const { data: statusCheck } = await supabase
+        const { data: statusCheck, error: statusError } = await supabase
           .from('audit_queue')
           .select('status')
           .eq('id', item.id)
           .single()
         
-        if (statusCheck && statusCheck.status === 'pending') {
+        if (statusError) {
+          console.error(`[${requestId}] ⚠️  Error checking queue item ${item.id} status:`, statusError)
+          // If we can't verify, trust the initial query result (item is pending)
+          verifiedQueueItems.push(item)
+        } else if (statusCheck && statusCheck.status === 'pending') {
           verifiedQueueItems.push(item)
         } else {
           console.log(`[${requestId}] ⚠️  Queue item ${item.id} status changed to ${statusCheck?.status || 'unknown'} - skipping`)
