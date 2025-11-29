@@ -4,7 +4,7 @@ import './globals.css'
 import Footer from '@/components/Footer'
 import SkipLink from '@/components/SkipLink'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'
 const siteName = 'SEO CheckSite'
 const siteDescription = 'Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.'
 

@@ -120,7 +120,8 @@ async function sendViaSendGrid(options: {
         'Auto-Submitted': 'no', // Important: indicates this is NOT an auto-reply
         'MIME-Version': '1.0',
         'X-Sender': 'admin@seochecksite.net',
-        'Reply-To': fromEmail,
+        // NOTE: Reply-To is set as top-level 'replyTo' property (line 103), not in headers
+        // SendGrid doesn't allow Reply-To in headers as it's a reserved key
       },
       // SendGrid-specific settings to improve deliverability
       mailSettings: {
@@ -236,6 +237,12 @@ export async function sendEmail(options: {
   html: string
   text?: string
 }): Promise<void> {
+  // Validate email address before sending
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(options.to)) {
+    throw new Error(`Invalid email address: ${options.to}. Email must be a valid format (e.g., user@example.com).`)
+  }
+  
   // Use SendGrid as primary if:
   // 1. Explicitly set to 'sendgrid'
   // 2. SendGrid API key is configured
