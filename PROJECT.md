@@ -202,7 +202,13 @@ This document is the authoritative source for all project state, decisions, TODO
        - Queue status: 13 pending items, 21 completed items
        - No stuck processing items found
        - No abandoned email reservations found
-   - **Root Cause**: Netlify scheduled function not running or not configured correctly
+   - **Root Cause**: Netlify scheduled function not recognized/deployed - Functions section missing from dashboard
+   - **Fix Applied**: 
+     - Cleaned up netlify.toml, verified function file and export format are correct
+     - Added `functions = "netlify/functions"` to `[build]` section (required for Next.js)
+     - Build output confirms functions are being packaged: "Packaging Functions from netlify/functions directory"
+   - **Status**: Waiting for redeploy to verify Functions section appears in dashboard
+   - **Note**: Functions are being packaged during build, but may not appear in dashboard until after successful deploy
    - **Action**: 
      - Check Netlify dashboard → Functions → Scheduled functions
      - Verify `process-queue` function appears in list
