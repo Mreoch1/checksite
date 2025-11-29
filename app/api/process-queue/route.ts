@@ -57,6 +57,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(20) // Increased from 10 to catch more items
     
+    // Log query details for debugging
+    if (findError) {
+      console.error(`[${requestId}] Query error details:`, findError)
+    } else {
+      console.log(`[${requestId}] Query returned ${queueItems?.length || 0} items (before verification)`)
+    }
+    
     // CRITICAL: Double-check that queue items are actually pending (handle race conditions)
     // If a queue item was just marked as completed, it might still show up in the query due to replication lag
     // Re-verify the status directly from the database
