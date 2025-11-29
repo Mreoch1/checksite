@@ -276,10 +276,12 @@ This document is the authoritative source for all project state, decisions, TODO
 ## Architecture Decisions
 
 ### Scheduled Functions
-- **Decision**: Use Netlify Scheduled Functions with `@netlify/functions` package
-- **Rationale**: Native Netlify integration, no external dependencies, works with Pro tier
-- **Implementation**: `netlify/functions/process-queue.js` wraps Next.js API route
+- **Decision**: Use Netlify Scheduled Functions with modern `config.schedule` format (ESM)
+- **Rationale**: Native Netlify integration, required for modern Functions runtime (Next.js App Router)
+- **Implementation**: `netlify/functions/process-queue.js` uses ESM with `export const config = { schedule: "*/2 * * * *" }`
+- **Format**: Modern ESM format - `export default` handler + `export const config = { schedule: "..." }`
 - **Schedule**: Every 2 minutes (`*/2 * * * *`)
+- **Note**: Legacy `schedule()` wrapper from `@netlify/functions` doesn't work with modern runtime - causes Functions section to not appear in dashboard
 
 ### Email System
 - **Decision**: Atomic reservation system using `email_sent_at` timestamp
