@@ -669,51 +669,32 @@ export async function GET(request: NextRequest) {
         })
       }
       
-      // If audit is completed with report, mark queue as completed
-      if (verifyAudit.status === 'completed' && verifyAudit.formatted_report_html) {
-        // Mark queue item as completed
-        const { data: queueUpdateResult, error: queueUpdateError } = await supabase
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id)
-          .select('status')
-        
-        if (queueUpdateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
-          console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
-        } else {
-          console.log(`[${requestId}] ✅ Audit ${auditId} completed successfully - queue marked as completed (status: ${queueUpdateResult[0].status})`)
-        }
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Audit processed successfully',
-          processed: true,
-          auditId,
-          email_sent_at: verifyAudit.email_sent_at,
-        })
-      } else if (verifyAudit.formatted_report_html) {
-        // CRITICAL: If report exists but status isn't completed, fix the status and mark queue as completed
-        // This handles cases where processAudit succeeded but status update failed
-        console.warn(`[${requestId}] ⚠️  Audit ${auditId} has report but status is ${verifyAudit.status} - fixing status`)
-        
-        // Fix audit status to completed
-        const { error: fixStatusError } = await supabase
-          .from('audits')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', auditId)
-        
-        if (fixStatusError) {
-          console.error(`[${requestId}] Failed to fix audit status:`, fixStatusError)
-        } else {
-          console.log(`[${requestId}] ✅ Fixed audit status to completed`)
+      // CRITICAL: If audit has report OR email was sent, it's complete regardless of status
+      // This handles cases where processAudit succeeded but status update failed, or status was set to 'failed' by error handling
+      const hasReport = !!verifyAudit.formatted_report_html
+      const hasEmail = isEmailSent(verifyAudit.email_sent_at)
+      const isComplete = verifyAudit.status === 'completed'
+      
+      if (hasReport || hasEmail) {
+        // Audit is functionally complete (has report or email sent)
+        // Fix status if it's not 'completed'
+        if (!isComplete) {
+          console.warn(`[${requestId}] ⚠️  Audit ${auditId} has ${hasReport ? 'report' : 'email'} but status is ${verifyAudit.status} - fixing status to completed`)
+          
+          // Fix audit status to completed
+          const { error: fixStatusError } = await supabase
+            .from('audits')
+            .update({
+              status: 'completed',
+              completed_at: verifyAudit.completed_at || new Date().toISOString(),
+            })
+            .eq('id', auditId)
+          
+          if (fixStatusError) {
+            console.error(`[${requestId}] Failed to fix audit status:`, fixStatusError)
+          } else {
+            console.log(`[${requestId}] ✅ Fixed audit status from ${verifyAudit.status} to completed`)
+          }
         }
         
         // Mark queue as completed
@@ -731,20 +712,22 @@ export async function GET(request: NextRequest) {
         } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
           console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
         } else {
-          console.log(`[${requestId}] ✅ Audit ${auditId} has report - marked queue as completed (status: ${queueUpdateResult[0].status})`)
+          console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed (status: ${queueUpdateResult[0].status})`)
         }
         
         return NextResponse.json({
           success: true,
-          message: 'Audit has report - marked as completed',
+          message: isComplete 
+            ? 'Audit processed successfully'
+            : `Audit has ${hasReport ? 'report' : 'email'} - marked as completed`,
           processed: true,
           auditId,
           email_sent_at: verifyAudit.email_sent_at,
-          status_fixed: true,
+          status_fixed: !isComplete,
         })
       } else {
-        // Audit processing didn't complete properly
-        throw new Error(`Audit ${auditId} processing incomplete: status=${verifyAudit.status}, has_report=${!!verifyAudit.formatted_report_html}`)
+        // Audit processing didn't complete properly - no report and no email
+        throw new Error(`Audit ${auditId} processing incomplete: status=${verifyAudit.status}, has_report=${hasReport}, has_email=${hasEmail}`)
       }
     } catch (processError) {
       const errorMessage = processError instanceof Error ? processError.message : String(processError)
