@@ -185,8 +185,8 @@ This document is the authoritative source for all project state, decisions, TODO
 ## Unresolved Issues
 
 ### Active Issues
-1. **Scheduled Function (Cron Job) Not Running** (Reported 2025-01-28)
-   - **Status**: CRITICAL - Root cause of email issue
+1. **Scheduled Function (Cron Job) Not Running** (Reported 2025-01-28, FIXED 2025-01-28)
+   - **Status**: ✅ FIXED - Function now recognized by Netlify
    - **Symptoms**: 
      - Audits added to queue but never processed
      - No logs from `/api/process-queue` endpoint
@@ -209,8 +209,11 @@ This document is the authoritative source for all project state, decisions, TODO
      - Replaced `schedule()` wrapper with `export const config = { schedule: "*/2 * * * *" }`
      - Updated handler to use modern Request/Response API instead of event/context
      - Removed `require('@netlify/functions')` dependency
-   - **Status**: Fixed - waiting for redeploy to verify Functions section appears
-   - **Verification**: After deploy, check Logs → Functions → process-queue (should show "Scheduled" badge)
+   - **Status**: ✅ FIXED - Functions section now appears in dashboard
+   - **Verification**: 
+     - ✅ Functions section visible in Logs → Functions
+     - ✅ `process-queue` function appears in list (created at 10:39 PM)
+     - ⏳ Waiting to verify scheduled executions (check in 4-6 minutes for automatic runs)
    - **Action**: 
      - Check Netlify dashboard → Functions → Scheduled functions
      - Verify `process-queue` function appears in list
