@@ -49,12 +49,35 @@ export async function GET(request: NextRequest) {
     // This prevents processing the same audit multiple times if there are duplicate queue entries
     // Use a simpler query approach to avoid join filter issues
     // NOTE: Get more items to ensure we catch recent ones that might be filtered out
+    // CRITICAL: Also check for items that might have been marked as completed but join shows stale data
     let { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(20) // Increased from 10 to catch more items
+    
+    // CRITICAL: Double-check that queue items are actually pending (handle race conditions)
+    // If a queue item was just marked as completed, it might still show up in the query due to replication lag
+    // Re-verify the status directly from the database
+    if (queueItems && queueItems.length > 0) {
+      const verifiedQueueItems = []
+      for (const item of queueItems) {
+        const { data: statusCheck } = await supabase
+          .from('audit_queue')
+          .select('status')
+          .eq('id', item.id)
+          .single()
+        
+        if (statusCheck && statusCheck.status === 'pending') {
+          verifiedQueueItems.push(item)
+        } else {
+          console.log(`[${requestId}] ⚠️  Queue item ${item.id} status changed to ${statusCheck?.status || 'unknown'} - skipping`)
+        }
+      }
+      queueItems = verifiedQueueItems
+      console.log(`[${requestId}] After status verification: ${queueItems.length} pending queue items`)
+    }
     
     if (findError) {
       console.error(`[${requestId}] Error finding queue items:`, findError)
