@@ -736,7 +736,58 @@ export async function GET(request: NextRequest) {
         })
       } else {
         // Audit processing didn't complete properly - no report and no email
-        throw new Error(`Audit ${auditId} processing incomplete: status=${verifyAudit.status}, has_report=${hasReport}, has_email=${hasEmail}`)
+        // CRITICAL: Re-check one more time before throwing error (handles race conditions)
+        const { data: finalCheck } = await supabase
+          .from('audits')
+          .select('status, formatted_report_html, email_sent_at, completed_at')
+          .eq('id', auditId)
+          .single()
+        
+        const finalHasReport = !!finalCheck?.formatted_report_html
+        const finalHasEmail = isEmailSent(finalCheck?.email_sent_at)
+        const finalIsComplete = finalCheck?.status === 'completed'
+        
+        // If final check shows report or email exists, treat as successful
+        if (finalCheck && (finalHasReport || finalHasEmail)) {
+          console.warn(
+            `[${requestId}] ⚠️  Final check shows audit ${auditId} is complete ` +
+            `(status=${finalCheck.status}, hasReport=${finalHasReport}, hasEmail=${finalHasEmail}) - ` +
+            `fixing status instead of throwing error`
+          )
+          
+          // Fix audit status
+          if (!finalIsComplete) {
+            await supabase
+              .from('audits')
+              .update({
+                status: 'completed',
+                completed_at: finalCheck.completed_at || new Date().toISOString(),
+              })
+              .eq('id', auditId)
+          }
+          
+          // Mark queue as completed
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', queueItem.id)
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Audit completed successfully (reconciled after final check)',
+            processed: true,
+            auditId,
+            email_sent_at: finalCheck.email_sent_at,
+            has_report: finalHasReport,
+            reconciled: true,
+          })
+        }
+        
+        // Only throw error if final check confirms no report and no email
+        throw new Error(`Audit ${auditId} processing incomplete: status=${finalCheck?.status || verifyAudit.status}, has_report=${finalHasReport}, has_email=${finalHasEmail}`)
       }
     } catch (processError) {
       const errorMessage = processError instanceof Error ? processError.message : String(processError)
@@ -766,17 +817,74 @@ export async function GET(request: NextRequest) {
       // Actual error (not timeout) - handle normally
       console.error(`[${requestId}] Failed to process audit ${auditId}:`, processError)
       
-      // CRITICAL: Ensure audit status is updated even if processAudit failed silently
-      // Check current audit status
+      // CRITICAL: Re-check audit status one more time before marking as failed
+      // This handles race conditions where the report/email were generated but not yet visible
       const { data: currentAudit } = await supabase
         .from('audits')
-        .select('status, formatted_report_html, email_sent_at')
+        .select('status, formatted_report_html, email_sent_at, completed_at')
         .eq('id', auditId)
         .single()
       
       const hasReportNow = !!currentAudit?.formatted_report_html
       const hasEmailNow = isEmailSent(currentAudit?.email_sent_at)
       const isCompletedNow = currentAudit?.status === 'completed'
+      
+      // CRITICAL: If audit has report OR email, it's actually complete - don't mark as failed
+      // This handles cases where processAudit succeeded but verification happened too early
+      if (currentAudit && (hasReportNow || hasEmailNow)) {
+        console.warn(
+          `[${requestId}] ⚠️  Audit ${auditId} appears complete after error ` +
+          `(status=${currentAudit.status}, hasReport=${hasReportNow}, hasEmail=${hasEmailNow}) - ` +
+          `marking as completed instead of failed`
+        )
+
+        // Fix audit status to completed
+        if (!isCompletedNow) {
+          const { error: fixAfterError } = await supabase
+            .from('audits')
+            .update({
+              status: 'completed',
+              completed_at: currentAudit.completed_at || new Date().toISOString(),
+            })
+            .eq('id', auditId)
+
+          if (fixAfterError) {
+            console.error(`[${requestId}] Failed to fix audit status after error:`, fixAfterError)
+          } else {
+            console.log(`[${requestId}] ✅ Fixed audit status to completed after error handling`)
+          }
+        }
+
+        // Mark queue as completed
+        const { data: queueFixResult, error: queueFixError } = await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            last_error: null,
+          })
+          .eq('id', queueItem.id)
+          .select('status')
+
+        if (queueFixError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
+        } else {
+          console.log(
+            `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
+            `queue marked as completed (status: ${queueFixResult?.[0]?.status ?? 'unknown'})`
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Audit completed successfully after error reconciliation',
+          processed: true,
+          auditId,
+          email_sent_at: currentAudit.email_sent_at,
+          has_report: hasReportNow,
+          reconciled: true,
+        })
+      }
 
       // If audit now has report or email, treat it as successful despite the earlier verification error
       if (currentAudit && (hasReportNow || hasEmailNow || isCompletedNow)) {
