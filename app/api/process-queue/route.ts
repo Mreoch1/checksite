@@ -763,6 +763,7 @@ export async function GET(request: NextRequest) {
         }
         
         // Mark queue as completed
+        // Use atomic update: only update if still pending (prevents race conditions)
         const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
           .update({
@@ -770,14 +771,21 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
-          .select('status')
+          .eq('status', 'pending') // Atomic: only update if still pending
+          .select('id, status, completed_at')
         
         if (queueUpdateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
         } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
-          console.error(`[${requestId}] ❌ Queue update returned no data - queue might not exist`)
+          // Queue item might have been updated by another process - verify current status
+          const { data: currentStatus } = await supabase
+            .from('audit_queue')
+            .select('status')
+            .eq('id', queueItem.id)
+            .single()
+          console.log(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatus?.status || 'unknown'}`)
         } else {
-          console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed (status: ${queueUpdateResult[0].status})`)
+          console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed (queue_id: ${queueUpdateResult[0].id}, status: ${queueUpdateResult[0].status})`)
         }
         
         return NextResponse.json({
