@@ -63,14 +63,14 @@ After adding DNS records, verify they're working:
 
 ```bash
 # Check SPF record
-dig TXT seoauditpro.net | grep spf
+dig TXT seochecksite.net | grep spf
 
 # Check DMARC record
-dig TXT _dmarc.seoauditpro.net | grep DMARC
+dig TXT _dmarc.seochecksite.net | grep DMARC
 
 # Check SendGrid CNAME records
-dig CNAME s1._domainkey.seoauditpro.net
-dig CNAME s2._domainkey.seoauditpro.net
+dig CNAME s1._domainkey.seochecksite.net
+dig CNAME s2._domainkey.seochecksite.net
 ```
 
 ## Expected Results
