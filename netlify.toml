@@ -8,23 +8,10 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Function timeout settings
-# Netlify free tier: 10 seconds default, 26 seconds max
-# Netlify Pro: up to 26 seconds
-# For longer processing, we use background promises that continue after function returns
+# Functions configuration
+# Scheduled function is defined in netlify/functions/process-queue.js
 [functions]
   directory = "netlify/functions"
-  # Note: Netlify has limits on function execution time
-  # Free tier: 10s default, 26s max
-  # Pro tier: up to 26s
-  # Background processing continues after function returns, but may be killed on timeout
-  # Consider using Netlify Background Functions or external queue for long-running tasks
-  
-  # Scheduled function for processing audit queue
-  # The schedule is configured in netlify/functions/process-queue.js using @netlify/functions
-  # Runs every 2 minutes automatically on Netlify
-  # The function uses schedule('*/2 * * * *', handler) to define the cron schedule
-  # Netlify will automatically detect and register this as a scheduled function
 
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
