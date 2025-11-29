@@ -112,7 +112,7 @@ export default function RootLayout({
       <body>
         {/* Google tag (gtag.js) - Using Next.js Script component for optimization */}
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-D7TTYQRCRG"
+          src="https://www.googletagmanager.com/gtag/js?id=G-T4P62T0TP2"
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -120,7 +120,7 @@ export default function RootLayout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-D7TTYQRCRG');
+            gtag('config', 'G-T4P62T0TP2');
           `}
         </Script>
         <SkipLink />
