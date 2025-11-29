@@ -698,9 +698,10 @@ export async function GET(request: NextRequest) {
       // This handles cases where processAudit succeeded but status update failed, or status was set to 'failed' by error handling
       const hasReport = !!verifyAudit.formatted_report_html
       // Check if email exists and is a real timestamp (not a reservation)
+      // Any real timestamp (not starting with 'sending_') means email was sent, regardless of age
       const hasEmail = verifyAudit.email_sent_at && 
                        !verifyAudit.email_sent_at.startsWith('sending_') &&
-                       (isEmailSent(verifyAudit.email_sent_at) || verifyAudit.email_sent_at.length > 10)
+                       verifyAudit.email_sent_at.length > 10 // Real timestamp format
       const isComplete = verifyAudit.status === 'completed'
       
       if (hasReport || hasEmail) {
@@ -789,13 +790,22 @@ export async function GET(request: NextRequest) {
           }
           
           // Mark queue as completed
-          await supabase
+          const { data: queueFixResult, error: queueFixError } = await supabase
             .from('audit_queue')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
             .eq('id', queueItem.id)
+            .select('status')
+          
+          if (queueFixError) {
+            console.error(`[${requestId}] ❌ Failed to mark queue as completed in final check:`, queueFixError)
+          } else if (!queueFixResult || queueFixResult.length === 0) {
+            console.error(`[${requestId}] ❌ Queue update in final check returned no data`)
+          } else {
+            console.log(`[${requestId}] ✅ Queue marked as completed in final check (status: ${queueFixResult[0].status})`)
+          }
           
           return NextResponse.json({
             success: true,
