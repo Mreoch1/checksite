@@ -612,9 +612,33 @@ export async function processAudit(auditId: string) {
     
     // If we get here, reservation was successful (either initial or after retry)
     console.log(`[${reservationAttemptId}] ✅ Reservation successful, proceeding with email send`)
-    // Continue with email sending
     
-    // Step 2: Send email ONLY if we successfully reserved the slot
+    // CRITICAL: Final verification - ensure report is fully saved and ready before sending email
+    // This prevents sending emails before the report is accessible
+    const { data: finalVerification, error: verifyError } = await supabase
+      .from('audits')
+      .select('status, formatted_report_html, completed_at')
+      .eq('id', auditId)
+      .single()
+    
+    if (verifyError || !finalVerification) {
+      console.error(`[${reservationAttemptId}] ❌ Final verification failed:`, verifyError)
+      throw new Error(`Cannot send email - audit verification failed: ${verifyError?.message || 'Audit not found'}`)
+    }
+    
+    if (finalVerification.status !== 'completed') {
+      console.error(`[${reservationAttemptId}] ❌ Final verification failed: status is ${finalVerification.status}, not 'completed'`)
+      throw new Error(`Cannot send email - audit status is ${finalVerification.status}, not 'completed'`)
+    }
+    
+    if (!finalVerification.formatted_report_html || finalVerification.formatted_report_html.trim().length === 0) {
+      console.error(`[${reservationAttemptId}] ❌ Final verification failed: report HTML is missing or empty`)
+      throw new Error('Cannot send email - report HTML is missing or empty')
+    }
+    
+    console.log(`[${reservationAttemptId}] ✅ Final verification passed: status=completed, has_report=true, completed_at=${finalVerification.completed_at}`)
+    
+    // Step 2: Send email ONLY if we successfully reserved the slot AND report is verified
     let emailSentAt: string | null = null
     let emailError: Error | null = null
     
