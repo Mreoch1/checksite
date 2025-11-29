@@ -11,8 +11,12 @@
 
 # Functions configuration
 # Scheduled function is defined in netlify/functions/process-queue.js
+# Schedule is also defined here as a backup/alternative method
 [functions]
   directory = "netlify/functions"
+
+[functions."process-queue"]
+  schedule = "*/2 * * * *"  # Every 2 minutes
 
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
