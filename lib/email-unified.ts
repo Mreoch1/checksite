@@ -119,6 +119,8 @@ async function sendViaSendGrid(options: {
         'Importance': 'normal',
         'Auto-Submitted': 'no', // Important: indicates this is NOT an auto-reply
         'MIME-Version': '1.0',
+        'X-Sender': 'admin@seochecksite.net',
+        'Reply-To': fromEmail,
       },
       // SendGrid-specific settings to improve deliverability
       mailSettings: {
@@ -369,7 +371,7 @@ export async function sendAuditReportEmail(
           We've completed the analysis of <strong style="color: #0369a1;">${domain}</strong>. Your detailed report is available below.
         </p>
         <p style="color: #6b7280; font-size: 13px; margin-top: 10px; padding: 10px; background-color: #f9fafb; border-radius: 4px;">
-          <strong>Note:</strong> If this email appears in your junk folder, please mark it as "Not Junk" to ensure you receive future updates.
+          <strong>Note:</strong> If this email appears in your junk folder, please mark it as "Not Junk" and add admin@seochecksite.net to your contacts to ensure you receive future updates.
         </p>
         
         <div style="margin: 30px 0; text-align: center;">
