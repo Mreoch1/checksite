@@ -475,6 +475,35 @@ export async function processAudit(auditId: string) {
       if (reservationError) {
         console.error(`[${reservationAttemptId}] Reservation error details:`, reservationError)
       }
+      
+      // If reservation failed with 0 rows, verify the audit still exists and check email_sent_at
+      if (!reservationError && (!reservationResult || reservationResult.length === 0)) {
+        const { data: verifyAfterFail } = await supabase
+          .from('audits')
+          .select('id, email_sent_at, status')
+          .eq('id', auditId)
+          .single()
+        
+        if (!verifyAfterFail) {
+          console.error(`[${reservationAttemptId}] ❌ Audit ${auditId} does not exist - cannot proceed with email`)
+        } else if (verifyAfterFail.email_sent_at) {
+          const age = getEmailSentAtAge(verifyAfterFail.email_sent_at)
+          const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+          console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed because email_sent_at was set: ${verifyAfterFail.email_sent_at} (${ageMinutes}m old)`)
+          // Another process set it - check if email was sent
+          if (isEmailSent(verifyAfterFail.email_sent_at)) {
+            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+            return {
+              success: true,
+              auditId,
+              message: 'Audit completed successfully (email was already sent by another process)',
+              emailSent: true,
+            }
+          }
+        } else {
+          console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is still null - will try fallback`)
+        }
+      }
     }
     
     // If reservation failed, check what happened and handle stale reservations
@@ -540,41 +569,62 @@ export async function processAudit(auditId: string) {
         // email_sent_at is null but reservation failed - try direct update as fallback
         console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is null - trying direct update as fallback`)
         
-        // Fallback: Try direct update without the IS NULL filter
-        // This handles cases where the filter might not work correctly
-        const fallbackTimestamp = new Date(Date.now() - 1000).toISOString()
-        const { data: fallbackResult, error: fallbackError } = await supabase
+        // First, verify the audit still exists
+        const { data: verifyAuditExists, error: verifyError } = await supabase
           .from('audits')
-          .update({ email_sent_at: fallbackTimestamp })
+          .select('id, email_sent_at, status')
           .eq('id', auditId)
-          .select('email_sent_at')
+          .single()
         
-        if (fallbackError) {
-          console.error(`[${reservationAttemptId}] ❌ Fallback update also failed:`, fallbackError)
-          console.error(`[${reservationAttemptId}] ⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.`)
-        } else if (!fallbackResult || fallbackResult.length === 0) {
-          console.error(`[${reservationAttemptId}] ❌ Fallback update returned no rows - audit may not exist`)
-          console.error(`[${reservationAttemptId}] ⚠️  Skipping email send. Audit report is saved and accessible.`)
-        } else {
-          // Verify the update actually set email_sent_at to our timestamp
-          const updatedValue = fallbackResult[0]?.email_sent_at
-          if (updatedValue && updatedValue === fallbackTimestamp) {
-            console.log(`[${reservationAttemptId}] ✅ Fallback reservation succeeded: ${updatedValue}`)
-            reservationSuccessful = true
+        if (verifyError || !verifyAuditExists) {
+          console.error(`[${reservationAttemptId}] ❌ Audit verification failed:`, verifyError)
+          console.error(`[${reservationAttemptId}] ⚠️  Audit may have been deleted or doesn't exist. Skipping email send.`)
+        } else if (verifyAuditExists.email_sent_at) {
+          // Another process set it between our checks
+          const age = getEmailSentAtAge(verifyAuditExists.email_sent_at)
+          const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+          console.warn(`[${reservationAttemptId}] ⚠️  email_sent_at was set by another process: ${verifyAuditExists.email_sent_at} (${ageMinutes}m old)`)
+          if (isEmailSent(verifyAuditExists.email_sent_at)) {
+            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+            reservationSuccessful = true // Mark as successful since email was sent
           } else {
-            console.warn(`[${reservationAttemptId}] ⚠️  Fallback update returned different value: expected ${fallbackTimestamp}, got ${updatedValue}`)
-            // Check if another process set it
-            if (updatedValue && updatedValue !== fallbackTimestamp) {
-              const age = getEmailSentAtAge(updatedValue)
-              const ageMinutes = age ? Math.round(age / 1000 / 60) : null
-              console.warn(`[${reservationAttemptId}] ⚠️  Another process may have set email_sent_at: ${updatedValue} (${ageMinutes}m old)`)
-              if (isEmailSent(updatedValue)) {
-                console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
-                return {
-                  success: true,
-                  auditId,
-                  message: 'Audit completed successfully (email was already sent by another process)',
-                  emailSent: true,
+            // It's a reservation - we can proceed with sending
+            reservationSuccessful = true
+          }
+        } else {
+          // Audit exists and email_sent_at is still null - try direct update
+          const fallbackTimestamp = new Date(Date.now() - 1000).toISOString()
+          const { data: fallbackResult, error: fallbackError } = await supabase
+            .from('audits')
+            .update({ email_sent_at: fallbackTimestamp })
+            .eq('id', auditId)
+            .select('email_sent_at')
+          
+          if (fallbackError) {
+            console.error(`[${reservationAttemptId}] ❌ Fallback update failed:`, fallbackError)
+            console.error(`[${reservationAttemptId}] ⚠️  Skipping email send to prevent duplicates. Audit report is saved and accessible.`)
+          } else if (!fallbackResult || fallbackResult.length === 0) {
+            console.error(`[${reservationAttemptId}] ❌ Fallback update returned no rows - this should not happen if audit exists`)
+            console.error(`[${reservationAttemptId}] ⚠️  Skipping email send. Audit report is saved and accessible.`)
+          } else {
+            // Verify the update actually set email_sent_at to our timestamp
+            const updatedValue = fallbackResult[0]?.email_sent_at
+            if (updatedValue && updatedValue === fallbackTimestamp) {
+              console.log(`[${reservationAttemptId}] ✅ Fallback reservation succeeded: ${updatedValue}`)
+              reservationSuccessful = true
+            } else {
+              console.warn(`[${reservationAttemptId}] ⚠️  Fallback update returned different value: expected ${fallbackTimestamp}, got ${updatedValue}`)
+              // Check if another process set it
+              if (updatedValue && updatedValue !== fallbackTimestamp) {
+                const age = getEmailSentAtAge(updatedValue)
+                const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+                console.warn(`[${reservationAttemptId}] ⚠️  Another process may have set email_sent_at: ${updatedValue} (${ageMinutes}m old)`)
+                if (isEmailSent(updatedValue)) {
+                  console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+                  reservationSuccessful = true // Mark as successful since email was sent
+                } else {
+                  // It's a reservation timestamp - we can proceed
+                  reservationSuccessful = true
                 }
               }
             }
