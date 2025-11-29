@@ -151,21 +151,26 @@ export async function GET(request: NextRequest) {
       }
     })
     
-    // Clean up queue items in parallel (fire and forget)
+    // Clean up queue items - await to ensure they're marked as completed before continuing
     if (itemsToCleanup.length > 0) {
       console.log(`[${requestId}] Cleaning up ${itemsToCleanup.length} queue items for audits with emails already sent`)
-      // Fire and forget - don't await
-      void Promise.all(
+      // Await cleanup to ensure it completes before processing new items
+      await Promise.all(
         itemsToCleanup.map(async (itemId) => {
           try {
-            await supabase
+            const { error: cleanupError } = await supabase
               .from('audit_queue')
               .update({
                 status: 'completed',
                 completed_at: new Date().toISOString(),
               })
               .eq('id', itemId)
-            console.log(`[${requestId}] ✅ Cleaned up queue item ${itemId}`)
+            
+            if (cleanupError) {
+              console.error(`[${requestId}] Failed to clean up queue item ${itemId}:`, cleanupError)
+            } else {
+              console.log(`[${requestId}] ✅ Cleaned up queue item ${itemId}`)
+            }
           } catch (err) {
             console.error(`[${requestId}] Failed to clean up queue item ${itemId}:`, err)
           }
