@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
   if (authError) return authError
 
   try {
-    // Check for audits for seoauditpro.net
+    // Check for audits for seochecksite.net
     const { data: seoauditAudits, error: seoauditError } = await supabase
       .from('audits')
       .select('id, url, status, created_at, email_sent_at, customer_id, customers(email)')
-      .ilike('url', '%seoauditpro.net%')
+      .ilike('url', '%seochecksite.net%')
       .order('created_at', { ascending: false })
 
     if (seoauditError) {

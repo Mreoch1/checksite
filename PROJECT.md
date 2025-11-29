@@ -71,9 +71,9 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ### 2025-11-29: SendGrid Click Tracking SSL Certificate Error
 
-**Issue**: Users receiving emails see SSL certificate error when clicking report links. Error: `NET::ERR_CERT_COMMON_NAME_INVALID` for `url5121.seoauditpro.net`.
+**Issue**: Users receiving emails see SSL certificate error when clicking report links. Error: `NET::ERR_CERT_COMMON_NAME_INVALID` for `url5121.seochecksite.net`.
 
-**Root Cause**: SendGrid's click tracking wraps report links in a redirect through `url5121.seoauditpro.net`, which has an SSL certificate mismatch. Account-level click tracking in SendGrid dashboard overrides per-message settings.
+**Root Cause**: SendGrid's click tracking wraps report links in a redirect through `url5121.seochecksite.net`, which has an SSL certificate mismatch. Account-level click tracking in SendGrid dashboard overrides per-message settings.
 
 **Files Modified**:
 - `lib/email-unified.ts` - Added `enableText: false` to click tracking settings and improved comments

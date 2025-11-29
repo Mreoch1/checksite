@@ -19,18 +19,18 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 async function checkDuplicates() {
   console.log('🔍 Checking for duplicate audits and queue entries...\n')
 
-  // Check for audits for seoauditpro.net
-  console.log('📊 Audits for seoauditpro.net:')
+  // Check for audits for seochecksite.net
+  console.log('📊 Audits for seochecksite.net:')
   const { data: seoauditAudits, error: seoauditError } = await supabase
     .from('audits')
     .select('id, url, status, created_at, email_sent_at, customer_id, customers(email)')
-    .ilike('url', '%seoauditpro.net%')
+    .ilike('url', '%seochecksite.net%')
     .order('created_at', { ascending: false })
 
   if (seoauditError) {
     console.error('Error fetching audits:', seoauditError)
   } else {
-    console.log(`   Found ${seoauditAudits?.length || 0} audit(s) for seoauditpro.net\n`)
+    console.log(`   Found ${seoauditAudits?.length || 0} audit(s) for seochecksite.net\n`)
     if (seoauditAudits && seoauditAudits.length > 0) {
       seoauditAudits.forEach((audit, idx) => {
         const customer = Array.isArray(audit.customers) ? audit.customers[0] : audit.customers
@@ -46,7 +46,7 @@ async function checkDuplicates() {
   }
 
   // Check for duplicate queue entries
-  console.log('\n📦 Queue entries for seoauditpro.net audits:')
+  console.log('\n📦 Queue entries for seochecksite.net audits:')
   if (seoauditAudits && seoauditAudits.length > 0) {
     const auditIds = seoauditAudits.map(a => a.id)
     const { data: queueItems, error: queueError } = await supabase

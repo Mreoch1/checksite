@@ -70,7 +70,7 @@ export const createAuditSchema = z.object({
 
 // Test audit schema
 export const testAuditSchema = z.object({
-  url: urlSchema.optional().default('https://seoauditpro.net'),
+  url: urlSchema.optional().default('https://seochecksite.net'),
   email: emailSchema.optional().default('test@example.com'),
   modules: z.array(z.string()).optional(),
 })

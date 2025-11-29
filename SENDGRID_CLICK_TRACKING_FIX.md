@@ -6,10 +6,10 @@ When users click the report link in emails, they see:
 ```
 Your connection is not private
 NET::ERR_CERT_COMMON_NAME_INVALID
-url5121.seoauditpro.net
+url5121.seochecksite.net
 ```
 
-This happens because SendGrid's click tracking wraps links in a redirect through `url5121.seoauditpro.net`, which has an SSL certificate mismatch.
+This happens because SendGrid's click tracking wraps links in a redirect through `url5121.seochecksite.net`, which has an SSL certificate mismatch.
 
 ## Solution
 
@@ -42,14 +42,14 @@ After disabling click tracking in the dashboard:
 1. Send a test email
 2. Check the email source/HTML
 3. Verify the report link goes directly to `https://seochecksite.netlify.app/report/[id]` 
-4. Confirm it does NOT go through `url5121.seoauditpro.net`
+4. Confirm it does NOT go through `url5121.seochecksite.net`
 
 ## Alternative: Fix SSL Certificate for Tracking Domain
 
-If you want to keep click tracking enabled, you need to fix the SSL certificate for `url5121.seoauditpro.net`:
+If you want to keep click tracking enabled, you need to fix the SSL certificate for `url5121.seochecksite.net`:
 
 1. Go to SendGrid Dashboard → **Settings** → **Sender Authentication**
-2. Find your domain (`seoauditpro.net`)
+2. Find your domain (`seochecksite.net`)
 3. Check the DNS records for `url5121` CNAME
 4. Ensure the SSL certificate is properly configured
 
@@ -74,7 +74,7 @@ To verify click tracking is disabled:
    - View source/HTML
    - Search for the report link
    - It should be: `https://seochecksite.netlify.app/report/[id]`
-   - It should NOT be: `https://url5121.seoauditpro.net/ls/click?...`
+   - It should NOT be: `https://url5121.seochecksite.net/ls/click?...`
 
 ## Status
 

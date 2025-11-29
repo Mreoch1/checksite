@@ -78,7 +78,7 @@ export default function PrivacyPage() {
             <li><strong>Right to Non-Discrimination:</strong> Exercise your privacy rights without discrimination</li>
           </ul>
           <p className="text-gray-700 mb-4">
-            To exercise these rights, please contact us at: <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:underline">contact@seoauditpro.net</a>
+            To exercise these rights, please contact us at: <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">contact@seochecksite.net</a>
           </p>
           <p className="text-gray-700 mb-4">
             We will respond to your request within 30 days. If you are in the EU and are not satisfied with our response, you have the right to lodge a complaint with your local data protection authority.
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
             If you have questions about this Privacy Policy, please contact us at:
           </p>
           <p className="text-gray-700 mb-4">
-            Email: <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:underline">contact@seoauditpro.net</a>
+            Email: <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">contact@seochecksite.net</a>
           </p>
         </div>
       </div>

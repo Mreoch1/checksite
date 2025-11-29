@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-const TEST_URL = 'https://seoauditpro.net'
+const TEST_URL = 'https://seochecksite.net'
 const TEST_EMAIL = 'Mreoch82@hotmail.com'
 const TEST_MODULES = ['performance', 'crawl_health', 'on_page', 'mobile']
 
