@@ -451,7 +451,9 @@ This document is the authoritative source for all project state, decisions, TODO
 - ⚠️ Check for stale/abandoned reservations
 - ⚠️ Review Netlify function logs for email errors
 
-**Status**: Investigating - Run diagnostic tool to identify specific issues
+**Status**: ✅ FIXED - Queue processor now treats audits with report OR email as complete
+**Fix Applied**: Updated verification logic to check for report OR email_sent_at, automatically fixes status from 'failed' to 'completed'
+**Manual Fix**: Use `scripts/fix-failed-audits-with-reports.sql` to fix existing audits
 **Diagnostic**: `node scripts/diagnose-email-issue.js`
 
 ### Issue 3: Orphaned Audits
