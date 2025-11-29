@@ -50,19 +50,22 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
-### 2025-01-28: Scheduled Function Not Running - Root Cause Identified
+### 2025-01-28: Email Issue Root Causes Identified
 
-**Changes Made**:
-1. Identified root cause: Scheduled function (cron job) not running
-2. Created `scripts/check-scheduled-function.md` - Verification guide
-3. Updated `PROJECT.md` to document scheduled function issue as CRITICAL
+**Diagnostic Results** (from comprehensive-email-diagnostic.js):
+1. **CRITICAL**: Email provider not configured in local env (SENDGRID_API_KEY or SMTP_PASSWORD missing)
+2. **ROOT CAUSE**: Queue not processing - 3 pending items, 10 items stuck in "processing" for 650-788 minutes
+3. **BLOCKING**: 10 abandoned email reservations (>30 minutes old) preventing sends
 
 **Files Created**:
-- `scripts/check-scheduled-function.md` - Guide to verify and troubleshoot scheduled function
+- `scripts/comprehensive-email-diagnostic.js` - Comprehensive email diagnostic tool
+- `scripts/fix-stuck-queue.sql` - SQL to fix stuck queue items and clear abandoned reservations
 
-**Issue**: Scheduled function not running, preventing queue processing and email sending
-**Evidence**: Audit added to queue at 09:21:38 PM but no processing logs found
-**Status**: CRITICAL - Need to verify scheduled function in Netlify dashboard
+**Status**: CRITICAL - Multiple issues preventing email delivery
+**Action Required**:
+1. Verify email provider configured in Netlify (SENDGRID_API_KEY or SMTP_PASSWORD)
+2. Run `scripts/fix-stuck-queue.sql` to clear stuck items
+3. Verify scheduled function is running in Netlify dashboard
 
 ### 2025-01-28: Email Issue Investigation & Diagnostic Tools
 
