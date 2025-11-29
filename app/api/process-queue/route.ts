@@ -133,16 +133,21 @@ export async function GET(request: NextRequest) {
     // Filter out audits that already have email_sent_at (client-side filter)
     // Also filter out audits with "sending_" prefix (another process is sending)
     // Handle both array and single object responses from Supabase
-    // First, clean up any queue items for audits that already have emails sent
+    // First, identify and clean up any queue items for audits that already have emails sent
     const itemsToCleanup: string[] = []
+    const itemsToKeep: any[] = []
+    
     queueItems?.forEach((item: any) => {
       const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       if (!audit) {
         console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - this might indicate a database issue`)
+        itemsToKeep.push(item) // Keep items without audit data for now - they'll be filtered out later
         return
       }
       if (isEmailSent(audit.email_sent_at)) {
         itemsToCleanup.push(item.id)
+      } else {
+        itemsToKeep.push(item) // Keep items that don't have emails sent
       }
     })
     
@@ -167,6 +172,10 @@ export async function GET(request: NextRequest) {
         })
       )
     }
+    
+    // Update queueItems to exclude items that are being cleaned up
+    // This ensures we only look for processable items among the remaining ones
+    queueItems = itemsToKeep
     
     // Safety check: Look for audits that are pending/running but not in queue
     // This handles cases where audits were created but never added to queue
