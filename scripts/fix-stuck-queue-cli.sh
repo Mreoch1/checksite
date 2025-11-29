@@ -17,24 +17,45 @@ fi
 echo "✓ Supabase CLI found"
 echo ""
 
-# Check if linked to a project
-if ! supabase status &> /dev/null; then
-  echo "⚠️  Not linked to a Supabase project"
-  echo "   Linking to project..."
-  echo "   (You may need to run: supabase link --project-ref YOUR_PROJECT_REF)"
+# Check if linked to a project or use direct connection
+SUPABASE_PROJECT_REF="${SUPABASE_PROJECT_REF:-}"
+SUPABASE_DB_PASSWORD="${SUPABASE_DB_PASSWORD:-}"
+
+if [ -z "$SUPABASE_PROJECT_REF" ]; then
+  # Try to get from .env.local
+  if [ -f .env.local ]; then
+    SUPABASE_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env.local | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    if [ -n "$SUPABASE_URL" ]; then
+      SUPABASE_PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | sed 's|\.supabase\.co||')
+      echo "✓ Found project ref from .env.local: $SUPABASE_PROJECT_REF"
+    fi
+  fi
+fi
+
+if [ -z "$SUPABASE_PROJECT_REF" ]; then
+  echo "⚠️  SUPABASE_PROJECT_REF not set"
+  echo "   Set it: export SUPABASE_PROJECT_REF=your-project-ref"
+  echo "   Or link project: supabase link --project-ref YOUR_PROJECT_REF"
   echo ""
+  echo "   Alternatively, use the SQL script directly in Supabase dashboard:"
+  echo "   cat scripts/fix-stuck-queue.sql"
+  exit 1
 fi
 
 echo "📊 Current Queue Status:"
 echo "----------------------"
-supabase db execute "
-SELECT 
-  status,
-  COUNT(*) as count,
-  MIN(created_at) as oldest
-FROM audit_queue
-GROUP BY status;
-" 2>/dev/null || echo "⚠️  Could not query queue status (may need to link project)"
+# Use psql through Supabase CLI if available, otherwise provide SQL
+if supabase db remote commit &> /dev/null 2>&1; then
+  # Try to execute via Supabase CLI
+  echo "Querying via Supabase CLI..."
+else
+  echo "⚠️  Supabase CLI not fully configured"
+  echo "   Run this SQL in Supabase Dashboard → SQL Editor:"
+  echo ""
+  echo "   SELECT status, COUNT(*) as count, MIN(created_at) as oldest"
+  echo "   FROM audit_queue GROUP BY status;"
+  echo ""
+fi
 
 echo ""
 echo "🔧 Fixing Stuck Items..."
