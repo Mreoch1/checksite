@@ -701,6 +701,7 @@ export async function GET(request: NextRequest) {
       if (emailWasSent) {
         console.log(`[${requestId}] ✅ Email was sent (timestamp: ${verifyAudit.email_sent_at}) - marking queue as completed`)
         // Email was sent - mark queue as completed immediately
+        // Use atomic update: only update if still pending (prevents race conditions)
         const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
           .update({
@@ -708,7 +709,8 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
-          .select('status')
+          .eq('status', 'pending') // Atomic: only update if still pending
+          .select('id, status, completed_at')
         
         if (queueUpdateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
