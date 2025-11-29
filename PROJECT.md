@@ -50,6 +50,32 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-01-28: Scheduled Function Not Running - Root Cause Identified
+
+**Changes Made**:
+1. Identified root cause: Scheduled function (cron job) not running
+2. Created `scripts/check-scheduled-function.md` - Verification guide
+3. Updated `PROJECT.md` to document scheduled function issue as CRITICAL
+
+**Files Created**:
+- `scripts/check-scheduled-function.md` - Guide to verify and troubleshoot scheduled function
+
+**Issue**: Scheduled function not running, preventing queue processing and email sending
+**Evidence**: Audit added to queue at 09:21:38 PM but no processing logs found
+**Status**: CRITICAL - Need to verify scheduled function in Netlify dashboard
+
+### 2025-01-28: Email Issue Investigation & Diagnostic Tools
+
+**Changes Made**:
+1. Created `scripts/diagnose-email-issue.js` - Email diagnostic tool
+2. Updated `PROJECT.md` to document email issue
+
+**Files Created**:
+- `scripts/diagnose-email-issue.js` - Checks for completed audits without emails, stale reservations, abandoned reservations, and email configuration
+
+**Issue**: Emails not being sent for completed audits
+**Status**: Likely caused by scheduled function not running (Issue #1)
+
 ### 2025-01-28: Health Check & Scheduled Function Setup
 
 **Changes Made**:
@@ -154,6 +180,46 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Unresolved Issues
+
+### Active Issues
+1. **Scheduled Function (Cron Job) Not Running** (Reported 2025-01-28)
+   - **Status**: CRITICAL - Root cause of email issue
+   - **Symptoms**: 
+     - Audits added to queue but never processed
+     - No logs from `/api/process-queue` endpoint
+     - No logs from `[process-queue-scheduled]` function
+     - Queue items remain in "pending" status indefinitely
+   - **Evidence**: 
+     - Audit `3cee9452-f169-4740-8375-8850beee160e` added to queue at 09:21:38 PM
+     - Queue entry `7250ec7f-964e-44f8-b8db-76a9347ccd89` created with status "pending"
+     - No subsequent logs showing queue processing
+   - **Root Cause**: Netlify scheduled function not running or not configured correctly
+   - **Action**: 
+     - Check Netlify dashboard → Functions → Scheduled functions
+     - Verify `process-queue` function appears in list
+     - Check function execution logs
+     - Verify `netlify/functions/process-queue.js` exists and is correctly formatted
+     - Manually trigger queue processing to test: `curl -X GET "https://seochecksite.netlify.app/api/process-queue?secret=YOUR_QUEUE_SECRET"`
+   - **Priority**: CRITICAL
+   - **Impact**: This is preventing all queue processing, which means audits never complete and emails never send
+
+2. **Email Not Being Sent** (Reported 2025-01-28)
+   - **Status**: Likely caused by Issue #1 (cron job not running)
+   - **Symptoms**: Audits complete but emails not sent to customers
+   - **Possible Causes**:
+     - **PRIMARY**: Scheduled function not running (audits never processed)
+     - Email environment variables not set in Netlify
+     - Email sending errors (check `error_log` column)
+     - Stale/abandoned email reservations blocking sends
+     - Email provider configuration issues (SendGrid/Zoho)
+   - **Action**: 
+     - **FIRST**: Fix scheduled function issue (Issue #1)
+     - Run `node scripts/diagnose-email-issue.js` to identify specific issues
+     - Check Netlify environment variables for email configuration
+     - Review Netlify function logs for email errors
+     - Check for stale/abandoned reservations in database
+   - **Priority**: High (but depends on Issue #1 being fixed)
+   - **Diagnostic Tool**: `scripts/diagnose-email-issue.js` - Checks for completed audits without emails, stale reservations, and configuration issues
 
 ### Pending Verification (After Next Deploy)
 1. **Scheduled Function Visibility**: Need to verify `process-queue` appears in Netlify dashboard → Functions → Scheduled functions
@@ -313,14 +379,20 @@ This document is the authoritative source for all project state, decisions, TODO
 - Missing environment variables
 - Email reservation race conditions
 - Provider configuration issues
+- Stale/abandoned reservations blocking sends
+- Email provider errors (SendGrid/Zoho)
 
 **Solutions**:
 - ✅ Atomic reservation system implemented
 - ✅ Fallback direct update if reservation fails
 - ✅ Comprehensive error logging
+- ✅ Diagnostic tool created (`scripts/diagnose-email-issue.js`)
 - ⚠️ Verify environment variables in Netlify
+- ⚠️ Check for stale/abandoned reservations
+- ⚠️ Review Netlify function logs for email errors
 
-**Status**: Code fixed, needs environment variable verification
+**Status**: Investigating - Run diagnostic tool to identify specific issues
+**Diagnostic**: `node scripts/diagnose-email-issue.js`
 
 ### Issue 3: Orphaned Audits
 **Symptoms**: Audits stuck in pending/running but not in queue  
@@ -380,6 +452,8 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ### Scripts
 - **`scripts/health-check.js`** - Automated health check
+- **`scripts/diagnose-email-issue.js`** - Email issue diagnostic tool
+- **`scripts/check-scheduled-function.md`** - How to verify scheduled function is running
 - **`scripts/setup-netlify-scheduled-function.md`** - Scheduled function setup guide
 - **`scripts/setup-external-cron.md`** - External cron fallback (not recommended)
 
@@ -392,6 +466,10 @@ This document is the authoritative source for all project state, decisions, TODO
 - Added `functions.directory` to `netlify.toml`
 - Created health check script and documentation
 - Consolidated all project state into SSOT
+- Created email diagnostic tool (`scripts/diagnose-email-issue.js`)
+- Documented email sending issue in Unresolved Issues
+- Identified scheduled function not running as root cause of email issue
+- Created scheduled function verification guide (`scripts/check-scheduled-function.md`)
 
 ### 2025-01-27
 - Updated pricing model to $24.99 base + 2 add-ons
