@@ -11,21 +11,66 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
-try {
-  require('dotenv').config({ path: '.env.local' });
-} catch (e) {
-  // dotenv not available, use process.env directly
+const fs = require('fs');
+const path = require('path');
+
+// Try to load environment variables from multiple locations
+const envFiles = ['.env.local', '.env', '.env.production'];
+let envLoaded = false;
+
+for (const envFile of envFiles) {
+  const envPath = path.join(process.cwd(), envFile);
+  if (fs.existsSync(envPath)) {
+    try {
+      // Try to require dotenv, but don't fail if it's not installed
+      let dotenv;
+      try {
+        dotenv = require('dotenv');
+      } catch (e) {
+        // dotenv not installed, try to parse manually
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        envContent.split('\n').forEach(line => {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('#')) {
+            const [key, ...valueParts] = trimmed.split('=');
+            if (key && valueParts.length > 0) {
+              const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+              process.env[key.trim()] = value.trim();
+            }
+          }
+        });
+        envLoaded = true;
+        console.log(`✓ Loaded environment from ${envFile} (manual parse)`);
+        break;
+      }
+      
+      if (dotenv) {
+        dotenv.config({ path: envPath });
+        envLoaded = true;
+        console.log(`✓ Loaded environment from ${envFile}`);
+        break;
+      }
+    } catch (e) {
+      // Continue to next file
+    }
+  }
 }
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+// Also try loading from process.env (may already be set)
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ Missing required environment variables:');
   console.error('   SUPABASE_URL:', SUPABASE_URL ? '✓' : '✗');
   console.error('   SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? '✓' : '✗');
-  console.error('\n⚠️  Note: This script requires .env.local with Supabase credentials');
-  console.error('   For production, check Netlify dashboard and function logs instead');
+  console.error('\n💡 Tips:');
+  console.error('   - Check if .env.local exists in project root');
+  console.error('   - Verify variables are set in your shell environment');
+  console.error('   - For production, check Netlify dashboard → Environment Variables');
+  console.error('\n📋 Required variables:');
+  console.error('   SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL)');
+  console.error('   SUPABASE_SERVICE_ROLE_KEY');
   process.exit(1);
 }
 
