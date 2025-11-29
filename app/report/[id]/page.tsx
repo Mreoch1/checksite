@@ -137,8 +137,16 @@ export default async function ReportPage({ params }: { params: { id: string } })
           >
             <span className="sr-only">Loading...</span>
           </div>
-          <p className="text-gray-600" role="status" aria-live="polite">Your report is still being generated...</p>
-          <p className="text-sm text-gray-500 mt-2">We'll email you when it's ready.</p>
+          <p className="text-gray-600 text-lg font-medium" role="status" aria-live="polite">
+            Your report is still being generated. Please check back shortly.
+          </p>
+          <p className="text-sm text-gray-500 mt-4 max-w-md mx-auto">
+            Reports typically complete within 2-5 minutes. If you don't receive your full report within 15 minutes, please contact us at{' '}
+            <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:text-blue-800 underline">
+              contact@seoauditpro.net
+            </a>
+            .
+          </p>
         </div>
       </div>
     )
