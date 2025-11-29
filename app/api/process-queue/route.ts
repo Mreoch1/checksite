@@ -144,7 +144,12 @@ export async function GET(request: NextRequest) {
         itemsToKeep.push(item) // Keep items without audit data for now - they'll be filtered out later
         return
       }
-      if (isEmailSent(audit.email_sent_at)) {
+      // Check if email was sent - any real timestamp (not reservation) means email was sent
+      const emailWasSent = audit.email_sent_at && 
+                          !audit.email_sent_at.startsWith('sending_') &&
+                          audit.email_sent_at.length > 10
+      
+      if (emailWasSent || isEmailSent(audit.email_sent_at)) {
         itemsToCleanup.push(item.id)
       } else {
         itemsToKeep.push(item) // Keep items that don't have emails sent
@@ -653,13 +658,14 @@ export async function GET(request: NextRequest) {
       }
       
       // CRITICAL: Mark queue as completed if email was sent
-      // Check if email_sent_at exists and is not a reservation (doesn't start with 'sending_')
-      // OR if it's older than 5 minutes (definitely sent)
+      // If email_sent_at exists and is not a reservation (doesn't start with 'sending_'), it's a real email
+      // The 5-minute check is only for distinguishing old reservations, but any real timestamp means email was sent
       const emailWasSent = verifyAudit.email_sent_at && 
                           !verifyAudit.email_sent_at.startsWith('sending_') &&
-                          (isEmailSent(verifyAudit.email_sent_at) || verifyAudit.email_sent_at.length > 10) // Real timestamp, not reservation
+                          verifyAudit.email_sent_at.length > 10 // Real timestamp format (ISO 8601 is always > 10 chars)
       
       if (emailWasSent) {
+        console.log(`[${requestId}] ✅ Email was sent (timestamp: ${verifyAudit.email_sent_at}) - marking queue as completed`)
         // Email was sent - mark queue as completed immediately
         const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
