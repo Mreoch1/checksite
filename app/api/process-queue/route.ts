@@ -652,9 +652,14 @@ export async function GET(request: NextRequest) {
         throw new Error('Audit not found after processing')
       }
       
-      // CRITICAL: Mark queue as completed if email was sent, regardless of status
-      // This prevents the same audit from being processed again
-      if (isEmailSent(verifyAudit.email_sent_at)) {
+      // CRITICAL: Mark queue as completed if email was sent
+      // Check if email_sent_at exists and is not a reservation (doesn't start with 'sending_')
+      // OR if it's older than 5 minutes (definitely sent)
+      const emailWasSent = verifyAudit.email_sent_at && 
+                          !verifyAudit.email_sent_at.startsWith('sending_') &&
+                          (isEmailSent(verifyAudit.email_sent_at) || verifyAudit.email_sent_at.length > 10) // Real timestamp, not reservation
+      
+      if (emailWasSent) {
         // Email was sent - mark queue as completed immediately
         const { data: queueUpdateResult, error: queueUpdateError } = await supabase
           .from('audit_queue')
@@ -686,7 +691,10 @@ export async function GET(request: NextRequest) {
       // CRITICAL: If audit has report OR email was sent, it's complete regardless of status
       // This handles cases where processAudit succeeded but status update failed, or status was set to 'failed' by error handling
       const hasReport = !!verifyAudit.formatted_report_html
-      const hasEmail = isEmailSent(verifyAudit.email_sent_at)
+      // Check if email exists and is a real timestamp (not a reservation)
+      const hasEmail = verifyAudit.email_sent_at && 
+                       !verifyAudit.email_sent_at.startsWith('sending_') &&
+                       (isEmailSent(verifyAudit.email_sent_at) || verifyAudit.email_sent_at.length > 10)
       const isComplete = verifyAudit.status === 'completed'
       
       if (hasReport || hasEmail) {
@@ -749,7 +757,10 @@ export async function GET(request: NextRequest) {
           .single()
         
         const finalHasReport = !!finalCheck?.formatted_report_html
-        const finalHasEmail = isEmailSent(finalCheck?.email_sent_at)
+        // Check if email exists and is a real timestamp (not a reservation)
+        const finalHasEmail = finalCheck?.email_sent_at && 
+                             !finalCheck.email_sent_at.startsWith('sending_') &&
+                             (isEmailSent(finalCheck.email_sent_at) || finalCheck.email_sent_at.length > 10)
         const finalIsComplete = finalCheck?.status === 'completed'
         
         // If final check shows report or email exists, treat as successful
