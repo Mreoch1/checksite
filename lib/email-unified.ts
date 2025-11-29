@@ -15,11 +15,11 @@ const USE_FALLBACK = process.env.EMAIL_USE_FALLBACK !== 'false' // Default: true
 // Zoho SMTP Configuration
 const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.com'
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10)
-const SMTP_USER = process.env.SMTP_USER || 'admin@checksite.net'
-const SMTP_FROM = process.env.FROM_EMAIL || 'admin@checksite.net'
+const SMTP_USER = process.env.SMTP_USER || 'admin@seochecksite.net'
+const SMTP_FROM = process.env.FROM_EMAIL || 'admin@seochecksite.net'
 
 // SendGrid Configuration
-const SENDGRID_FROM = process.env.FROM_EMAIL || 'admin@checksite.net'
+const SENDGRID_FROM = process.env.FROM_EMAIL || 'admin@seochecksite.net'
 const FROM_NAME = process.env.FROM_NAME || 'SEO CheckSite'
 
 // Shared
@@ -113,7 +113,7 @@ async function sendViaSendGrid(options: {
         'X-Mailer': 'SEO CheckSite',
         'X-Entity-Ref-ID': `audit-${Date.now()}`,
         // Add Message-ID for better deliverability
-        'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@checksite.net>`,
+        'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seochecksite.net>`,
         // Additional headers to improve deliverability
         'X-Priority': '3',
         'Importance': 'normal',
@@ -173,7 +173,7 @@ async function sendViaZoho(options: {
   const from = SMTP_USER
   const fromFormatted = `"${FROM_NAME}" <${from}>`
   
-  const messageId = `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@checksite.net>`
+  const messageId = `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seochecksite.net>`
   
   // Generate plain text version if not provided (better deliverability)
   const plainText = options.text || options.html
@@ -388,7 +388,7 @@ export async function sendAuditReportEmail(
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 14px; margin: 0; line-height: 1.5;">
-            Questions? Email us at <a href="mailto:admin@checksite.net" style="color: #0ea5e9; text-decoration: none;">admin@checksite.net</a>. We're here to help!
+            Questions? Email us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; text-decoration: none;">admin@seochecksite.net</a>. We're here to help!
           </p>
           <p style="color: #9ca3af; font-size: 12px; margin: 15px 0 0 0;">
             — The SEO CheckSite Team

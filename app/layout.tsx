@@ -18,7 +18,7 @@ const organizationSchema = {
   description: siteDescription,
   contactPoint: {
     '@type': 'ContactPoint',
-    email: 'admin@checksite.net',
+    email: 'admin@seochecksite.net',
     contactType: 'Customer Service',
   },
   sameAs: [

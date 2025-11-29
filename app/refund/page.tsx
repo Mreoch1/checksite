@@ -63,7 +63,7 @@ export default function RefundPage() {
 
           <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">How to Request a Refund</h2>
           <p className="text-gray-700 mb-4">
-            To request a refund, please contact us at <a href="mailto:admin@checksite.net" className="text-blue-600 hover:underline">admin@checksite.net</a> with:
+            To request a refund, please contact us at <a href="mailto:admin@seochecksite.net" className="text-blue-600 hover:underline">admin@seochecksite.net</a> with:
           </p>
           <ul className="list-disc pl-6 text-gray-700 mb-4">
             <li>Your email address used for the purchase</li>
@@ -96,7 +96,7 @@ export default function RefundPage() {
             For refund requests or questions about this policy, please contact:
           </p>
           <p className="text-gray-700 mb-4">
-            Email: <a href="mailto:admin@checksite.net" className="text-blue-600 hover:underline">admin@checksite.net</a>
+            Email: <a href="mailto:admin@seochecksite.net" className="text-blue-600 hover:underline">admin@seochecksite.net</a>
           </p>
           <p className="text-gray-700 mb-4">
             We typically respond to refund requests within 24-48 hours.

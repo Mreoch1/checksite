@@ -24,9 +24,9 @@ export async function POST(request: NextRequest) {
     const smtpConfig = {
       host: process.env.SMTP_HOST || 'smtppro.zoho.com',
       port: process.env.SMTP_PORT || '465',
-      user: process.env.SMTP_USER || 'admin@checksite.net',
+      user: process.env.SMTP_USER || 'admin@seochecksite.net',
       password: process.env.SMTP_PASSWORD ? '***SET***' : 'NOT SET',
-      fromEmail: process.env.FROM_EMAIL || 'admin@checksite.net',
+      fromEmail: process.env.FROM_EMAIL || 'admin@seochecksite.net',
       fromName: process.env.FROM_NAME || 'SEO CheckSite',
     }
 

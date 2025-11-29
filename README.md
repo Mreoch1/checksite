@@ -456,5 +456,5 @@ This software and associated documentation files (the "Software") are proprietar
 
 ## Support
 
-For issues or questions, please contact support at admin@checksite.net.
+For issues or questions, please contact support at admin@seochecksite.net.
 
