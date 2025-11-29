@@ -73,8 +73,5 @@ export default async function handler(req) {
   }
 }
 
-// This is what actually makes it a scheduled function
-// Modern Netlify Functions use config.schedule instead of schedule() wrapper
-export const config = {
-  schedule: "*/2 * * * *", // every 2 minutes
-};
+// Schedule is defined in netlify.toml instead of here
+// This avoids potential parsing conflicts with the cron expression
