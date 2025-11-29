@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import Link from 'next/link'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
 
@@ -18,6 +19,11 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12">
       <div className="max-w-4xl mx-auto px-4">
+        <div className="mb-6">
+          <Link href="/" className="text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center">
+            ← Back to Home
+          </Link>
+        </div>
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Terms of Service</h1>
         <div className="bg-white rounded-lg shadow-lg p-8 prose prose-lg max-w-none">
           <p className="text-gray-600 mb-4">Last updated: {new Date().toLocaleDateString()}</p>
