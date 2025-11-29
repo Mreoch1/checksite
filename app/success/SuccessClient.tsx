@@ -10,21 +10,58 @@ export default function SuccessClient() {
   const searchParams = useSearchParams()
   const [url, setUrl] = useState<string | null>(null)
   const [modules, setModules] = useState<ModuleKey[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const auditUrl = sessionStorage.getItem('auditUrl')
-    const auditModules = sessionStorage.getItem('auditModules')
+    const fetchAuditData = async () => {
+      // First try to get from sessionStorage (faster, works if user came from same session)
+      const auditUrl = sessionStorage.getItem('auditUrl')
+      const auditModules = sessionStorage.getItem('auditModules')
 
-    if (auditUrl) {
-      setUrl(auditUrl)
-    }
-    if (auditModules) {
-      try {
-        setModules(JSON.parse(auditModules))
-      } catch (e) {
-        // Ignore parse errors
+      if (auditUrl) {
+        setUrl(auditUrl)
       }
+      if (auditModules) {
+        try {
+          setModules(JSON.parse(auditModules))
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+
+      // Also try to fetch from database using audit_id from URL
+      const auditId = searchParams.get('audit_id')
+      if (auditId && (!auditUrl || !auditModules)) {
+        try {
+          const response = await fetch(`/api/admin/check-audit?id=${auditId}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.audit) {
+              if (!auditUrl && data.audit.url) {
+                setUrl(data.audit.url)
+              }
+              if (!auditModules && data.audit.selected_modules) {
+                try {
+                  const parsedModules = typeof data.audit.selected_modules === 'string' 
+                    ? JSON.parse(data.audit.selected_modules)
+                    : data.audit.selected_modules
+                  setModules(parsedModules || [])
+                } catch (e) {
+                  // Ignore parse errors
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch audit data:', error)
+          // Silently fail - sessionStorage data is sufficient
+        }
+      }
+      
+      setLoading(false)
     }
+
+    fetchAuditData()
   }, [searchParams])
 
   return (
@@ -94,20 +131,30 @@ export default function SuccessClient() {
 
           <section aria-labelledby="audit-summary-heading" className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
             <h2 id="audit-summary-heading" className="font-semibold text-gray-900 mb-3">Audit Summary</h2>
-            {url && (
-              <p className="text-gray-600 mb-2">
-                <span className="font-medium">Website:</span> {url}
-              </p>
-            )}
-            {modules.length > 0 && (
-              <div>
-                <p className="font-medium text-gray-900 mb-2">Selected Checks:</p>
-                <ul className="list-disc list-inside text-gray-600 space-y-1">
-                  {modules.map((module, idx) => (
-                    <li key={idx}>{MODULE_DISPLAY_NAMES[module] || module}</li>
-                  ))}
-                </ul>
-              </div>
+            {loading ? (
+              <p className="text-gray-500">Loading audit details...</p>
+            ) : (
+              <>
+                {url ? (
+                  <p className="text-gray-600 mb-2">
+                    <span className="font-medium">Website:</span> {url}
+                  </p>
+                ) : (
+                  <p className="text-gray-500 italic">Website URL not available</p>
+                )}
+                {modules.length > 0 ? (
+                  <div>
+                    <p className="font-medium text-gray-900 mb-2">Selected Checks:</p>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1">
+                      {modules.map((module, idx) => (
+                        <li key={idx}>{MODULE_DISPLAY_NAMES[module] || module}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 italic">Module selection not available</p>
+                )}
+              </>
             )}
           </section>
 

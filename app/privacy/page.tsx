@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | SEO CheckSite',
