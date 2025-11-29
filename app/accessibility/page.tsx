@@ -61,7 +61,7 @@ export default function AccessibilityPage() {
             We welcome your feedback on the accessibility of SEO CheckSite. If you encounter accessibility barriers, please let us know:
           </p>
           <ul className="list-disc pl-6 text-gray-700 mb-4">
-            <li>Email: <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">contact@seochecksite.net</a></li>
+            <li>Email: <a href="mailto:admin@checksite.net" className="text-blue-600 hover:underline">admin@checksite.net</a></li>
             <li>Describe the issue and the page where you encountered it</li>
             <li>Include your device and browser information if relevant</li>
           </ul>
@@ -81,7 +81,7 @@ export default function AccessibilityPage() {
             If you have questions or concerns about accessibility, please contact us at:
           </p>
           <p className="text-gray-700 mb-4">
-            Email: <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">contact@seochecksite.net</a>
+            Email: <a href="mailto:admin@checksite.net" className="text-blue-600 hover:underline">admin@checksite.net</a>
           </p>
         </div>
       </div>

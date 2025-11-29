@@ -25,8 +25,8 @@ Your emails are going to junk because **SPF record is missing**. This is the #1 
 ### 3. DMARC Record (Already configured, but needs update)
 **Type**: TXT  
 **Name/Host**: `_dmarc`  
-**Current Value**: `v=DMARC1; p=none; rua=mailto:contact@seochecksite.net`  
-**Recommended Value**: `v=DMARC1; p=quarantine; rua=mailto:contact@seochecksite.net; ruf=mailto:contact@seochecksite.net`
+**Current Value**: `v=DMARC1; p=none; rua=mailto:admin@checksite.net`  
+**Recommended Value**: `v=DMARC1; p=quarantine; rua=mailto:admin@checksite.net; ruf=mailto:admin@checksite.net`
 
 **Why update**: `p=none` means "don't enforce anything". `p=quarantine` means "send suspicious emails to spam folder". After monitoring for 1-2 weeks, change to `p=reject` to block suspicious emails entirely.
 

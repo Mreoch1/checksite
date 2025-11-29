@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
       useFallback: process.env.EMAIL_USE_FALLBACK !== 'false',
       hasResendKey: !!process.env.RESEND_API_KEY,
       hasSmtpPassword: !!process.env.SMTP_PASSWORD,
-      fromEmail: process.env.FROM_EMAIL || 'contact@seochecksite.net',
+      fromEmail: process.env.FROM_EMAIL || 'admin@checksite.net',
       smtpHost: process.env.SMTP_HOST || 'smtppro.zoho.com',
-      smtpUser: process.env.SMTP_USER || 'contact@seochecksite.net',
+      smtpUser: process.env.SMTP_USER || 'admin@checksite.net',
     }
 
     // Use a test audit ID and URL
