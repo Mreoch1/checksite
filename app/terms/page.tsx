@@ -118,7 +118,7 @@ export default function TermsPage() {
             For questions about these Terms of Service, please contact us at:
           </p>
           <p className="text-gray-700 mb-4">
-            Email: <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">contact@seochecksite.net</a>
+            Email: <a href="mailto:admin@checksite.net" className="text-blue-600 hover:underline">admin@checksite.net</a>
           </p>
         </div>
       </div>
