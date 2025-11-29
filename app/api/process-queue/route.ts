@@ -686,7 +686,7 @@ export async function GET(request: NextRequest) {
             .from('audits')
             .update({
               status: 'completed',
-              completed_at: verifyAudit.completed_at || new Date().toISOString(),
+              completed_at: new Date().toISOString(),
             })
             .eq('id', auditId)
           
