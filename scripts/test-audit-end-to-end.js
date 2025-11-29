@@ -30,23 +30,43 @@ if (!adminSecret) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Configuration
+// Args:
+//   [2] = TEST_URL
+//   [3] = COMPETITOR_URL (only used when competitor_overview add-on enabled)
+//   [4] = TEST_EMAIL
+//   [5] = TIER: "base" (default) or "full" (includes local + competitor_overview)
 const TEST_URL = process.argv[2] || 'https://seochecksite.netlify.app'
 const COMPETITOR_URL = process.argv[3] || 'https://www.seoptimer.com'
 const TEST_EMAIL = process.argv[4] || 'Mreoch82@hotmail.com'
+const TIER = (process.argv[5] || 'base').toLowerCase()
 
-// All available modules
-const ALL_MODULES = [
+// Base package modules - included in $24.99 tier
+const BASE_MODULES = [
   'performance',
   'crawl_health',
   'on_page',
   'mobile',
-  'local',
   'accessibility',
   'security',
   'schema',
   'social',
-  'competitor_overview'
 ]
+
+// Add-ons: Local SEO + Competitor Overview
+const ADDON_MODULES = [
+  'local',
+  'competitor_overview',
+]
+
+// Select modules based on tier
+const SELECTED_MODULES = TIER === 'full'
+  ? [...BASE_MODULES, ...ADDON_MODULES]
+  : BASE_MODULES
+
+// Only send competitor URL when competitor_overview is included
+const SELECTED_COMPETITOR_URL = SELECTED_MODULES.includes('competitor_overview')
+  ? COMPETITOR_URL
+  : undefined
 
 let auditId = null
 
@@ -89,9 +109,10 @@ async function makeRequest(url, options = {}) {
 async function step1_createAudit() {
   console.log('\n📝 Step 1: Creating audit via API (with admin auth)...')
   console.log(`   URL: ${TEST_URL}`)
-  console.log(`   Competitor: ${COMPETITOR_URL}`)
+  console.log(`   Tier: ${TIER === 'full' ? 'FULL (base + Local SEO + Competitor Overview)' : 'BASE (Website Audit only)'}`)
+  console.log(`   Competitor: ${SELECTED_COMPETITOR_URL || 'N/A (base tier - no competitor add-on)'}`)
   console.log(`   Email: ${TEST_EMAIL}`)
-  console.log(`   Modules: ${ALL_MODULES.length} modules`)
+  console.log(`   Modules: ${SELECTED_MODULES.length} modules -> ${SELECTED_MODULES.join(', ')}`)
 
   const response = await makeRequest(`${siteUrl}/api/test-audit`, {
     method: 'POST',
@@ -101,8 +122,8 @@ async function step1_createAudit() {
     body: {
       url: TEST_URL,
       email: TEST_EMAIL,
-      modules: ALL_MODULES,
-      competitorUrl: COMPETITOR_URL,
+      modules: SELECTED_MODULES,
+      competitorUrl: SELECTED_COMPETITOR_URL,
     },
   })
 
