@@ -138,6 +138,8 @@ async function sendViaSendGrid(options: {
           enable: true,
         },
       },
+      // Add categories to help with inbox placement
+      categories: ['audit-report', 'transactional'],
     } as any // Type assertion to bypass strict SendGrid types
     
     const result = await Promise.race([
@@ -421,7 +423,8 @@ export async function sendAuditReportEmail(
   // Use a more transactional subject line to avoid spam filters
   // Avoid words like "SEO", "Report", "Ready" which can trigger filters
   // Make it sound more like a service notification
-  const subject = `Website Analysis Complete - ${domain}`
+  // Remove "SEO" from subject to reduce spam triggers
+  const subject = `Your Website Analysis for ${domain} is Ready`
   
   await sendEmail({
     to: email,
