@@ -200,8 +200,14 @@ This document is the authoritative source for all project state, decisions, TODO
      - Check function execution logs
      - Verify `netlify/functions/process-queue.js` exists and is correctly formatted
      - Manually trigger queue processing to test: `curl -X GET "https://seochecksite.netlify.app/api/process-queue?secret=YOUR_QUEUE_SECRET"`
+     - Monitor queue status: `node scripts/check-queue-status.js` (requires .env.local)
+     - See `scripts/monitor-queue.md` for detailed monitoring guide
    - **Priority**: CRITICAL
    - **Impact**: This is preventing all queue processing, which means audits never complete and emails never send
+   - **Testing Tools**: 
+     - `scripts/test-queue-processing.sh` - Test endpoint manually
+     - `scripts/check-queue-status.js` - Check queue status
+     - `scripts/monitor-queue.md` - Full monitoring guide
 
 2. **Email Not Being Sent** (Reported 2025-01-28)
    - **Status**: Likely caused by Issue #1 (cron job not running)
@@ -453,7 +459,10 @@ This document is the authoritative source for all project state, decisions, TODO
 ### Scripts
 - **`scripts/health-check.js`** - Automated health check
 - **`scripts/diagnose-email-issue.js`** - Email issue diagnostic tool
+- **`scripts/check-queue-status.js`** - Check current queue status
+- **`scripts/test-queue-processing.sh`** - Test queue processing endpoint
 - **`scripts/check-scheduled-function.md`** - How to verify scheduled function is running
+- **`scripts/monitor-queue.md`** - Queue monitoring guide
 - **`scripts/setup-netlify-scheduled-function.md`** - Scheduled function setup guide
 - **`scripts/setup-external-cron.md`** - External cron fallback (not recommended)
 
