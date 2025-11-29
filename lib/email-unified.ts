@@ -466,7 +466,7 @@ export async function sendAuditFailureEmail(
       
       <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
         <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
-          <a href="${SITE_URL}" style="color: #0ea5e9; text-decoration: none;">seochecksite.netlify.app</a>
+          <a href="${SITE_URL}" style="color: #0ea5e9; text-decoration: none;">seochecksite.net</a>
         </p>
         <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
           <a href="${SITE_URL}/privacy" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Privacy Policy</a> |
