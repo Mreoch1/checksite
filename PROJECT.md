@@ -209,23 +209,28 @@ This document is the authoritative source for all project state, decisions, TODO
      - `scripts/check-queue-status.js` - Check queue status
      - `scripts/monitor-queue.md` - Full monitoring guide
 
-2. **Email Not Being Sent** (Reported 2025-01-28)
-   - **Status**: Likely caused by Issue #1 (cron job not running)
+2. **Email Not Being Sent** (Reported 2025-01-28, Still Active)
+   - **Status**: Investigating - Multiple possible causes
    - **Symptoms**: Audits complete but emails not sent to customers
-   - **Possible Causes**:
-     - **PRIMARY**: Scheduled function not running (audits never processed)
-     - Email environment variables not set in Netlify
-     - Email sending errors (check `error_log` column)
-     - Stale/abandoned email reservations blocking sends
-     - Email provider configuration issues (SendGrid/Zoho)
+   - **Possible Causes** (in order of likelihood):
+     1. **PRIMARY**: Scheduled function not running (audits never processed) - See Issue #1
+     2. Queue items stuck in "pending" status (not being processed)
+     3. Email environment variables not set in Netlify (SENDGRID_API_KEY or SMTP_PASSWORD)
+     4. Email sending errors (check `error_log` column in database)
+     5. Stale/abandoned email reservations blocking sends
+     6. Email provider configuration issues (SendGrid domain not verified, Zoho SMTP credentials wrong)
    - **Action**: 
-     - **FIRST**: Fix scheduled function issue (Issue #1)
-     - Run `node scripts/diagnose-email-issue.js` to identify specific issues
-     - Check Netlify environment variables for email configuration
-     - Review Netlify function logs for email errors
-     - Check for stale/abandoned reservations in database
-   - **Priority**: High (but depends on Issue #1 being fixed)
-   - **Diagnostic Tool**: `scripts/diagnose-email-issue.js` - Checks for completed audits without emails, stale reservations, and configuration issues
+     - **FIRST**: Run comprehensive diagnostic: `node scripts/comprehensive-email-diagnostic.js`
+     - **SECOND**: Fix scheduled function issue (Issue #1) if queue not processing
+     - **THIRD**: Check Netlify environment variables for email configuration
+     - **FOURTH**: Review Netlify function logs for email errors
+     - **FIFTH**: Check for stale/abandoned reservations and clear them
+     - **SIXTH**: Manually resend emails for completed audits using admin endpoint
+   - **Priority**: High
+   - **Diagnostic Tools**: 
+     - `scripts/comprehensive-email-diagnostic.js` - **NEW** - Comprehensive check of all email issues
+     - `scripts/diagnose-email-issue.js` - Basic email diagnostic
+     - `scripts/check-queue-status.js` - Check queue processing status
 
 ### Pending Verification (After Next Deploy)
 1. **Scheduled Function Visibility**: Need to verify `process-queue` appears in Netlify dashboard → Functions → Scheduled functions
@@ -458,6 +463,7 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ### Scripts
 - **`scripts/health-check.js`** - Automated health check
+- **`scripts/comprehensive-email-diagnostic.js`** - **NEW** - Comprehensive email diagnostic (all issues)
 - **`scripts/diagnose-email-issue.js`** - Email issue diagnostic tool
 - **`scripts/check-queue-status.js`** - Check current queue status
 - **`scripts/test-queue-processing.sh`** - Test queue processing endpoint
