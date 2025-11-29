@@ -209,11 +209,12 @@ This document is the authoritative source for all project state, decisions, TODO
      - Replaced `schedule()` wrapper with `export const config = { schedule: "*/2 * * * *" }`
      - Updated handler to use modern Request/Response API instead of event/context
      - Removed `require('@netlify/functions')` dependency
-   - **Status**: ✅ FIXED - Functions section now appears in dashboard
+   - **Status**: ✅ FIXED - Functions section now appears in dashboard, but syntax error on execution
    - **Configuration**: 
-     - ✅ Function file: `export const config = { schedule: "*/2 * * * *" }`
-     - ✅ netlify.toml: `[functions."process-queue"] schedule = "*/2 * * * *"`
-     - ✅ Both methods configured for redundancy
+     - ✅ Schedule defined ONLY in netlify.toml: `[functions."process-queue"] schedule = "*/2 * * * *"`
+     - ❌ Removed schedule from function file to avoid parsing conflicts
+     - **Issue**: `SyntaxError: Unexpected token '*'` when function executes
+     - **Fix Applied**: Removed `export const config` from function file, using only netlify.toml configuration
    - **Verification**: 
      - ✅ Functions section visible in Logs → Functions
      - ✅ `process-queue` function appears in list (created at 10:39 PM)
