@@ -50,6 +50,26 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-11-29: SendGrid Click Tracking SSL Certificate Error
+
+**Issue**: Users receiving emails see SSL certificate error when clicking report links. Error: `NET::ERR_CERT_COMMON_NAME_INVALID` for `url5121.seoauditpro.net`.
+
+**Root Cause**: SendGrid's click tracking wraps report links in a redirect through `url5121.seoauditpro.net`, which has an SSL certificate mismatch. Account-level click tracking in SendGrid dashboard overrides per-message settings.
+
+**Files Modified**:
+- `lib/email-unified.ts` - Added `enableText: false` to click tracking settings and improved comments
+
+**Files Created**:
+- `SENDGRID_CLICK_TRACKING_FIX.md` - Guide to disable click tracking in SendGrid dashboard
+
+**Action Required**:
+1. Log in to SendGrid dashboard: https://app.sendgrid.com
+2. Go to Settings → Tracking → Click Tracking
+3. Click "Disable" to turn off account-level click tracking
+4. Save changes
+
+**Status**: ⚠️ **Action Required** - Must disable click tracking in SendGrid dashboard
+
 ### 2025-11-29: Queue Item Diagnostic & Fix Tools
 
 **Issue**: Audit `111807d1-9431-4600-b9c7-bd45df559b09` has a pending queue item but wasn't being processed. Logs showed "Found 0 pending queue items" despite the item existing.
