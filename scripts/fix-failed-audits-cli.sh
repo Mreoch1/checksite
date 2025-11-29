@@ -81,12 +81,35 @@ echo "🔧 Fixing Audits..."
 echo ""
 
 # Get database connection string
-DB_URL=$(supabase db remote get-url 2>/dev/null || echo "")
+# Try multiple methods to get connection string
+DB_URL="${SUPABASE_DB_URL:-}"
 
 if [ -z "$DB_URL" ]; then
+  # Try to get from .env.local
+  if [ -f .env.local ]; then
+    SUPABASE_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env.local | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
+    SUPABASE_SERVICE_KEY=$(grep "SUPABASE_SERVICE_ROLE_KEY" .env.local | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
+    
+    if [ -n "$SUPABASE_URL" ]; then
+      PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | sed 's|\.supabase\.co||')
+      echo "✓ Found project ref from .env.local: $PROJECT_REF"
+      echo ""
+      echo "⚠️  Database connection string required"
+      echo "   Get it from: Supabase Dashboard → Settings → Database → Connection string"
+      echo "   Then run: export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.$PROJECT_REF.supabase.co:5432/postgres'"
+      echo ""
+      echo "   Or use the SQL script in Supabase Dashboard:"
+      echo "   cat scripts/fix-failed-audits-with-reports.sql"
+      exit 1
+    fi
+  fi
+  
   echo "❌ Could not get database connection string"
-  echo "   Make sure you're linked: supabase link --project-ref YOUR_PROJECT_REF"
-  echo "   Or set SUPABASE_DB_URL environment variable"
+  echo "   Set it: export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'"
+  echo "   Get connection string from: Supabase Dashboard → Settings → Database"
+  echo ""
+  echo "   Or use the SQL script in Supabase Dashboard:"
+  echo "   cat scripts/fix-failed-audits-with-reports.sql"
   exit 1
 fi
 
