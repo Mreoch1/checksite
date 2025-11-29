@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Use a test audit ID and URL
     const testAuditId = 'test-' + Date.now()
-    const testUrl = 'https://seoauditpro.net'
+    const testUrl = 'https://seochecksite.net'
 
     console.log('=== EMAIL DEBUG TEST ===')
     console.log('Config:', debugInfo.config)
