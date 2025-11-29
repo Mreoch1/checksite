@@ -31,25 +31,16 @@ export default function SuccessClient() {
 
       // Also try to fetch from database using audit_id from URL
       const auditId = searchParams.get('audit_id')
-      if (auditId && (!auditUrl || !auditModules)) {
+      if (auditId) {
         try {
-          const response = await fetch(`/api/admin/check-audit?id=${auditId}`)
+          const response = await fetch(`/api/audit-summary?id=${auditId}`)
           if (response.ok) {
             const data = await response.json()
-            if (data.audit) {
-              if (!auditUrl && data.audit.url) {
-                setUrl(data.audit.url)
-              }
-              if (!auditModules && data.audit.selected_modules) {
-                try {
-                  const parsedModules = typeof data.audit.selected_modules === 'string' 
-                    ? JSON.parse(data.audit.selected_modules)
-                    : data.audit.selected_modules
-                  setModules(parsedModules || [])
-                } catch (e) {
-                  // Ignore parse errors
-                }
-              }
+            if (data.url && !auditUrl) {
+              setUrl(data.url)
+            }
+            if (data.modules && data.modules.length > 0 && (!auditModules || JSON.parse(auditModules || '[]').length === 0)) {
+              setModules(data.modules)
             }
           }
         } catch (error) {
