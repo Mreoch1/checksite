@@ -394,21 +394,30 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Known Issues & Solutions
 
-### Issue 1: Scheduled Functions Not Visible
-**Symptoms**: Function doesn't appear in Netlify dashboard  
+### Issue 1: Scheduled Functions Not Visible / Not Executing
+**Symptoms**: Function doesn't appear in Netlify dashboard or doesn't execute on schedule  
 **Root Causes**:
 - Function not in correct directory (`netlify/functions/`)
 - Missing `@netlify/functions` package
-- Incorrect export format
+- Incorrect export format (legacy vs modern)
 - `netlify.toml` missing `functions.directory`
+- Schedule not recognized (only in function code vs also in netlify.toml)
 
-**Solutions**:
-- ✅ Verify function structure matches requirements
-- ✅ Check `netlify.toml` has `functions.directory = "netlify/functions"`
-- ✅ Confirm `@netlify/functions` is installed
-- ⚠️ Verify after deployment
+**Solutions Applied**:
+- ✅ Function structure: Modern ESM format with `export const config = { schedule: "*/2 * * * *" }`
+- ✅ `netlify.toml` has `functions.directory = "netlify/functions"`
+- ✅ Added schedule to `netlify.toml` as backup: `[functions."process-queue"] schedule = "*/2 * * * *"`
+- ✅ Function appears in dashboard (verified)
+- ✅ Function shows "Running in production" status
 
-**Status**: Fixed in code, pending deployment verification
+**Verification Steps**:
+1. ✅ Check Functions section in dashboard (visible)
+2. ✅ Check function details page (shows "Running in production")
+3. ⏳ Wait 2-4 minutes and check logs for scheduled executions
+4. ⏳ Look for "Scheduled" badge on function (if available in dashboard)
+5. ⏳ Check "Scheduled Functions" tab (if available in dashboard)
+
+**Status**: Function recognized and running. Waiting to verify automatic scheduled executions.
 
 ### Issue 2: Email Sending Failures
 **Symptoms**: Audits complete but emails not sent  
