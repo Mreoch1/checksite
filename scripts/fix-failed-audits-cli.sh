@@ -87,22 +87,46 @@ DB_URL="${SUPABASE_DB_URL:-}"
 if [ -z "$DB_URL" ]; then
   # Try to get from .env.local
   if [ -f .env.local ]; then
-    SUPABASE_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env.local | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
-    SUPABASE_SERVICE_KEY=$(grep "SUPABASE_SERVICE_ROLE_KEY" .env.local | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d ' ')
+    # First try to get full connection string
+    DB_URL=$(grep "^SUPABASE_DB_URL=" .env.local | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
     
-    if [ -n "$SUPABASE_URL" ]; then
-      PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | sed 's|\.supabase\.co||')
-      echo "✓ Found project ref from .env.local: $PROJECT_REF"
-      echo ""
-      echo "⚠️  Database connection string required"
-      echo "   Get it from: Supabase Dashboard → Settings → Database → Connection string"
-      echo "   Then run: export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.$PROJECT_REF.supabase.co:5432/postgres'"
-      echo ""
-      echo "   Or use the SQL script in Supabase Dashboard:"
-      echo "   cat scripts/fix-failed-audits-with-reports.sql"
-      exit 1
+    if [ -n "$DB_URL" ]; then
+      echo "✓ Found SUPABASE_DB_URL in .env.local"
+    else
+      # Try to construct from password and project ref
+      DB_PASSWORD=$(grep "^SUPABASE_DB_PASSWORD=" .env.local | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
+      PROJECT_REF=$(grep "^SUPABASE_PROJECT_REF=" .env.local | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
+      
+      if [ -z "$PROJECT_REF" ]; then
+        # Fallback: extract from SUPABASE_URL
+        SUPABASE_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env.local | cut -d'=' -f2- | tr -d '"' | tr -d "'" | tr -d ' ')
+        if [ -n "$SUPABASE_URL" ]; then
+          PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | sed 's|\.supabase\.co||')
+        fi
+      fi
+      
+      if [ -n "$DB_PASSWORD" ] && [ -n "$PROJECT_REF" ]; then
+        DB_URL="postgresql://postgres:${DB_PASSWORD}@db.${PROJECT_REF}.supabase.co:5432/postgres"
+        echo "✓ Constructed connection string from .env.local"
+      fi
     fi
   fi
+fi
+
+if [ -z "$DB_URL" ]; then
+  echo "❌ Could not get database connection string"
+  echo "   Set it in .env.local:"
+  echo "   SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'"
+  echo "   Or:"
+  echo "   SUPABASE_DB_PASSWORD=[PASSWORD]"
+  echo "   SUPABASE_PROJECT_REF=[PROJECT_REF]"
+  echo ""
+  echo "   Get connection string from: Supabase Dashboard → Settings → Database"
+  echo ""
+  echo "   Or use the SQL script in Supabase Dashboard:"
+  echo "   cat scripts/fix-failed-audits-with-reports.sql"
+  exit 1
+fi
   
   echo "❌ Could not get database connection string"
   echo "   Set it: export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'"
