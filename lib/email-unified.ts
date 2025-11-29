@@ -113,7 +113,7 @@ async function sendViaSendGrid(options: {
         'X-Mailer': 'SEO CheckSite',
         'X-Entity-Ref-ID': `audit-${Date.now()}`,
         // Add Message-ID for better deliverability
-        'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@seochecksite.net>`,
+        'Message-ID': `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@checksite.net>`,
         // Additional headers to improve deliverability
         'X-Priority': '3',
         'Importance': 'normal',
