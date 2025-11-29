@@ -210,16 +210,21 @@ This document is the authoritative source for all project state, decisions, TODO
      - Updated handler to use modern Request/Response API instead of event/context
      - Removed `require('@netlify/functions')` dependency
    - **Status**: ✅ FIXED - Functions section now appears in dashboard
+   - **Configuration**: 
+     - ✅ Function file: `export const config = { schedule: "*/2 * * * *" }`
+     - ✅ netlify.toml: `[functions."process-queue"] schedule = "*/2 * * * *"`
+     - ✅ Both methods configured for redundancy
    - **Verification**: 
      - ✅ Functions section visible in Logs → Functions
      - ✅ `process-queue` function appears in list (created at 10:39 PM)
      - ✅ Function shows "Running in production" status
      - ✅ Function endpoint accessible: `/.netlify/functions/process-queue`
      - ⏳ Waiting to verify scheduled executions (check logs in 4-6 minutes for automatic runs every 2 minutes)
-     - **Next**: Monitor function logs to confirm it executes automatically every 2 minutes
-   - **Action**: 
-     - Check Netlify dashboard → Functions → Scheduled functions
-     - Verify `process-queue` function appears in list
+   - **Next Steps**: 
+     - Wait 2-4 minutes and check function logs for automatic executions
+     - Look for "Scheduled" badge in dashboard (if available)
+     - Check "Scheduled Functions" tab (if available)
+     - See `scripts/verify-scheduled-function.md` for detailed verification steps
      - Check function execution logs
      - Verify `netlify/functions/process-queue.js` exists and is correctly formatted
      - Manually trigger queue processing to test: `curl -X GET "https://seochecksite.netlify.app/api/process-queue?secret=YOUR_QUEUE_SECRET"`
