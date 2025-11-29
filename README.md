@@ -4,6 +4,8 @@ A production-ready, beginner-friendly website audit tool built for non-technical
 
 **Copyright © 2025 SEO CheckSite. All rights reserved.**
 
+> **📋 Single Source of Truth**: For project state, TODOs, decisions, and issues, see [`PROJECT.md`](./PROJECT.md)
+
 ## Features
 
 - **Automated Website Analysis**: Checks performance, SEO, mobile optimization, accessibility, security, and more
