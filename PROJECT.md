@@ -224,11 +224,12 @@ This document is the authoritative source for all project state, decisions, TODO
      6. Email provider configuration issues (SendGrid domain not verified, Zoho SMTP credentials wrong)
    - **Action**: 
      - **FIRST**: Run comprehensive diagnostic: `node scripts/comprehensive-email-diagnostic.js`
-     - **SECOND**: Fix scheduled function issue (Issue #1) if queue not processing
-     - **THIRD**: Check Netlify environment variables for email configuration
-     - **FOURTH**: Review Netlify function logs for email errors
-     - **FIFTH**: Check for stale/abandoned reservations and clear them
-     - **SIXTH**: Manually resend emails for completed audits using admin endpoint
+     - **SECOND**: Fix stuck queue items: `./scripts/fix-stuck-queue-cli.sh` (uses Supabase CLI)
+     - **THIRD**: Check Netlify status: `./scripts/check-netlify-status.sh` (uses Netlify CLI)
+     - **FOURTH**: Test queue processing: `./scripts/test-queue-netlify.sh` (uses Netlify CLI)
+     - **FIFTH**: Fix scheduled function issue (Issue #1) if queue not processing
+     - **SIXTH**: Review Netlify function logs: `netlify functions:log process-queue`
+     - **SEVENTH**: Manually resend emails for completed audits using admin endpoint
    - **Priority**: High
    - **Diagnostic Tools**: 
      - `scripts/comprehensive-email-diagnostic.js` - **NEW** - Comprehensive check of all email issues
@@ -466,10 +467,14 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ### Scripts
 - **`scripts/health-check.js`** - Automated health check
-- **`scripts/comprehensive-email-diagnostic.js`** - **NEW** - Comprehensive email diagnostic (all issues)
+- **`scripts/comprehensive-email-diagnostic.js`** - Comprehensive email diagnostic (all issues)
 - **`scripts/diagnose-email-issue.js`** - Email issue diagnostic tool
 - **`scripts/check-queue-status.js`** - Check current queue status
-- **`scripts/test-queue-processing.sh`** - Test queue processing endpoint
+- **`scripts/fix-stuck-queue-cli.sh`** - **NEW** - Fix stuck queue items using Supabase CLI
+- **`scripts/fix-stuck-queue.sql`** - SQL script to fix stuck queue items (manual)
+- **`scripts/check-netlify-status.sh`** - **NEW** - Check Netlify status using CLI
+- **`scripts/test-queue-netlify.sh`** - **NEW** - Test queue processing using Netlify CLI
+- **`scripts/test-queue-processing.sh`** - Test queue processing endpoint (manual)
 - **`scripts/check-scheduled-function.md`** - How to verify scheduled function is running
 - **`scripts/monitor-queue.md`** - Queue monitoring guide
 - **`scripts/setup-netlify-scheduled-function.md`** - Scheduled function setup guide
