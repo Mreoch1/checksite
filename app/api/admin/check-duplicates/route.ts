@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      seoauditpro_audits: {
+      seochecksite_audits: {
         count: seoauditAudits?.length || 0,
         audits: seoauditAudits?.map(a => {
           const customer = Array.isArray(a.customers) ? a.customers[0] : a.customers

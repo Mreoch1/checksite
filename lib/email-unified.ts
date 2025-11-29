@@ -123,7 +123,7 @@ async function sendViaSendGrid(options: {
       // SendGrid-specific settings to improve deliverability
       mailSettings: {
         // CRITICAL: Disable click tracking for report links to avoid SSL certificate issues
-        // The tracking domain (url5121.seoauditpro.net) has SSL cert problems
+        // The tracking domain (url5121.seochecksite.net) has SSL cert problems
         // NOTE: If click tracking is still enabled, you must also disable it in SendGrid dashboard:
         // Settings → Tracking → Click Tracking → Disable
         clickTracking: {

@@ -51,7 +51,7 @@ async function checkQueue() {
   }
 
   // Search for audits by URL
-  const searchUrls = ['seoauditpro', 'rcbiin.com', 'rcbiinc.com']
+  const searchUrls = ['seochecksite', 'rcbiin.com', 'rcbiinc.com']
   
   for (const url of searchUrls) {
     console.log(`\n📋 Searching for audits with URL containing: ${url}`)
