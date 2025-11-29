@@ -831,14 +831,21 @@ export async function GET(request: NextRequest) {
               completed_at: new Date().toISOString(),
             })
             .eq('id', queueItem.id)
-            .select('status')
+            .eq('status', 'pending') // Only update if still pending (prevents race conditions)
+            .select('id, status, completed_at')
           
           if (queueFixError) {
             console.error(`[${requestId}] ❌ Failed to mark queue as completed in final check:`, queueFixError)
           } else if (!queueFixResult || queueFixResult.length === 0) {
-            console.error(`[${requestId}] ❌ Queue update in final check returned no data`)
+            // Queue item might have been updated by another process - verify current status
+            const { data: currentStatus } = await supabase
+              .from('audit_queue')
+              .select('status')
+              .eq('id', queueItem.id)
+              .single()
+            console.log(`[${requestId}] ⚠️  Queue update in final check returned no data - current status: ${currentStatus?.status || 'unknown'}`)
           } else {
-            console.log(`[${requestId}] ✅ Queue marked as completed in final check (status: ${queueFixResult[0].status})`)
+            console.log(`[${requestId}] ✅ Queue marked as completed in final check (queue_id: ${queueFixResult[0].id}, status: ${queueFixResult[0].status}, completed_at: ${queueFixResult[0].completed_at})`)
           }
           
           return NextResponse.json({
