@@ -11,7 +11,7 @@ At least ONE of these must be set in Netlify:
 ### Option 1: SendGrid (Recommended)
 ```
 SENDGRID_API_KEY=your_sendgrid_api_key
-FROM_EMAIL=admin@checksite.net
+FROM_EMAIL=admin@seochecksite.net
 FROM_NAME=SEO CheckSite
 EMAIL_PROVIDER=sendgrid
 EMAIL_USE_FALLBACK=true
@@ -22,8 +22,8 @@ EMAIL_USE_FALLBACK=true
 SMTP_PASSWORD=your_zoho_app_password
 SMTP_HOST=smtppro.zoho.com
 SMTP_PORT=465
-SMTP_USER=admin@checksite.net
-FROM_EMAIL=admin@checksite.net
+SMTP_USER=admin@seochecksite.net
+FROM_EMAIL=admin@seochecksite.net
 FROM_NAME=SEO CheckSite
 EMAIL_PROVIDER=smtp
 ```

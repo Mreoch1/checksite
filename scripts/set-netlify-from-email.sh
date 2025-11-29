@@ -28,8 +28,8 @@ if [ ! -f .netlify/state.json ]; then
 fi
 
 # Set the environment variable
-echo "Setting FROM_EMAIL=admin@checksite.net..."
-netlify env:set FROM_EMAIL admin@checksite.net
+echo "Setting FROM_EMAIL=admin@seochecksite.net..."
+netlify env:set FROM_EMAIL admin@seochecksite.net
 
 echo ""
 echo "✅ FROM_EMAIL environment variable set successfully!"
