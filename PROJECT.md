@@ -202,13 +202,15 @@ This document is the authoritative source for all project state, decisions, TODO
        - Queue status: 13 pending items, 21 completed items
        - No stuck processing items found
        - No abandoned email reservations found
-   - **Root Cause**: Netlify scheduled function not recognized/deployed - Functions section missing from dashboard
+   - **Root Cause**: Using legacy `schedule()` wrapper instead of modern `config.schedule` format
+   - **Issue**: Netlify's modern Functions runtime (used by Next.js) doesn't recognize the old `schedule()` wrapper pattern
    - **Fix Applied**: 
-     - Cleaned up netlify.toml, verified function file and export format are correct
-     - Added `functions = "netlify/functions"` to `[build]` section (required for Next.js)
-     - Build output confirms functions are being packaged: "Packaging Functions from netlify/functions directory"
-   - **Status**: Waiting for redeploy to verify Functions section appears in dashboard
-   - **Note**: Functions are being packaged during build, but may not appear in dashboard until after successful deploy
+     - Converted function to modern ESM format with `export default` handler
+     - Replaced `schedule()` wrapper with `export const config = { schedule: "*/2 * * * *" }`
+     - Updated handler to use modern Request/Response API instead of event/context
+     - Removed `require('@netlify/functions')` dependency
+   - **Status**: Fixed - waiting for redeploy to verify Functions section appears
+   - **Verification**: After deploy, check Logs → Functions → process-queue (should show "Scheduled" badge)
    - **Action**: 
      - Check Netlify dashboard → Functions → Scheduled functions
      - Verify `process-queue` function appears in list
