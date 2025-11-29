@@ -470,8 +470,9 @@ This document is the authoritative source for all project state, decisions, TODO
 - **`scripts/comprehensive-email-diagnostic.js`** - Comprehensive email diagnostic (all issues)
 - **`scripts/diagnose-email-issue.js`** - Email issue diagnostic tool
 - **`scripts/check-queue-status.js`** - Check current queue status
-- **`scripts/fix-stuck-queue-cli.sh`** - **NEW** - Fix stuck queue items using Supabase CLI
-- **`scripts/fix-stuck-queue.sql`** - SQL script to fix stuck queue items (manual)
+- **`scripts/fix-stuck-queue-cli.sh`** - Fix stuck queue items using Supabase CLI (requires project link)
+- **`scripts/fix-stuck-queue-psql.sh`** - **NEW** - Fix stuck queue items using direct psql connection
+- **`scripts/fix-stuck-queue.sql`** - SQL script to fix stuck queue items (run in Supabase Dashboard)
 - **`scripts/check-netlify-status.sh`** - **NEW** - Check Netlify status using CLI
 - **`scripts/test-queue-netlify.sh`** - **NEW** - Test queue processing using Netlify CLI
 - **`scripts/test-queue-processing.sh`** - Test queue processing endpoint (manual)
