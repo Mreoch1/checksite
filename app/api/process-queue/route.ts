@@ -765,7 +765,67 @@ export async function GET(request: NextRequest) {
         .eq('id', auditId)
         .single()
       
-      // Only update audit status if it's still "running" or "pending" (not already completed/failed)
+      const hasReportNow = !!currentAudit?.formatted_report_html
+      const hasEmailNow = isEmailSent(currentAudit?.email_sent_at)
+      const isCompletedNow = currentAudit?.status === 'completed'
+
+      // If audit now has report or email, treat it as successful despite the earlier verification error
+      if (currentAudit && (hasReportNow || hasEmailNow || isCompletedNow)) {
+        console.warn(
+          `[${requestId}] ⚠️  Audit ${auditId} appears complete after error ` +
+          `(status=${currentAudit.status}, hasReport=${hasReportNow}, hasEmail=${hasEmailNow}) - ` +
+          `marking queue as completed instead of failed`
+        )
+
+        // If status is not completed, fix it
+        if (!isCompletedNow) {
+          const { error: fixAfterError } = await supabase
+            .from('audits')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', auditId)
+
+          if (fixAfterError) {
+            console.error(`[${requestId}] Failed to fix audit status after error:`, fixAfterError)
+          } else {
+            console.log(`[${requestId}] ✅ Fixed audit status to completed after error handling`)
+          }
+        }
+
+        // Mark queue as completed
+        const { data: queueFixResult, error: queueFixError } = await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            last_error: null,
+          })
+          .eq('id', queueItem.id)
+          .select('status')
+
+        if (queueFixError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
+        } else {
+          console.log(
+            `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
+            `queue marked as completed (status: ${queueFixResult?.[0]?.status ?? 'unknown'})`
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: 'Audit completed successfully after error reconciliation',
+          processed: true,
+          auditId,
+          email_sent_at: currentAudit.email_sent_at,
+          has_report: hasReportNow,
+          reconciled: true,
+        })
+      }
+
+      // Only update audit status to failed if it is still running or pending
       if (currentAudit && (currentAudit.status === 'running' || currentAudit.status === 'pending')) {
         const errorLog = JSON.stringify({
           timestamp: new Date().toISOString(),
@@ -785,7 +845,7 @@ export async function GET(request: NextRequest) {
         
         if (auditUpdateError) {
           console.error(`[${requestId}] Failed to update audit status to failed:`, auditUpdateError)
-          // Try without error_log if column doesn't exist
+          // Try without error_log if column does not exist
           await supabase
             .from('audits')
             .update({ status: 'failed' })
@@ -806,11 +866,11 @@ export async function GET(request: NextRequest) {
         .eq('id', queueItem.id)
       
       // Return 200 (not 500) if this is an expected failure that will be retried
-      // Only return 500 for unexpected errors that shouldn't be retried
+      // Only return 500 for unexpected errors that should not be retried
       const statusCode = shouldRetry ? 200 : 500
       
       return NextResponse.json({
-        success: !shouldRetry, // Only "success" if we're not retrying
+        success: !shouldRetry, // Only "success" if we are not retrying
         message: shouldRetry 
           ? `Audit ${auditId} processing failed - will retry (attempt ${queueItem.retry_count + 1}/3)`
           : `Audit ${auditId} processing failed - exceeded max retries`,
