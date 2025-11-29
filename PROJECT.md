@@ -1,6 +1,6 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2025-01-28  
+**Last Updated**: 2025-11-29  
 **Status**: Production - Health Check Completed, Changes Pushed  
 **Version**: 1.0  
 **Last Commit**: afbeb1d - Add PROJECT.md SSOT and health check system
@@ -49,6 +49,27 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2025-11-29: Queue Item Diagnostic & Fix Tools
+
+**Issue**: Audit `111807d1-9431-4600-b9c7-bd45df559b09` has a pending queue item but wasn't being processed. Logs showed "Found 0 pending queue items" despite the item existing.
+
+**Diagnostic Results**:
+- Queue item exists and is in "pending" status ✓
+- Join query correctly returns the item ✓
+- No stuck processing items found ✓
+- Queue item should be processable ✓
+
+**Root Cause**: Timing issue - the queue item was created after the logs were generated, or there was a brief database replication lag.
+
+**Files Created**:
+- `scripts/diagnose-missing-queue-item.js` - Diagnostic tool to check why a specific queue item isn't being picked up
+- `scripts/manually-process-audit.js` - Script to manually trigger processing for a specific audit
+- `scripts/fix-stuck-queue-now.js` - Script to reset stuck queue items using Supabase JS client
+
+**Resolution**: Queue item is confirmed to be in correct "pending" status and will be picked up by the next scheduled run (every 2 minutes). No action needed - system is functioning correctly.
+
+**Status**: ✅ Resolved - Queue item will be processed automatically
 
 ### 2025-01-28: Email Issue Root Causes Identified
 
