@@ -532,6 +532,15 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Change Log
 
+### 2025-01-29
+- Updated `scripts/test-audit-end-to-end.js` to support pricing tiers:
+  - **Base tier**: runs only core modules (Performance, Crawl Health, On-Page SEO, Mobile, Accessibility, Security, Schema, Social)
+  - **Full tier**: runs base modules + add-ons (Local SEO, Competitor Overview)
+- Test script now only sends a competitor URL when Competitor Overview is included
+- Used test script to verify:
+  - Base $24.99 package only runs included modules
+  - Add-on run includes Local SEO and Competitor Overview when explicitly requested
+
 ### 2025-01-28
 - Created `PROJECT.md` as SSOT
 - Added `functions.directory` to `netlify.toml`
@@ -569,6 +578,6 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ---
 
-**Last Updated**: 2025-01-28  
-**Next Review**: After next deployment to verify scheduled function
+**Last Updated**: 2025-01-29  
+**Next Review**: After next end-to-end audit test across both pricing tiers
 
