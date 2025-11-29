@@ -456,5 +456,5 @@ This software and associated documentation files (the "Software") are proprietar
 
 ## Support
 
-For issues or questions, please contact support at contact@seoauditpro.net.
+For issues or questions, please contact support at contact@seochecksite.net.
 

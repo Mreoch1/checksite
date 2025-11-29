@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     )
   }
   try {
-    const { url = 'https://seoauditpro.net', email = 'Mreoch82@hotmail.com', modules } = await request.json()
+    const { url = 'https://seochecksite.net', email = 'Mreoch82@hotmail.com', modules } = await request.json()
 
     // Get or create customer
     let { data: customer, error: customerError } = await supabase

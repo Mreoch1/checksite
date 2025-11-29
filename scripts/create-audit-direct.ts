@@ -7,7 +7,7 @@ import { inngest } from '../lib/inngest'
 import { processAudit } from '../lib/process-audit'
 
 async function createAudit() {
-  const url = 'https://seoauditpro.net'
+  const url = 'https://seochecksite.net'
   const email = 'mreoch82@hotmail.com'
   const modules = ['performance', 'crawl_health', 'on_page', 'mobile', 'local', 'accessibility', 'security', 'schema', 'social']
 

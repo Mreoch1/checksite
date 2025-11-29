@@ -76,8 +76,8 @@ export default async function ReportPage({ params }: { params: { id: string } })
           </p>
           <p className="text-sm text-gray-500">
             If you ordered a real audit, please check your email for the correct report link, or contact us at{' '}
-            <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:underline">
-              contact@seoauditpro.net
+            <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:underline">
+              contact@seochecksite.net
             </a>
             .
           </p>
@@ -142,8 +142,8 @@ export default async function ReportPage({ params }: { params: { id: string } })
           </p>
           <p className="text-sm text-gray-500 mt-4 max-w-md mx-auto">
             Reports typically complete within 2-5 minutes. If you don't receive your full report within 15 minutes, please contact us at{' '}
-            <a href="mailto:contact@seoauditpro.net" className="text-blue-600 hover:text-blue-800 underline">
-              contact@seoauditpro.net
+            <a href="mailto:contact@seochecksite.net" className="text-blue-600 hover:text-blue-800 underline">
+              contact@seochecksite.net
             </a>
             .
           </p>

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Use a test audit ID and URL
     const testAuditId = 'test-' + Date.now()
-    const testUrl = 'https://seoauditpro.net'
+    const testUrl = 'https://seochecksite.net'
     const testHtml = `
       <h1>Test Email from SEO CheckSite</h1>
       <p>This is a test email to verify email delivery is working.</p>
