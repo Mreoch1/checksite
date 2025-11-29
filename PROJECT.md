@@ -50,6 +50,25 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-11-29: Race Condition Fix - Audits with Reports Marked as Failed
+
+**Issue**: Audits that successfully generate reports and send emails are sometimes marked as `failed` due to a race condition in the queue processor verification check.
+
+**Root Cause**: The queue processor verifies audit completion before the report/email are fully committed to the database, causing it to throw an error and mark the audit as failed even though it completed successfully.
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Added final verification check before throwing error, re-checks audit status to handle race conditions
+
+**Files Created**:
+- `scripts/fix-failed-audit-with-report.js` - Script to fix audits that have reports but are marked as failed
+
+**Resolution**: 
+- Added final verification check that re-queries the database before marking as failed
+- If report or email exists, marks as `completed` instead of `failed`
+- Script available to fix existing affected audits
+
+**Status**: ✅ Fixed - Code deployed, script available for fixing existing audits
+
 ### 2025-11-29: SendGrid Click Tracking SSL Certificate Error
 
 **Issue**: Users receiving emails see SSL certificate error when clicking report links. Error: `NET::ERR_CERT_COMMON_NAME_INVALID` for `url5121.seoauditpro.net`.
