@@ -1,8 +1,6 @@
 /**
  * Netlify Scheduled Function for processing audit queue
- * Modern format: Uses ESM with config.schedule instead of schedule() wrapper
- * 
- * Schedule: Every 2 minutes (*/2 * * * *)
+ * Schedule is defined in netlify.toml: every 2 minutes
  */
 
 export default async function handler(req) {
