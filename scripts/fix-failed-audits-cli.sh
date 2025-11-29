@@ -127,15 +127,6 @@ if [ -z "$DB_URL" ]; then
   echo "   cat scripts/fix-failed-audits-with-reports.sql"
   exit 1
 fi
-  
-  echo "❌ Could not get database connection string"
-  echo "   Set it: export SUPABASE_DB_URL='postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres'"
-  echo "   Get connection string from: Supabase Dashboard → Settings → Database"
-  echo ""
-  echo "   Or use the SQL script in Supabase Dashboard:"
-  echo "   cat scripts/fix-failed-audits-with-reports.sql"
-  exit 1
-fi
 
 if ! command -v psql &> /dev/null; then
   echo "❌ psql not found"
