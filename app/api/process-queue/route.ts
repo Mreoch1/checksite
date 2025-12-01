@@ -409,6 +409,31 @@ export async function GET(request: NextRequest) {
       const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
       const ageMinutes = Math.round(ageSeconds / 60)
       
+      // CRITICAL: Check queue item status directly to handle replication lag
+      // If the queue item was marked as completed recently, skip it even if read replica shows pending
+      const { data: freshQueueItem, error: queueItemError } = await supabase
+        .from('audit_queue')
+        .select('status, completed_at')
+        .eq('id', item.id)
+        .single()
+      
+      if (!queueItemError && freshQueueItem) {
+        // If queue item is already completed or failed, skip it
+        if (freshQueueItem.status === 'completed' || freshQueueItem.status === 'failed') {
+          console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} - queue status is '${freshQueueItem.status}' (completed_at: ${freshQueueItem.completed_at || 'null'}, may be due to replication lag)`)
+          continue
+        }
+        // If queue item was completed recently (within last 10 minutes), skip it to avoid reprocessing
+        if (freshQueueItem.completed_at) {
+          const completedAge = Date.now() - new Date(freshQueueItem.completed_at).getTime()
+          const completedAgeMinutes = Math.round(completedAge / 1000 / 60)
+          if (completedAgeMinutes < 10) {
+            console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} - was completed ${completedAgeMinutes}m ago (may be due to replication lag)`)
+            continue
+          }
+        }
+      }
+      
       // FALLBACK: If join didn't return audit data, fetch it separately
       if (!audit && item.audit_id) {
         console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately`)
@@ -456,6 +481,47 @@ export async function GET(request: NextRequest) {
       
       if (freshEmailCheck.email_sent_at && !audit?.email_sent_at) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
+      }
+      
+      // Additional safeguard: If audit has a report and is older than 2 minutes, assume it's been processed
+      // This handles cases where replication lag prevents us from seeing email_sent_at or status updates
+      const hasReport = freshEmailCheck.formatted_report_html || audit?.formatted_report_html
+      if (hasReport && ageMinutes > 2) {
+        // Audit has a report and is older than 2 minutes - likely already processed
+        // Check one more time if email was sent (might have propagated by now)
+        const { data: finalCheck } = await supabase
+          .from('audits')
+          .select('email_sent_at, status')
+          .eq('id', item.audit_id)
+          .single()
+        
+        if (finalCheck?.email_sent_at && 
+            !finalCheck.email_sent_at.startsWith('sending_') && 
+            finalCheck.email_sent_at.length > 10) {
+          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and email was sent (final check: ${finalCheck.email_sent_at})`)
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .in('status', ['pending', 'processing'])
+          continue
+        }
+        
+        if (finalCheck?.status === 'completed' || finalCheck?.status === 'failed') {
+          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and status is '${finalCheck.status}' (final check)`)
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: finalCheck.status,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .in('status', ['pending', 'processing'])
+          continue
+        }
       }
       
       // Additional safeguard: Check audit status FIRST to avoid replication lag issues
