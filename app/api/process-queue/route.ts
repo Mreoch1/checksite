@@ -468,9 +468,9 @@ export async function GET(request: NextRequest) {
         
         // CRITICAL: Check if audit already has email sent BEFORE processing
         // This catches cases where the queue row is still pending but the audit is already done
-        if (audit?.email_sent_at && 
-            !audit.email_sent_at.startsWith('sending_') && 
-            audit.email_sent_at.length > 10) {
+        if (freshAuditCheck?.email_sent_at && 
+            !freshAuditCheck.email_sent_at.startsWith('sending_') && 
+            freshAuditCheck.email_sent_at.length > 10) {
           const emailAge = Math.round((Date.now() - new Date(freshAuditCheck!.email_sent_at).getTime()) / 1000 / 60)
           console.log(
             `[${requestId}] [atomic-claim] ⚠️  Audit ${queueItemWithAudit.audit_id} already has email_sent_at=${freshAuditCheck!.email_sent_at} ` +
