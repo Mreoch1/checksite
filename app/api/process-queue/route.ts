@@ -485,8 +485,8 @@ export async function GET(request: NextRequest) {
       
       // Additional safeguard: If audit has a report and is older than 2 minutes, assume it's been processed
       // This handles cases where replication lag prevents us from seeing email_sent_at or status updates
-      const hasReport = freshEmailCheck.formatted_report_html || audit?.formatted_report_html
-      if (hasReport && ageMinutes > 2) {
+      const hasReportEarly = freshEmailCheck.formatted_report_html || audit?.formatted_report_html
+      if (hasReportEarly && ageMinutes > 2) {
         // Audit has a report and is older than 2 minutes - likely already processed
         // Check one more time if email was sent (might have propagated by now)
         const { data: finalCheck } = await supabase
