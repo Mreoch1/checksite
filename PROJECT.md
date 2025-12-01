@@ -53,6 +53,32 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-12-01: In-Memory Guard to Prevent Reprocessing Completed Audits
+
+**Issue**: Queue processor was reprocessing the same audit (bb2b2ce7-...) on every run even though email was already sent. The join query was returning stale data from read replicas, showing `email_sent=null` even when `email_sent_at` was set.
+
+**Root Cause**: 
+- Initial query join was reading from read replica (stale data)
+- Even with retry logic, the item was being selected before the fresh check could catch it
+- Queue item remained as "pending" in the selection query results
+
+**Changes Made**:
+1. Added in-memory guard BEFORE processing that checks `email_sent_at` directly from database
+2. If `email_sent_at` is set, immediately mark queue as completed and `continue` to next item
+3. This prevents any processing (modules, report generation) for audits that already have emails sent
+4. Allows the loop to progress to the next queue item in the same run
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Added pre-processing guard to skip audits with email_sent_at set
+
+**Resolution**:
+- Queue processor now checks `email_sent_at` BEFORE processing each candidate
+- If email was sent, it marks queue as completed and moves to next item
+- Prevents wasted CPU on reprocessing completed audits
+- Allows queue to progress through multiple items in sequence
+
+**Status**: ✅ Fixed - Code ready for deployment
+
 ### 2025-12-01: Queue Selection Fix - Prevent Stuck Queue Items
 
 **Issue**: Queue processor was stuck repeatedly selecting the same completed audit (15a8fa75-...) because:
