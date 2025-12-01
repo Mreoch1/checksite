@@ -1139,23 +1139,23 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
       // Mark queue item as completed unconditionally by queue row id
+      // CRITICAL: Update by queue row id (not audit_id) to ensure the specific queue row is marked completed
       const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
         .from('audit_queue')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
         })
-        .eq('id', queueItem.id)
+        .eq('id', queueItem.id) // Update by queue row id, not audit_id
         .select('id, status')
+      
+      const count = queueUpdateResult?.length || 0
+      console.log(`[${requestId}] [queue-complete] queueId=${queueItem.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
       
       if (queueUpdateError) {
         console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-      } else {
-        const count = queueUpdateResult?.length || 0
-        console.log(`[${requestId}] [queue-complete] Updated rows: queueId=${queueItem.id}, count=${count}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
-        if (count === 0) {
-          console.warn(`[${requestId}] [queue-complete] No queue row updated for queueId=${queueItem.id}`)
-        }
+      } else if (count === 0) {
+        console.warn(`[${requestId}] [queue-complete] No queue row updated for queueId=${queueItem.id} - queue row may not exist or was already updated`)
       }
       
       return NextResponse.json({
@@ -1190,7 +1190,8 @@ export async function GET(request: NextRequest) {
       // Wrap processAudit in a timeout
       // For full audits, we'll attempt processing but return early if it takes too long
       // The processing will continue in the background
-      const processPromise = processAudit(auditId)
+      // CRITICAL: Pass service client to processAudit to ensure all DB operations use same client
+      const processPromise = processAudit(auditId, supabaseService)
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           processTimedOut = true
@@ -1233,13 +1234,16 @@ export async function GET(request: NextRequest) {
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
-          .eq('id', queueItem.id)
+          .eq('id', queueItem.id) // Update by queue row id, not audit_id
           // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
           .select('id, status, completed_at')
         
+        const count = queueUpdateResult?.length || 0
+        console.log(`[${requestId}] [queue-complete] queueId=${queueItem.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
+        
         if (queueUpdateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
+        } else if (count === 0) {
           // Queue item might have been updated by another process - verify current status
           const { data: currentStatus } = await supabaseService
             .from('audit_queue')
@@ -1431,7 +1435,8 @@ export async function GET(request: NextRequest) {
         
         // Continue processing in background (fire and forget)
         // Netlify allows background promises to continue after function returns
-        processAudit(auditId).catch((bgError) => {
+        // CRITICAL: Pass service client to processAudit to ensure all DB operations use same client
+        processAudit(auditId, supabaseService).catch((bgError) => {
           console.error(`[${requestId}] Background processing error for ${auditId}:`, bgError)
         })
         
