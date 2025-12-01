@@ -458,20 +458,21 @@ export async function GET(request: NextRequest) {
         
         const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
         
-        // CRITICAL: Fresh read of audit to check email_sent_at (joined data may be stale)
+        // CRITICAL: Fresh read of audit to check email_sent_at using RPC function
+        // This bypasses Supabase REST API replica routing and reads directly from primary
         // This catches cases where the queue row is still pending but the audit is already done
-        const { data: freshAuditCheck, error: freshCheckError } = await supabasePrimary
-          .from('audits')
-          .select('email_sent_at, status, formatted_report_html')
-          .eq('id', queueItemWithAudit.audit_id)
-          .single()
+        const { data: freshAuditCheckRows, error: freshCheckError } = await supabasePrimary
+          .rpc('get_audit_state', { audit_id_param: queueItemWithAudit.audit_id })
+        
+        const freshAuditCheck = freshAuditCheckRows && freshAuditCheckRows.length > 0 ? freshAuditCheckRows[0] : null
         
         // Log what the fresh read found for debugging
         console.log(
           `[${requestId}] [atomic-claim-fresh-read] audit_id=${queueItemWithAudit.audit_id}, ` +
           `fresh_email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, ` +
           `fresh_status=${freshAuditCheck?.status || 'null'}, ` +
-          `joined_email_sent_at=${audit?.email_sent_at || 'null'}`
+          `joined_email_sent_at=${audit?.email_sent_at || 'null'}, ` +
+          `rpc_error=${freshCheckError ? freshCheckError.message : 'none'}`
         )
         
         // CRITICAL: Check if audit already has email sent BEFORE processing
