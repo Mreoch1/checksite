@@ -245,6 +245,26 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(20)
     
+    // If main query returns 0 items, try querying primary again (handles edge cases with replica lag)
+    // Even though we're using supabaseService (which should hit primary), there may still be edge cases
+    if ((!queueItems || queueItems.length === 0) && !findError) {
+      console.log(`[${requestId}] Main query returned 0 items - trying primary query retry (replica lag check)...`)
+      const { data: primaryQueueItems, error: primaryError } = await supabaseService
+        .from('audit_queue')
+        .select('*, audits!inner(id, email_sent_at, status, formatted_report_html, url)')
+        .eq('status', 'pending')
+        .is('audits.email_sent_at', null)
+        .order('created_at', { ascending: true })
+        .limit(20)
+      
+      if (primaryQueueItems && primaryQueueItems.length > 0) {
+        console.log(`[${requestId}] Primary query retry found ${primaryQueueItems.length} pending items (replica lag detected)`)
+        queueItems = primaryQueueItems
+      } else if (primaryError) {
+        console.warn(`[${requestId}] Primary query retry error:`, primaryError)
+      }
+    }
+    
     // Log query details for debugging
     if (findError) {
       console.error(`[${requestId}] Query error details:`, findError)
