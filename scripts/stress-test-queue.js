@@ -1,211 +1,214 @@
+#!/usr/bin/env node
+
 /**
- * Stress Test Script for Queue Processing
- * 
- * Creates 20-30 audits in batches to test queue behavior under concurrency.
- * Tests:
- * - No duplicate emails
- * - No stuck queue items
- * - No reprocessing of completed audits
- * - Queue progression through multiple items
- * 
- * Usage:
- *   ADMIN_SECRET=your_secret node scripts/stress-test-queue.js
+ * Stress test script for queue processing
+ * Creates 20-30 audits in quick succession with a mix of:
+ * - Normal, fetchable URLs
+ * - Known 403/404/garbage domains to exercise permanent-error handling
  */
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000'
-const TEST_EMAIL = 'Mreoch82@hotmail.com'
+const https = require('https');
+const http = require('http');
 
-// Test URLs - mix to avoid rate limits and duplicate detection
+// Configuration
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net';
+const TEST_EMAIL = 'Mreoch82@hotmail.com';
+const BATCH_SIZE = 5; // Create audits in batches to avoid overwhelming the system
+const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds between batches
+
+// Mix of URLs: mostly normal, some that will fail
 const TEST_URLS = [
+  // Normal, fetchable URLs (majority)
   'https://example.com',
   'https://nextjs.org/docs',
   'https://tripplanner.com',
-  'https://seochecksite.net',
+  'https://wikipedia.org',
   'https://github.com',
   'https://stackoverflow.com',
-  'https://wikipedia.org',
+  'https://google.com',
+  'https://microsoft.com',
+  'https://apple.com',
+  'https://amazon.com',
+  'https://netflix.com',
+  'https://twitter.com',
+  'https://linkedin.com',
   'https://reddit.com',
-]
+  'https://youtube.com',
+  'https://facebook.com',
+  'https://instagram.com',
+  'https://pinterest.com',
+  'https://tumblr.com',
+  'https://wordpress.com',
+  
+  // Known permanent failures (403/404/garbage)
+  'https://this-domain-definitely-does-not-exist-12345.com',
+  'https://httpstat.us/403', // Returns 403
+  'https://httpstat.us/404', // Returns 404
+  'https://httpstat.us/401', // Returns 401
+  'https://invalid-tld-xyz.xyz123', // Invalid domain
+];
 
-// Default modules for all audits
-const DEFAULT_MODULES = ['performance', 'crawl_health', 'on_page', 'mobile', 'accessibility', 'security', 'schema', 'social']
+// Select 20-30 URLs (mix of normal and failures)
+const SELECTED_URLS = [
+  ...TEST_URLS.slice(0, 20), // First 20 are mostly normal
+  ...TEST_URLS.slice(20), // Last few are failures
+].slice(0, 25); // Take 25 total
 
-// Configuration
-const TOTAL_AUDITS = 25 // Create 25 audits
-const BATCH_SIZE = 5 // Process in batches of 5
-const BATCH_DELAY_MS = 2000 // 2 seconds between batches
+function makeRequest(url, options) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const client = urlObj.protocol === 'https:' ? https : http;
+    
+    const req = client.request(url, options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve({ status: res.statusCode, data: parsed });
+        } catch (e) {
+          resolve({ status: res.statusCode, data: data });
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    
+    if (options.body) {
+      req.write(JSON.stringify(options.body));
+    }
+    
+    req.end();
+  });
+}
 
-let createdAudits = []
-let failedAudits = []
-
-/**
- * Create a single audit via the test-audit API endpoint
- */
-async function createAudit(url, index) {
-  const urlIndex = index % TEST_URLS.length
-  const testUrl = url || TEST_URLS[urlIndex]
+async function createAudit(url, email) {
+  const testAuditUrl = `${BASE_URL}/api/test-audit`;
   
   try {
-    const response = await fetch(`${API_BASE_URL}/api/test-audit`, {
+    const response = await makeRequest(testAuditUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ADMIN_SECRET}`,
       },
-      body: JSON.stringify({
-        url: testUrl,
-        email: TEST_EMAIL,
-        modules: DEFAULT_MODULES,
-      }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      if (response.status === 409) {
-        // Duplicate audit - this is expected sometimes
-        console.log(`   ⚠️  Audit ${index + 1}: Duplicate detected (${data.message})`)
-        return { success: false, duplicate: true, existingAuditId: data.existingAuditId }
-      }
-      
-      console.error(`   ❌ Audit ${index + 1} failed:`, data.error || data.message)
-      return { success: false, error: data.error || data.message }
-    }
-
-    console.log(`   ✅ Audit ${index + 1}: Created ${data.auditId} for ${testUrl}`)
-    return { 
-      success: true, 
-      auditId: data.auditId,
-      url: testUrl,
-      index: index + 1,
+      body: {
+        url: url,
+        email: email,
+      },
+    });
+    
+    if (response.status === 200 && response.data.success) {
+      return {
+        success: true,
+        auditId: response.data.auditId,
+        url: url,
+      };
+    } else {
+      return {
+        success: false,
+        url: url,
+        error: response.data.error || `HTTP ${response.status}`,
+      };
     }
   } catch (error) {
-    console.error(`   ❌ Audit ${index + 1} error:`, error.message)
-    return { success: false, error: error.message }
+    return {
+      success: false,
+      url: url,
+      error: error.message,
+    };
   }
 }
 
-/**
- * Create audits in batches
- */
-async function createAuditsInBatches() {
-  console.log('\n🚀 Starting stress test...')
-  console.log(`   Target: ${TOTAL_AUDITS} audits`)
-  console.log(`   Batch size: ${BATCH_SIZE}`)
-  console.log(`   Test email: ${TEST_EMAIL}`)
-  console.log(`   API URL: ${API_BASE_URL}\n`)
-
-  const batches = []
-  for (let i = 0; i < TOTAL_AUDITS; i += BATCH_SIZE) {
-    const batch = []
-    for (let j = 0; j < BATCH_SIZE && (i + j) < TOTAL_AUDITS; j++) {
-      batch.push(createAudit(null, i + j))
-    }
-    batches.push(batch)
+async function createAuditsInBatches(urls, email, batchSize, delayMs) {
+  const results = [];
+  const batches = [];
+  
+  // Split URLs into batches
+  for (let i = 0; i < urls.length; i += batchSize) {
+    batches.push(urls.slice(i, i + batchSize));
   }
-
-  // Process batches sequentially with delay
+  
+  console.log(`\n📊 Creating ${urls.length} audits in ${batches.length} batches of ${batchSize}...\n`);
+  
   for (let i = 0; i < batches.length; i++) {
-    console.log(`\n📦 Batch ${i + 1}/${batches.length} (${batches[i].length} audits)...`)
+    const batch = batches[i];
+    console.log(`\n🔄 Batch ${i + 1}/${batches.length} (${batch.length} audits)...`);
     
-    const batchResults = await Promise.all(batches[i])
+    // Create all audits in this batch in parallel
+    const batchPromises = batch.map(url => createAudit(url, email));
+    const batchResults = await Promise.all(batchPromises);
     
-    batchResults.forEach(result => {
+    // Log results
+    batchResults.forEach((result, idx) => {
       if (result.success) {
-        createdAudits.push(result)
-      } else if (result.duplicate) {
-        // Duplicate is acceptable - just log it
-        console.log(`   ℹ️  Skipped duplicate audit`)
+        console.log(`  ✅ ${batch[idx]} → Audit ID: ${result.auditId}`);
       } else {
-        failedAudits.push(result)
+        console.log(`  ❌ ${batch[idx]} → Error: ${result.error}`);
       }
-    })
-
-    // Wait between batches (except last batch)
+    });
+    
+    results.push(...batchResults);
+    
+    // Wait before next batch (except for last batch)
     if (i < batches.length - 1) {
-      console.log(`   ⏳ Waiting ${BATCH_DELAY_MS / 1000}s before next batch...`)
-      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS))
+      console.log(`  ⏳ Waiting ${delayMs}ms before next batch...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
-
-  console.log('\n' + '='.repeat(60))
-  console.log('📊 Stress Test Summary')
-  console.log('='.repeat(60))
-  console.log(`✅ Successfully created: ${createdAudits.length} audits`)
-  console.log(`❌ Failed: ${failedAudits.length} audits`)
-  console.log(`📋 Created audit IDs:`)
-  createdAudits.forEach(audit => {
-    console.log(`   - ${audit.auditId} (${audit.url})`)
-  })
   
-  if (failedAudits.length > 0) {
-    console.log(`\n❌ Failed audits:`)
-    failedAudits.forEach(audit => {
-      console.log(`   - ${audit.error || 'Unknown error'}`)
-    })
-  }
-
-  return { createdAudits, failedAudits }
+  return results;
 }
 
-/**
- * Monitor queue processing (optional - can be run separately)
- */
-async function checkQueueStatus() {
-  console.log('\n🔍 Checking queue status...')
-  
-  // This would require direct Supabase access or a status endpoint
-  // For now, just log that monitoring should be done via logs
-  console.log('   ⚠️  Monitor queue processing via Netlify logs:')
-  console.log('      - Watch /api/process-queue runs')
-  console.log('      - Check for duplicate emails')
-  console.log('      - Verify queue progression')
-  console.log('      - Confirm all audits complete')
-}
-
-/**
- * Main execution
- */
 async function main() {
-  if (!ADMIN_SECRET) {
-    console.error('❌ ADMIN_SECRET environment variable is required')
-    console.error('   Usage: ADMIN_SECRET=your_secret node scripts/stress-test-queue.js')
-    process.exit(1)
+  console.log('🚀 Starting queue stress test...');
+  console.log(`📍 Base URL: ${BASE_URL}`);
+  console.log(`📧 Test Email: ${TEST_EMAIL}`);
+  console.log(`🔢 Total URLs: ${SELECTED_URLS.length}`);
+  console.log(`   - Normal URLs: ~${SELECTED_URLS.length - 5}`);
+  console.log(`   - Failure URLs: ~5`);
+  
+  const startTime = Date.now();
+  const results = await createAuditsInBatches(
+    SELECTED_URLS,
+    TEST_EMAIL,
+    BATCH_SIZE,
+    DELAY_BETWEEN_BATCHES
+  );
+  const endTime = Date.now();
+  
+  // Summary
+  const successful = results.filter(r => r.success);
+  const failed = results.filter(r => !r.success);
+  
+  console.log('\n' + '='.repeat(60));
+  console.log('📊 STRESS TEST SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`⏱️  Total time: ${Math.round((endTime - startTime) / 1000)}s`);
+  console.log(`✅ Successful: ${successful.length}/${results.length}`);
+  console.log(`❌ Failed: ${failed.length}/${results.length}`);
+  
+  if (successful.length > 0) {
+    console.log('\n✅ Successful Audit IDs:');
+    successful.forEach(r => {
+      console.log(`   - ${r.auditId} (${r.url})`);
+    });
   }
-
-  try {
-    const { createdAudits: audits } = await createAuditsInBatches()
-    
-    if (audits.length === 0) {
-      console.error('\n❌ No audits were created. Check your configuration and API endpoint.')
-      process.exit(1)
-    }
-
-    console.log('\n✅ Stress test setup complete!')
-    console.log('\n📝 Next steps:')
-    console.log('   1. Monitor Netlify logs for /api/process-queue runs')
-    console.log('   2. Watch for queue progression through audit IDs')
-    console.log('   3. Verify no duplicate emails are sent')
-    console.log('   4. Confirm all audits reach status=completed with email_sent_at set')
-    console.log('\n   Expected behavior:')
-    console.log('   - Queue processes one audit per run')
-    console.log('   - Queue progresses through different audit IDs')
-    console.log('   - No reprocessing of audits with email_sent_at set')
-    console.log('   - Each audit receives exactly one email')
-    
-    await checkQueueStatus()
-    
-  } catch (error) {
-    console.error('\n❌ Stress test failed:', error)
-    process.exit(1)
+  
+  if (failed.length > 0) {
+    console.log('\n❌ Failed URLs:');
+    failed.forEach(r => {
+      console.log(`   - ${r.url}: ${r.error}`);
+    });
   }
+  
+  console.log('\n💡 Next steps:');
+  console.log('   1. Wait for /api/process-queue to run (every 2 minutes)');
+  console.log('   2. Monitor logs for queue processing');
+  console.log('   3. Run: node scripts/check-stress-test-results.js');
+  console.log('      to verify all audits completed successfully');
+  console.log('\n');
 }
 
-// Run if executed directly
-if (require.main === module) {
-  main()
-}
-
-module.exports = { createAudit, createAuditsInBatches }
-
+main().catch(console.error);
