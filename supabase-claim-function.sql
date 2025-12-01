@@ -14,10 +14,17 @@ begin
     started_at  = now(),
     retry_count = coalesce(retry_count, 0) + 1
   where id = (
-    select id
-    from audit_queue
-    where status = 'pending'
-    order by created_at
+    select aq.id
+    from audit_queue aq
+    inner join audits a on a.id = aq.audit_id
+    where aq.status = 'pending'
+      and (
+        a.email_sent_at is null 
+        or coalesce(trim(a.email_sent_at::text), '') = ''
+        or length(coalesce(trim(a.email_sent_at::text), '')) <= 10
+        or coalesce(a.email_sent_at::text, '') like 'sending_%'
+      )
+    order by aq.created_at
     limit 1
     for update skip locked
   )
