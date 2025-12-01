@@ -12,6 +12,7 @@ const http = require('http');
 
 // Configuration
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net';
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const TEST_EMAIL = 'Mreoch82@hotmail.com';
 const BATCH_SIZE = 5; // Create audits in batches to avoid overwhelming the system
 const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds between batches
@@ -87,12 +88,19 @@ function makeRequest(url, options) {
 async function createAudit(url, email) {
   const testAuditUrl = `${BASE_URL}/api/test-audit`;
   
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Add admin authentication if available
+  if (ADMIN_SECRET) {
+    headers['Authorization'] = `Bearer ${ADMIN_SECRET}`;
+  }
+  
   try {
     const response = await makeRequest(testAuditUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: {
         url: url,
         email: email,
@@ -162,6 +170,11 @@ async function createAuditsInBatches(urls, email, batchSize, delayMs) {
 }
 
 async function main() {
+  if (!ADMIN_SECRET) {
+    console.warn('⚠️  ADMIN_SECRET not set - authentication may fail');
+    console.warn('   Set ADMIN_SECRET environment variable for admin access');
+  }
+  
   console.log('🚀 Starting queue stress test...');
   console.log(`📍 Base URL: ${BASE_URL}`);
   console.log(`📧 Test Email: ${TEST_EMAIL}`);
