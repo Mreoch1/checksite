@@ -504,24 +504,7 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${freshAuditCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and moving to next item`)
         
         // Mark queue item as completed - only update if still pending (prevents repeated updates)
-        const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', item.id)
-          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-          .select('id, status')
-        
-        const count = queueUpdateResult?.length || 0
-        console.log(`[${requestId}] [queue-complete] queueId=${item.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
-        
-        if (queueUpdateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-        } else if (count === 0) {
-          console.log(`[${requestId}] [queue-complete] Queue row already completed (updated_rows=0)`)
-        }
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'early-guard-email-sent')
         
         // Continue to next queue item instead of processing this one
         continue
@@ -1250,37 +1233,8 @@ export async function GET(request: NextRequest) {
         // Email was sent - mark queue as completed immediately
         // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
-        const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id) // Update by queue row id, not audit_id
-          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-          .select('id, status, completed_at')
-        
-        const count = queueUpdateResult?.length || 0
-        console.log(`[${requestId}] [queue-complete] queueId=${queueItem.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
-        
-        if (queueUpdateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-        } else if (count === 0) {
-          // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabaseService
-            .from('audit_queue')
-            .select('status')
-            .eq('id', queueItem.id)
-            .single()
-          const currentStatusValue = currentStatus?.status || 'unknown'
-          if (currentStatusValue === 'completed') {
-            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
-          } else {
-            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
-          }
-        } else {
-          console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed (status: ${queueUpdateResult[0].status})`)
-        }
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'email-sent')
+        console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
         
         return NextResponse.json({
           success: true,
@@ -1326,34 +1280,8 @@ export async function GET(request: NextRequest) {
         
         // Mark queue as completed
         // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
-        const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id) // Update by queue row id, not audit_id
-          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-          .select('id, status, completed_at')
-        
-        if (queueUpdateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-        } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
-          // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabaseService
-            .from('audit_queue')
-            .select('status')
-            .eq('id', queueItem.id)
-            .single()
-          const currentStatusValue = currentStatus?.status || 'unknown'
-          if (currentStatusValue === 'completed') {
-            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
-          } else {
-            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
-          }
-        } else {
-          console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed (queue_id: ${queueUpdateResult[0].id}, status: ${queueUpdateResult[0].status})`)
-        }
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, `has-${hasReport ? 'report' : 'email'}`)
+        console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed`)
         
         return NextResponse.json({
           success: true,
@@ -1404,34 +1332,8 @@ export async function GET(request: NextRequest) {
           // Mark queue as completed
           // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
           // This prevents the same item from being selected on the next run
-          const { data: queueFixResult, error: queueFixError } = await supabaseService
-            .from('audit_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', queueItem.id) // Update by queue row id, not audit_id
-            .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-            .select('id, status, completed_at')
-          
-          if (queueFixError) {
-            console.error(`[${requestId}] ❌ Failed to mark queue as completed in final check:`, queueFixError)
-          } else if (!queueFixResult || queueFixResult.length === 0) {
-            // Queue item might have been updated by another process - verify current status
-            const { data: currentStatus } = await supabaseService
-              .from('audit_queue')
-              .select('status')
-              .eq('id', queueItem.id)
-              .single()
-            const currentStatusValue = currentStatus?.status || 'unknown'
-            if (currentStatusValue === 'completed') {
-              console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
-            } else {
-              console.warn(`[${requestId}] ⚠️  Queue update in final check returned no data - current status: ${currentStatusValue}`)
-            }
-          } else {
-            console.log(`[${requestId}] ✅ Queue marked as completed in final check (queue_id: ${queueFixResult[0].id}, status: ${queueFixResult[0].status}, completed_at: ${queueFixResult[0].completed_at})`)
-          }
+          await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'final-check-reconciliation')
+          console.log(`[${requestId}] ✅ Queue marked as completed in final check`)
           
           return NextResponse.json({
             success: true,
@@ -1518,38 +1420,8 @@ export async function GET(request: NextRequest) {
         // Mark queue as completed
         // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
-        const { data: queueFixResult, error: queueFixError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            last_error: null,
-          })
-          .eq('id', queueItem.id) // Update by queue row id, not audit_id
-          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-          .select('status')
-
-        if (queueFixError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
-        } else if (!queueFixResult || queueFixResult.length === 0) {
-          // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabaseService
-            .from('audit_queue')
-            .select('status')
-            .eq('id', queueItem.id)
-            .single()
-          const currentStatusValue = currentStatus?.status || 'unknown'
-          if (currentStatusValue === 'completed') {
-            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
-          } else {
-            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
-          }
-        } else {
-          console.log(
-            `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
-            `queue marked as completed (status: ${queueFixResult[0].status})`
-          )
-        }
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email')
+        console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
 
         return NextResponse.json({
           success: true,
@@ -1590,38 +1462,8 @@ export async function GET(request: NextRequest) {
         // Mark queue as completed
         // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
-        const { data: queueFixResult, error: queueFixError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            last_error: null,
-          })
-          .eq('id', queueItem.id) // Update by queue row id, not audit_id
-          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-          .select('status')
-
-        if (queueFixError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
-        } else if (!queueFixResult || queueFixResult.length === 0) {
-          // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabaseService
-            .from('audit_queue')
-            .select('status')
-            .eq('id', queueItem.id)
-            .single()
-          const currentStatusValue = currentStatus?.status || 'unknown'
-          if (currentStatusValue === 'completed') {
-            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
-          } else {
-            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
-          }
-        } else {
-          console.log(
-            `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
-            `queue marked as completed (status: ${queueFixResult[0].status})`
-          )
-        }
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email')
+        console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
 
         return NextResponse.json({
           success: true,
