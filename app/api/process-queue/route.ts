@@ -363,13 +363,22 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: Fetch fresh email_sent_at to avoid stale join data
       // The join might show null even if email was sent (database replication lag)
-      const { data: freshEmailCheck } = await supabase
+      const { data: freshEmailCheck, error: freshEmailError } = await supabase
         .from('audits')
         .select('email_sent_at')
         .eq('id', item.audit_id)
         .single()
       
+      if (freshEmailError) {
+        console.warn(`[${requestId}] ⚠️  Error fetching fresh email_sent_at for ${item.audit_id}:`, freshEmailError.message)
+      }
+      
       const emailSentAt = freshEmailCheck?.email_sent_at || audit?.email_sent_at
+      
+      // Log what we found for debugging
+      if (freshEmailCheck?.email_sent_at && !audit?.email_sent_at) {
+        console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
+      }
       
       // Skip if email was already sent (not a reservation)
       // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >5 minutes old)
@@ -377,9 +386,9 @@ export async function GET(request: NextRequest) {
           !emailSentAt.startsWith('sending_') && 
           emailSentAt.length > 10) {
         // Valid timestamp exists - email was sent (regardless of age)
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check)`)
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check: ${freshEmailCheck?.email_sent_at ? 'found' : 'not found'}, join: ${audit?.email_sent_at || 'null'})`)
         // Mark queue item as completed since email was sent
-        await supabase
+        const { error: updateError } = await supabase
           .from('audit_queue')
           .update({
             status: 'completed',
@@ -387,6 +396,12 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', item.id)
           .in('status', ['pending', 'processing'])
+        
+        if (updateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
+        } else {
+          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as completed (email already sent)`)
+        }
         continue
       }
       
