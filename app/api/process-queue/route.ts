@@ -333,10 +333,12 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Now find the first valid queue item
-    // No delay - process audits immediately (duplicate prevention handled by other mechanisms)
+    // CRITICAL: Filter out queue items where email was already sent
+    // Use a for loop instead of find() so we can await fresh data fetches
+    // The join query might return stale data (email_sent=null even when email was sent)
+    let queueItem: any = null
     
-    let queueItem = queueItems?.find((item: any) => {
+    for (const item of queueItems || []) {
       let audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
       
       // Log each item being checked
@@ -344,41 +346,33 @@ export async function GET(request: NextRequest) {
       const ageMinutes = Math.round(ageSeconds / 60)
       
       // FALLBACK: If join didn't return audit data, fetch it separately
-      // This handles cases where the foreign key join might fail or return null
       if (!audit && item.audit_id) {
-        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately as fallback`)
-        // Note: We can't await in a find() callback, so we'll skip this item
-        // and handle it in a separate pass if needed
-        // For now, log it and skip - the next cron run will try again
-        return false
+        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately`)
+        const { data: fetchedAudit } = await supabase
+          .from('audits')
+          .select('email_sent_at, status, formatted_report_html, url')
+          .eq('id', item.audit_id)
+          .single()
+        audit = fetchedAudit
       }
       
       if (!audit) {
         console.warn(`[${requestId}] ⚠️  Skipping queue item ${item.id} (audit_id: ${item.audit_id}) - no audit data available`)
-        return false
+        continue
       }
       
-      // CRITICAL: Double-check email_sent_at directly from database (join might be stale)
-      // Fetch fresh audit data to ensure we have the latest email_sent_at value
-      let freshAuditData: any = null
-      try {
-        const { data: freshAudit } = await supabase
-          .from('audits')
-          .select('email_sent_at, status, formatted_report_html')
-          .eq('id', item.audit_id)
-          .single()
-        freshAuditData = freshAudit
-      } catch (err) {
-        // If fetch fails, use join data as fallback
-        console.warn(`[${requestId}] ⚠️  Could not fetch fresh audit data for ${item.audit_id}, using join data`)
-      }
+      // CRITICAL: Fetch fresh email_sent_at to avoid stale join data
+      // The join might show null even if email was sent (database replication lag)
+      const { data: freshEmailCheck } = await supabase
+        .from('audits')
+        .select('email_sent_at')
+        .eq('id', item.audit_id)
+        .single()
       
-      // Use fresh data if available, otherwise fall back to join data
-      const emailSentAt = freshAuditData?.email_sent_at || audit?.email_sent_at
+      const emailSentAt = freshEmailCheck?.email_sent_at || audit?.email_sent_at
       
       // Skip if email was already sent (not a reservation)
       // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >5 minutes old)
-      // This prevents duplicate processing when email was just sent (<5 minutes ago)
       if (emailSentAt && 
           !emailSentAt.startsWith('sending_') && 
           emailSentAt.length > 10) {
@@ -392,19 +386,21 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
           })
           .eq('id', item.id)
-        return false
+          .in('status', ['pending', 'processing'])
+        continue
       }
       
       // Skip if email is being sent (reservation exists - another process is handling it)
       if (emailSentAt && emailSentAt.startsWith('sending_')) {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (reserved at ${emailSentAt})`)
-        return false
+        continue
       }
       
-      // This item passes all checks - log it
+      // This item passes all checks - use it
       console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'})`)
-      return true
-    }) || null
+      queueItem = item
+      break // Found a processable item, stop searching
+    }
     
     if (!queueItem) {
       // No delay - all pending items should be processable
