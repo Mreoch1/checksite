@@ -458,13 +458,14 @@ export async function GET(request: NextRequest) {
         
         const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
         
-        // CRITICAL: Fresh read of audit to check email_sent_at using RPC function
-        // This bypasses Supabase REST API replica routing and reads directly from primary
+        // CRITICAL: Fresh read of audit to check email_sent_at
+        // Use direct query instead of RPC to avoid replica routing issues
         // This catches cases where the queue row is still pending but the audit is already done
-        const { data: freshAuditCheckRows, error: freshCheckError } = await supabasePrimary
-          .rpc('get_audit_state', { audit_id_param: queueItemWithAudit.audit_id })
-        
-        const freshAuditCheck = freshAuditCheckRows && freshAuditCheckRows.length > 0 ? freshAuditCheckRows[0] : null
+        const { data: freshAuditCheck, error: freshCheckError } = await supabasePrimary
+          .from('audits')
+          .select('email_sent_at, status, formatted_report_html')
+          .eq('id', queueItemWithAudit.audit_id)
+          .single()
         
         // Log what the fresh read found for debugging
         console.log(
@@ -472,7 +473,7 @@ export async function GET(request: NextRequest) {
           `fresh_email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, ` +
           `fresh_status=${freshAuditCheck?.status || 'null'}, ` +
           `joined_email_sent_at=${audit?.email_sent_at || 'null'}, ` +
-          `rpc_error=${freshCheckError ? freshCheckError.message : 'none'}`
+          `query_error=${freshCheckError ? freshCheckError.message : 'none'}`
         )
         
         // CRITICAL: Check if audit already has email sent BEFORE processing
@@ -480,9 +481,9 @@ export async function GET(request: NextRequest) {
         if (freshAuditCheck?.email_sent_at && 
             !freshAuditCheck.email_sent_at.startsWith('sending_') && 
             freshAuditCheck.email_sent_at.length > 10) {
-          const emailAge = Math.round((Date.now() - new Date(freshAuditCheck!.email_sent_at).getTime()) / 1000 / 60)
+          const emailAge = Math.round((Date.now() - new Date(freshAuditCheck.email_sent_at).getTime()) / 1000 / 60)
           console.log(
-            `[${requestId}] [atomic-claim] ⚠️  Audit ${queueItemWithAudit.audit_id} already has email_sent_at=${freshAuditCheck!.email_sent_at} ` +
+            `[${requestId}] [atomic-claim] ⚠️  Audit ${queueItemWithAudit.audit_id} already has email_sent_at=${freshAuditCheck.email_sent_at} ` +
             `(${emailAge}m old) - marking queue as completed and skipping processing`
           )
           await markQueueItemCompletedWithLogging(requestId, queueItemWithAudit.id, 'rpc-claim-audit-already-emailed', ['processing'])
@@ -491,7 +492,7 @@ export async function GET(request: NextRequest) {
             message: 'Audit skipped - email already sent (detected after RPC claim)',
             processed: false,
             auditId: queueItemWithAudit.audit_id,
-            email_sent_at: freshAuditCheck!.email_sent_at,
+            email_sent_at: freshAuditCheck.email_sent_at,
           })
         }
         
