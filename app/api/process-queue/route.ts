@@ -1129,20 +1129,34 @@ export async function GET(request: NextRequest) {
     }
     
     // EARLY EXIT: If email was already sent, do NOT reprocess (skip modules and report generation)
+    // Log fresh check result for debugging
+    console.log(`[${requestId}] [fresh-check] audit_id=${auditId}, status=${preProcessCheck.status || 'null'}, email_sent_at=${preProcessCheck.email_sent_at || 'null'}, has_report=${!!preProcessCheck.formatted_report_html}`)
+    
     if (preProcessCheck.email_sent_at) {
       const emailAge = getEmailSentAtAge(preProcessCheck.email_sent_at)
       const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
       
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
-      // Mark queue item as completed unconditionally
-      await supabaseService
+      // Mark queue item as completed unconditionally by queue row id
+      const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
         .from('audit_queue')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
         })
         .eq('id', queueItem.id)
+        .select('id, status')
+      
+      if (queueUpdateError) {
+        console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
+      } else {
+        const count = queueUpdateResult?.length || 0
+        console.log(`[${requestId}] [queue-complete] Updated rows: queueId=${queueItem.id}, count=${count}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
+        if (count === 0) {
+          console.warn(`[${requestId}] [queue-complete] No queue row updated for queueId=${queueItem.id}`)
+        }
+      }
       
       return NextResponse.json({
         success: true,
