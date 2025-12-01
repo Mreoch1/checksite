@@ -15,7 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
-import { isEmailSent, isEmailSending } from '@/lib/email-status'
+import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-status'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -45,17 +45,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the oldest pending audit in the queue
-    // CRITICAL: Also filter out audits that already have email_sent_at to prevent duplicate processing
-    // This prevents processing the same audit multiple times if there are duplicate queue entries
-    // Use a simpler query approach to avoid join filter issues
-    // NOTE: Get more items to ensure we catch recent ones that might be filtered out
-    // CRITICAL: Also check for items that might have been marked as completed but join shows stale data
+    // CRITICAL: Filter by queue status = 'pending' AND exclude audits that already have email_sent_at
+    // This prevents selecting queue items for audits that are already complete
+    // Pattern: SELECT queue items WHERE status = 'pending' AND audit.email_sent_at IS NULL
     let { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
-      .select('*, audits(*)')
+      .select('*, audits!inner(id, email_sent_at, status, formatted_report_html)')
       .eq('status', 'pending')
+      .is('audits.email_sent_at', null) // CRITICAL: Exclude audits with email_sent_at set
       .order('created_at', { ascending: true })
-      .limit(20) // Increased from 10 to catch more items
+      .limit(20)
     
     // Log query details for debugging
     if (findError) {
@@ -452,25 +451,60 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: Fetch fresh email_sent_at to avoid stale join data
       // The join might show null even if email was sent (database replication lag)
+      // Use retry mechanism to handle replication lag
       console.log(`[${requestId}] 🔍 Fetching fresh email_sent_at for audit ${item.audit_id} (join showed: ${audit?.email_sent_at || 'null'})`)
-      const { data: freshEmailCheck, error: freshEmailError } = await supabase
-        .from('audits')
-        .select('email_sent_at, status, formatted_report_html')
-        .eq('id', item.audit_id)
-        .single()
       
-      if (freshEmailError) {
-        console.warn(`[${requestId}] ⚠️  Error fetching fresh email_sent_at for ${item.audit_id}:`, freshEmailError.message)
-        // If query failed, we can't trust the join data - skip this item to be safe
-        if (freshEmailError.code === 'PGRST116') {
-          console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
-          continue
+      let freshEmailCheck: any = null
+      let freshEmailError: any = null
+      const maxRetries = 3
+      const retryDelay = 500 // 500ms between retries
+      
+      // Retry logic to handle replication lag
+      for (let retry = 0; retry < maxRetries; retry++) {
+        const { data: checkResult, error: checkError } = await supabase
+          .from('audits')
+          .select('email_sent_at, status, formatted_report_html, completed_at')
+          .eq('id', item.audit_id)
+          .single()
+        
+        if (checkError) {
+          freshEmailError = checkError
+          if (checkError.code === 'PGRST116') {
+            // Audit not found - no point retrying
+            console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
+            break
+          }
+          // For other errors, retry
+          if (retry < maxRetries - 1) {
+            console.warn(`[${requestId}] ⚠️  Error fetching fresh email_sent_at (attempt ${retry + 1}/${maxRetries}):`, checkError.message)
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+            continue
+          }
+        } else if (checkResult) {
+          freshEmailCheck = checkResult
+          // If we got a result with email_sent_at, we're done (no replication lag)
+          if (checkResult.email_sent_at) {
+            break
+          }
+          // If email_sent_at is null but audit is old and has report, retry once more to check for replication lag
+          if (retry < maxRetries - 1 && ageMinutes > 5 && checkResult.formatted_report_html) {
+            console.log(`[${requestId}] 🔍 Fresh check returned null email_sent_at but audit is old (${ageMinutes}m) with report - retrying to check for replication lag (attempt ${retry + 1}/${maxRetries})`)
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+            continue
+          }
+          // Got result (even if null) - proceed
+          break
         }
       }
       
-      // If freshEmailCheck is null, the query might have failed or audit doesn't exist
+      if (freshEmailError && freshEmailError.code === 'PGRST116') {
+        console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
+        continue
+      }
+      
+      // If freshEmailCheck is null after retries, the query might have failed or audit doesn't exist
       if (!freshEmailCheck) {
-        console.warn(`[${requestId}] ⚠️  Fresh email check returned null for audit ${item.audit_id} - skipping to be safe`)
+        console.warn(`[${requestId}] ⚠️  Fresh email check returned null for audit ${item.audit_id} after ${maxRetries} attempts - skipping to be safe`)
         continue
       }
       
@@ -481,6 +515,39 @@ export async function GET(request: NextRequest) {
       
       if (freshEmailCheck.email_sent_at && !audit?.email_sent_at) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
+      }
+      
+      // CRITICAL: If audit is old (>5 minutes) and has a report, but email_sent_at is still null,
+      // check one more time with a longer delay to handle severe replication lag
+      if (!emailSentAt && ageMinutes > 5 && freshEmailCheck.formatted_report_html) {
+        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} is old (${ageMinutes}m) with report but email_sent_at is null - doing final check for replication lag`)
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
+        
+        const { data: finalCheck } = await supabase
+          .from('audits')
+          .select('email_sent_at, status, completed_at')
+          .eq('id', item.audit_id)
+          .single()
+        
+        if (finalCheck?.email_sent_at) {
+          const finalAge = getEmailSentAtAge(finalCheck.email_sent_at)
+          const finalAgeMinutes = finalAge ? Math.round(finalAge / 1000 / 60) : null
+          console.log(`[${requestId}] 🔍 Final check found email_sent_at=${finalCheck.email_sent_at} (${finalAgeMinutes}m old) - was replication lag`)
+          
+          // Use the final check result
+          if (isEmailSent(finalCheck.email_sent_at)) {
+            console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email was sent (final check: ${finalCheck.email_sent_at})`)
+            await supabase
+              .from('audit_queue')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', item.id)
+              .in('status', ['pending', 'processing'])
+            continue
+          }
+        }
       }
       
       // Additional safeguard: If audit has a report and is older than 2 minutes, assume it's been processed
@@ -1184,6 +1251,8 @@ export async function GET(request: NextRequest) {
           }
           
           // Mark queue as completed
+          // CRITICAL: Update queue status unconditionally (remove status filter) to ensure it's marked as completed
+          // This prevents the same item from being selected on the next run
           const { data: queueFixResult, error: queueFixError } = await supabase
             .from('audit_queue')
             .update({
@@ -1191,7 +1260,7 @@ export async function GET(request: NextRequest) {
               completed_at: new Date().toISOString(),
             })
             .eq('id', queueItem.id)
-            .in('status', ['pending', 'processing']) // Only update if still pending or processing (prevents race conditions)
+            // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
             .select('id, status, completed_at')
           
           if (queueFixError) {
@@ -1294,7 +1363,8 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // Use atomic update: only update if still pending or processing
+        // CRITICAL: Update queue status unconditionally to ensure it's marked as completed
+        // This prevents the same item from being selected on the next run
         const { data: queueFixResult, error: queueFixError } = await supabase
           .from('audit_queue')
           .update({
@@ -1303,7 +1373,7 @@ export async function GET(request: NextRequest) {
             last_error: null,
           })
           .eq('id', queueItem.id)
-          .in('status', ['pending', 'processing']) // Atomic: only update if still pending or processing
+          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
           .select('status')
 
         if (queueFixError) {
@@ -1365,7 +1435,8 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // Use atomic update: only update if still pending or processing
+        // CRITICAL: Update queue status unconditionally to ensure it's marked as completed
+        // This prevents the same item from being selected on the next run
         const { data: queueFixResult, error: queueFixError } = await supabase
           .from('audit_queue')
           .update({
@@ -1374,7 +1445,7 @@ export async function GET(request: NextRequest) {
             last_error: null,
           })
           .eq('id', queueItem.id)
-          .in('status', ['pending', 'processing']) // Atomic: only update if still pending or processing
+          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
           .select('status')
 
         if (queueFixError) {

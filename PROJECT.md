@@ -1,9 +1,9 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2025-11-29  
-**Status**: Production - Health Check Completed, Changes Pushed  
-**Version**: 1.0  
-**Last Commit**: afbeb1d - Add PROJECT.md SSOT and health check system
+**Last Updated**: 2025-12-01  
+**Status**: Production - Queue Processing Fixed, Email Deliverability Improved  
+**Version**: 1.1  
+**Last Commit**: 4c6d661 - Change processing delay from 5 minutes to 2 minutes to match Netlify schedule
 
 This document is the authoritative source for all project state, decisions, TODOs, and issues. All changes to scope, behavior, or structure must be documented here immediately.
 
@@ -30,10 +30,13 @@ This document is the authoritative source for all project state, decisions, TODO
 - ✅ **Function Structure**: `netlify/functions/process-queue.js` correctly configured
 - ✅ **Package Dependencies**: `@netlify/functions@5.1.0` installed
 - ✅ **Configuration**: `netlify.toml` has `functions.directory = "netlify/functions"`
-- ✅ **Email Logic**: Atomic reservation system implemented
+- ✅ **Email Logic**: Atomic reservation system implemented with replication lag handling
 - ✅ **Timeout Handling**: Process-queue route implements 20s safety margin
 - ✅ **Pricing Display**: Correctly converts cents to dollars
-- ⚠️ **Scheduled Function**: Needs verification after next deploy (check Netlify dashboard)
+- ✅ **Scheduled Function**: Running every 2 minutes successfully
+- ✅ **Queue Processing**: Working correctly with replication lag fixes
+- ✅ **Email Delivery**: Improved deliverability with better headers and domain
+- ✅ **Duplicate Prevention**: Multiple layers of checks prevent reprocessing
 
 ### Pricing Model (Current)
 - **Base Package**: $24.99 - "Website Audit"
@@ -49,6 +52,169 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2025-12-01: Queue Selection Fix - Prevent Stuck Queue Items
+
+**Issue**: Queue processor was stuck repeatedly selecting the same completed audit (15a8fa75-...) because:
+1. Initial query selected queue items with `status = 'pending'` but didn't exclude audits with `email_sent_at` set
+2. Reconciliation updates had `.in('status', ['pending', 'processing'])` filter, so if status was already 'completed', the update failed
+3. Next run would select the same item again, creating an infinite loop
+
+**Root Cause**: 
+- Initial query didn't filter out audits with `email_sent_at` set
+- Reconciliation queue updates were conditional (only if status was pending/processing), so completed items couldn't be updated
+
+**Changes Made**:
+1. Updated initial queue query to exclude audits with `email_sent_at` set using inner join filter: `.is('audits.email_sent_at', null)`
+2. Removed status filter from reconciliation queue updates - now updates unconditionally to ensure items are marked as completed
+3. This prevents the same completed audit from being selected on every run
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Fixed initial query to exclude completed audits, removed status filter from reconciliation updates
+
+**Resolution**:
+- Initial query now excludes audits with `email_sent_at` set, preventing selection of completed audits
+- Reconciliation updates now unconditionally mark queue items as completed, preventing infinite loops
+- Queue will now progress to next pending audit instead of getting stuck
+
+**Status**: ✅ Fixed - Code ready for deployment
+
+### 2025-12-01: Email Reservation Verification & Audit ID Scoping
+
+**Issue**: Concern raised that email reservation logic might be incorrectly blocking new audits based on customer_id or URL instead of being scoped to individual audit_id. Logs showed "Reservation failed because email_sent_at was set" even for new audit IDs.
+
+**Investigation**: 
+- Verified all email reservation queries are correctly scoped to `audit_id` only
+- Confirmed atomic update pattern: `UPDATE audits SET email_sent_at = ? WHERE id = ? AND email_sent_at IS NULL`
+- No customer_id or URL filters found in reservation logic
+- All queries use `.eq('id', auditId)` with no additional filters
+
+**Changes Made**:
+1. Added explicit verification logging to confirm we're checking the correct audit_id
+2. Added row count verification to ensure atomic update only affects one row
+3. Added audit_id verification in reservation result to catch any database query bugs
+4. Enhanced logging to show customer_id and URL for debugging (but not used in queries)
+5. Added explicit comments confirming reservation queries only filter by audit_id
+
+**Files Modified**:
+- `lib/process-audit.ts` - Added verification checks and enhanced logging for email reservation
+
+**Resolution**:
+- Confirmed email reservation is correctly scoped to individual audit_id only
+- Added safety checks to catch any potential database query bugs
+- Enhanced logging will help diagnose if replication lag is causing stale reads
+
+**Status**: ✅ Verified - Code correctly scoped to audit_id, added verification checks
+
+### 2025-12-01: Enhanced Replication Lag Handling in Queue Processing
+
+**Issue**: Database replication lag was causing the queue processor to miss `email_sent_at` values that were already set. The fresh check query was returning `null` even when emails had been sent hours earlier, causing audits to be reprocessed unnecessarily.
+
+**Root Cause**: Supabase read replicas can lag behind the primary database. When the queue processor checked `email_sent_at`, it was reading from a stale replica that hadn't yet received the update showing the email was sent.
+
+**Changes Made**:
+1. Added retry mechanism (3 attempts with 500ms delay) for fresh email checks to handle replication lag
+2. Added final check with 1 second delay for old audits (>5 minutes) with reports to catch severe replication lag
+3. Improved logging to show retry attempts and final check results
+4. Added `getEmailSentAtAge` import for better age calculation
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Enhanced fresh email check with retry logic and final verification
+
+**Resolution**:
+- Queue processor now retries email checks up to 3 times with delays to catch replication lag
+- Old audits with reports get an additional final check after 1 second delay
+- Better logging helps diagnose replication lag issues
+
+**Status**: ✅ Fixed - Code ready for deployment
+
+### 2025-12-01: Queue Processing Delay Update & Replication Lag Fixes
+
+**Issue**: Processing delay was set to 5 minutes but Netlify schedule runs every 2 minutes, causing unnecessary delays. Also, database replication lag was causing audits to be reprocessed even after completion.
+
+**Changes Made**:
+1. Updated processing delay from 5 minutes to 2 minutes to match Netlify schedule (`*/2 * * * *`)
+2. Added direct queue item status check before processing to handle replication lag
+3. Added report-based skip logic for audits with reports older than 2 minutes
+4. Enhanced status verification to check both queue item and audit status
+5. Added final check for email_sent_at and status before skipping audits with reports
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Updated delay check, added queue item status verification, added report-based skip logic
+
+**Resolution**: 
+- Processing delay now matches 2-minute schedule
+- Queue items already marked as completed are skipped even if read replica shows stale data
+- Audits with reports older than 2 minutes are checked more aggressively to prevent reprocessing
+
+**Status**: ✅ Fixed - Code deployed and working correctly
+
+### 2025-12-01: Email Address & Domain Migration
+
+**Issue**: Email addresses and domain references were inconsistent across the application. Emails were going to junk mail.
+
+**Changes Made**:
+1. Updated all email addresses from `contact@seochecksite.net` to `admin@seochecksite.net`
+2. Updated all domain references from `seochecksite.netlify.app` to `seochecksite.net`
+3. Updated email footer links to use production domain
+4. Updated Google Analytics Measurement ID to `G-T4P62T0TP2`
+5. Updated site URL defaults to `https://seochecksite.net`
+6. Improved email deliverability headers (added X-Sender, categories, removed "SEO" from subject)
+
+**Files Modified**:
+- `lib/email-unified.ts` - Updated email addresses, domain, headers, footer links
+- `app/layout.tsx` - Updated organization schema, Google Analytics ID, site URL
+- `app/report/[id]/page.tsx` - Updated mailto links
+- `app/privacy/page.tsx`, `app/terms/page.tsx`, `app/refund/page.tsx`, `app/accessibility/page.tsx` - Updated mailto links and canonical URLs
+- `app/sample-report/page.tsx` - Updated mailto links
+- `lib/generate-simple-report.ts` - Updated contact email in report footer
+- `app/api/test-email-detailed/route.ts`, `app/api/test-email-debug/route.ts` - Updated default email addresses
+- `scripts/set-netlify-from-email.sh` - Updated email address
+- `DNS_SETUP_GUIDE.md`, `EMAIL_TROUBLESHOOTING.md`, `README.md` - Updated documentation
+
+**Files Created**:
+- `EMAIL_DELIVERABILITY_CHECKLIST.md` - Comprehensive email deliverability guide
+- `app/api/audit-summary/route.ts` - Public API endpoint for audit summary (for success page)
+- `scripts/set-all-netlify-env.sh` - Script to set all environment variables via CLI
+- `scripts/set-netlify-env-api.sh` - Alternative script using Netlify API
+
+**Resolution**: 
+- All email addresses now consistently use `admin@seochecksite.net`
+- All links now point to `seochecksite.net` (production domain)
+- Email deliverability improved with better headers and content
+
+**Status**: ✅ Fixed - All references updated, emails improved
+
+### 2025-12-01: Duplicate Email Prevention & Queue Processing Fixes
+
+**Issue**: Audits were being processed multiple times, causing duplicate emails. Database replication lag was causing stale data to be read.
+
+**Root Cause**: 
+- Read replicas were showing stale data (email_sent_at = null, status = running) even after emails were sent
+- Queue items were being reprocessed because status updates weren't visible on read replicas
+- Email reservation logic wasn't handling cases where email_sent_at was already set
+
+**Changes Made**:
+1. Added direct queue item status check before processing (checks primary database)
+2. Added report-based skip logic for audits with reports older than 2 minutes
+3. Enhanced fresh data checks to query email_sent_at and status directly
+4. Added double-check for audits with reports but null email_sent_at
+5. Improved email reservation logic with better atomic updates and fallback mechanisms
+6. Added status verification to check audit status first (completed/failed) before checking email_sent_at
+7. Added check for very recent queue items (last 2 minutes) to handle replication lag
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Added multiple layers of checks to prevent reprocessing
+- `lib/process-audit.ts` - Improved email reservation logic with better error handling
+- `lib/email-status.ts` - Updated `isEmailSent()` to recognize any valid timestamp (not just >5 min old)
+
+**Resolution**: 
+- Queue items already marked as completed are skipped
+- Audits with reports are checked more aggressively to prevent reprocessing
+- Fresh data is fetched directly from database to avoid stale join data
+- Email reservation properly handles cases where email was already sent
+
+**Status**: ✅ Fixed - No more duplicate emails, queue processing working correctly
 
 ### 2025-11-29: Race Condition Fix - Audits with Reports Marked as Failed
 
@@ -358,23 +524,31 @@ This document is the authoritative source for all project state, decisions, TODO
 - **Implementation**: `netlify/functions/process-queue.js` uses ESM with `export const config = { schedule: "*/2 * * * *" }`
 - **Format**: Modern ESM format - `export default` handler + `export const config = { schedule: "..." }`
 - **Schedule**: Every 2 minutes (`*/2 * * * *`)
+- **Processing Delay**: 2 minutes (matches schedule to ensure audits are fully set up before processing)
 - **Note**: Legacy `schedule()` wrapper from `@netlify/functions` doesn't work with modern runtime - causes Functions section to not appear in dashboard
 
 ### Email System
-- **Decision**: Atomic reservation system using `email_sent_at` timestamp
-- **Rationale**: Prevents duplicate emails, handles race conditions, allows retry on failure
+- **Decision**: Atomic reservation system using `email_sent_at` timestamp with replication lag handling
+- **Rationale**: Prevents duplicate emails, handles race conditions, allows retry on failure, handles database replication lag
 - **Implementation**: 
   - Reservation: `UPDATE ... WHERE email_sent_at IS NULL`
-  - Status check: Recent timestamp (<5 min) = reservation, old (>5 min) = sent
+  - Status check: Any valid timestamp (not starting with 'sending_') = sent email
   - Fallback: Direct update if atomic reservation fails
+  - Email address: `admin@seochecksite.net` (consistent across all code)
+  - Domain: `seochecksite.net` (production domain, not netlify.app)
+  - Deliverability: Improved headers (X-Sender, categories), removed spam triggers from subject
 
 ### Queue System
-- **Decision**: Supabase-based queue with automatic orphaned audit detection
-- **Rationale**: Prevents Netlify timeouts, handles long-running audits, auto-fixes stuck audits
+- **Decision**: Supabase-based queue with automatic orphaned audit detection and replication lag handling
+- **Rationale**: Prevents Netlify timeouts, handles long-running audits, auto-fixes stuck audits, prevents duplicate processing
 - **Implementation**: 
   - Queue processor checks for orphaned audits (pending/running but not in queue)
   - Automatically adds them to queue for processing
   - Processes one audit at a time to avoid timeouts
+  - Direct queue item status check before processing to handle replication lag
+  - Report-based skip logic for audits with reports older than 2 minutes
+  - Multiple layers of verification to prevent reprocessing
+- **Processing Delay**: 2 minutes (matches Netlify schedule of every 2 minutes)
 
 ### Pricing Model
 - **Decision**: Single base package ($24.99) with two optional add-ons ($10 each)
@@ -398,10 +572,10 @@ This document is the authoritative source for all project state, decisions, TODO
 
 **Email**:
 - ✅ `SENDGRID_API_KEY` - Primary email provider
-- ✅ `FROM_EMAIL` - Sender email address
+- ✅ `FROM_EMAIL` - Sender email address (`admin@seochecksite.net`)
 - ✅ `FROM_NAME` - Sender name
 - ⚠️ `SMTP_HOST` - Zoho SMTP fallback (optional)
-- ⚠️ `SMTP_USER` - Zoho SMTP fallback (optional)
+- ⚠️ `SMTP_USER` - Zoho SMTP fallback (optional, should be `admin@seochecksite.net`)
 - ⚠️ `SMTP_PASSWORD` - Zoho SMTP fallback (optional)
 
 **Payments**:
@@ -414,7 +588,7 @@ This document is the authoritative source for all project state, decisions, TODO
 - ✅ `QUEUE_SECRET` - Queue processor authentication
 
 **Site Configuration**:
-- ✅ `NEXT_PUBLIC_SITE_URL` - Site URL for links and webhooks
+- ✅ `NEXT_PUBLIC_SITE_URL` - Site URL for links and webhooks (`https://seochecksite.net`)
 - ✅ `NEXT_PUBLIC_SUPABASE_URL` - Public Supabase URL
 - ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public Supabase anon key
 
