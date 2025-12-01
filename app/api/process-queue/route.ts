@@ -144,6 +144,67 @@ async function markQueueItemCompletedWithLogging(
   }
 }
 
+/**
+ * Helper function to mark queue item as failed with improved logging
+ * Similar to markQueueItemCompletedWithLogging but sets status to 'failed' instead
+ * 
+ * @param expectedStatuses - Array of statuses that the queue item might be in when we try to fail it
+ *                          Typically ['pending', 'processing'] to cover both states
+ */
+async function markQueueItemFailedWithLogging(
+  supabaseService: SupabaseClient,
+  requestId: string,
+  queueId: string,
+  context: string = 'failure',
+  errorMessage: string,
+  expectedStatuses: ('pending' | 'processing')[] = ['pending', 'processing']
+): Promise<'updated' | 'already-terminal' | 'not-updated'> {
+  const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
+    .from('audit_queue')
+    .update({
+      status: 'failed',
+      completed_at: new Date().toISOString(),
+      last_error: errorMessage.substring(0, 1000), // Limit error message size
+    })
+    .eq('id', queueId)
+    .in('status', expectedStatuses) // Update if in any of the expected statuses
+    .select('id, status')
+  
+  const updated_rows = queueUpdateResult?.length ?? 0
+  
+  if (queueUpdateError) {
+    console.error(`[${requestId}] [queue-fail] Update error for queueId=${queueId} (context: ${context}):`, queueUpdateError)
+    return 'not-updated'
+  }
+  
+  if (updated_rows === 0) {
+    // Re-read the row to see what actually happened
+    const { data: row, error: readError } = await supabaseService
+      .from('audit_queue')
+      .select('status')
+      .eq('id', queueId)
+      .maybeSingle()
+    
+    if (readError) {
+      console.warn(`[${requestId}] [queue-fail] No rows updated and failed to read row (queueId=${queueId}, context: ${context}):`, readError)
+      return 'not-updated'
+    } else if (!row) {
+      console.warn(`[${requestId}] [queue-fail] No rows updated and row missing (queueId=${queueId}, context: ${context})`)
+      return 'not-updated'
+    } else if (row.status === 'failed' || row.status === 'completed') {
+      // Benign race: another worker already marked it as terminal
+      console.log(`[${requestId}] [queue-fail] Row already marked as terminal by another worker (queueId=${queueId}, db_status=${row.status}, context: ${context})`)
+      return 'already-terminal'
+    } else {
+      console.warn(`[${requestId}] [queue-fail] No rows updated, row still not failed (queueId=${queueId}, db_status=${row.status}, context: ${context}, expected: ${expectedStatuses.join(', ')})`)
+      return 'not-updated'
+    }
+  } else {
+    console.log(`[${requestId}] [queue-fail] queueId=${queueId}, updated_rows=${updated_rows}, status=failed (context: ${context})`)
+    return 'updated'
+  }
+}
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   console.log(`[${requestId}] /api/process-queue called`)
@@ -729,19 +790,16 @@ export async function GET(request: NextRequest) {
       if (auditStatus === 'failed') {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'failed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'})`)
         // Mark queue item as failed to match audit status
-        const { error: updateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'failed',
-            last_error: 'Audit already marked as failed - skipping reprocessing',
-          })
-          .eq('id', item.id)
-          .eq('status', 'pending') // Only update if still pending
-        
-        if (updateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as failed:`, updateError)
-        } else {
-          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as failed (audit already failed)`)
+        const failResult = await markQueueItemFailedWithLogging(
+          supabaseService,
+          requestId,
+          item.id,
+          'fresh-check-failed-audit',
+          'Audit already marked as failed - skipping reprocessing',
+          ['pending', 'processing']
+        )
+        if (failResult === 'updated' || failResult === 'already-terminal') {
+          console.log(`[${requestId}] ✅ Queue item ${item.id} marked as failed (audit already failed)`)
         }
         continue
       }
