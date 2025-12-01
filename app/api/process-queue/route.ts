@@ -371,7 +371,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Check if there are any queue items at all (regardless of status)
       // Get more items to see recent ones - increase limit to catch very recent items
-      // Use service client to ensure we read from primary (for accurate debugging)
+      // CRITICAL: Use service client to ensure we read from primary (for accurate debugging)
       const { data: allQueueItems, error: allQueueError } = await supabaseService
         .from('audit_queue')
         .select('id, audit_id, status, created_at')
@@ -528,13 +528,14 @@ export async function GET(request: NextRequest) {
     })
     
     // Clean up queue items - await to ensure they're marked as completed before continuing
+    // CRITICAL: Use service client to write to primary
     if (itemsToCleanup.length > 0) {
       console.log(`[${requestId}] Cleaning up ${itemsToCleanup.length} queue items for audits with emails already sent`)
       // Await cleanup to ensure it completes before processing new items
       await Promise.all(
         itemsToCleanup.map(async (itemId) => {
           try {
-            const { error: cleanupError } = await supabase
+            const { error: cleanupError } = await supabaseService
               .from('audit_queue')
               .update({
                 status: 'completed',
@@ -583,7 +584,8 @@ export async function GET(request: NextRequest) {
       } else {
         // Check for orphaned audits (audits not in queue)
         console.log(`[${requestId}] No recent queue items found. Checking for audits not in queue...`)
-        const { data: orphanedAudits } = await supabase
+        // CRITICAL: Use service client to read from primary
+        const { data: orphanedAudits } = await supabaseService
           .from('audits')
           .select('id, url, status, created_at, email_sent_at, formatted_report_html')
           .or('status.eq.running,status.eq.pending')
@@ -594,16 +596,16 @@ export async function GET(request: NextRequest) {
         if (orphanedAudits && orphanedAudits.length > 0) {
           console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
           for (const audit of orphanedAudits) {
-            // Check if already in queue
-            const { data: existingQueue } = await supabase
+            // Check if already in queue - use service client for primary read
+            const { data: existingQueue } = await supabaseService
               .from('audit_queue')
               .select('id')
               .eq('audit_id', audit.id)
               .single()
             
             if (!existingQueue) {
-              // Add to queue
-              const { error: addError } = await supabase
+              // Add to queue - use service client for primary write
+              const { error: addError } = await supabaseService
                 .from('audit_queue')
                 .insert({
                   audit_id: audit.id,
@@ -619,11 +621,12 @@ export async function GET(request: NextRequest) {
               }
             }
           }
-          // Retry finding queue items after adding orphaned audits
-          const { data: retryQueueItems } = await supabase
+          // Retry finding queue items after adding orphaned audits - use service client for primary read
+          const { data: retryQueueItems } = await supabaseService
             .from('audit_queue')
-            .select('*, audits(*)')
+            .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
             .eq('status', 'pending')
+            .is('audits.email_sent_at', null)
             .order('created_at', { ascending: true })
             .limit(20)
           
