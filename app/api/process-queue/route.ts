@@ -544,13 +544,15 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] No queue items found. Checking for very recent queue items (replication lag)...`)
       
       // Check for very recent queue items that might not be visible due to replication lag
-      // Look for items created in the last 2 minutes
-      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-      const { data: recentQueueItems } = await supabase
+      // Look for items created in the last 10 minutes (broader window to catch items across multiple cron runs)
+      // Use service client to query primary database directly
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const { data: recentQueueItems } = await supabaseService
         .from('audit_queue')
-        .select('*, audits(*)')
+        .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
         .eq('status', 'pending')
-        .gte('created_at', twoMinutesAgo)
+        .is('audits.email_sent_at', null) // Only items where email hasn't been sent
+        .gte('created_at', tenMinutesAgo)
         .order('created_at', { ascending: true })
         .limit(5)
       
