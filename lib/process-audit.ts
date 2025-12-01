@@ -611,12 +611,28 @@ export async function processAudit(auditId: string) {
           const age = getEmailSentAtAge(verifyAuditExists.email_sent_at)
           const ageMinutes = age ? Math.round(age / 1000 / 60) : null
           console.warn(`[${reservationAttemptId}] ⚠️  email_sent_at was set by another process: ${verifyAuditExists.email_sent_at} (${ageMinutes}m old)`)
-          if (isEmailSent(verifyAuditExists.email_sent_at)) {
-            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+          
+          // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
+          // This prevents duplicate emails when email was just sent (<5 minutes ago)
+          if (verifyAuditExists.email_sent_at && 
+              !verifyAuditExists.email_sent_at.startsWith('sending_') && 
+              verifyAuditExists.email_sent_at.length > 10) {
+            // Valid timestamp exists - email was sent (regardless of age)
+            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process (timestamp: ${verifyAuditExists.email_sent_at})`)
             reservationSuccessful = true // Mark as successful since email was sent
+          } else if (verifyAuditExists.email_sent_at && verifyAuditExists.email_sent_at.startsWith('sending_')) {
+            // It's a reservation - another process is sending, we should skip
+            console.log(`[${reservationAttemptId}] ⛔ Another process is sending email (reservation: ${verifyAuditExists.email_sent_at})`)
+            return {
+              success: true,
+              auditId,
+              message: 'Audit skipped - another process is sending the email',
+              emailSent: false,
+            }
           } else {
-            // It's a reservation - we can proceed with sending
-            reservationSuccessful = true
+            // Invalid or unexpected format - don't proceed
+            console.warn(`[${reservationAttemptId}] ⚠️  Unexpected email_sent_at format: ${verifyAuditExists.email_sent_at} - skipping email send`)
+            reservationSuccessful = false
           }
         } else {
           // Audit exists and email_sent_at is still null - try direct update
