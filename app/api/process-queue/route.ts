@@ -1108,8 +1108,25 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Mark queue as failed (but allow retries if retry_count < 3)
-      const shouldRetry = queueItem.retry_count < 3
+      // Determine if error is permanent (should not retry)
+      // HTTP errors like 404, 403, 401 are permanent - website doesn't exist or is inaccessible
+      const isPermanentError = 
+        errorMessage.includes('HTTP 404') ||
+        errorMessage.includes('HTTP 403') ||
+        errorMessage.includes('HTTP 401') ||
+        errorMessage.includes('404') && errorMessage.includes('fetch') ||
+        errorMessage.includes('ENOTFOUND') || // DNS resolution failed
+        errorMessage.includes('ECONNREFUSED') // Connection refused
+      
+      // Only retry if:
+      // 1. Not a permanent error
+      // 2. Retry count is less than 3
+      const shouldRetry = !isPermanentError && queueItem.retry_count < 3
+      
+      if (isPermanentError) {
+        console.log(`[${requestId}] ⚠️  Permanent error detected (${errorMessage.substring(0, 100)}) - marking as failed without retry`)
+      }
+      
       await supabase
         .from('audit_queue')
         .update({
