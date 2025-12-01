@@ -363,21 +363,56 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: Fetch fresh email_sent_at to avoid stale join data
       // The join might show null even if email was sent (database replication lag)
+      console.log(`[${requestId}] 🔍 Fetching fresh email_sent_at for audit ${item.audit_id} (join showed: ${audit?.email_sent_at || 'null'})`)
       const { data: freshEmailCheck, error: freshEmailError } = await supabase
         .from('audits')
-        .select('email_sent_at')
+        .select('email_sent_at, status')
         .eq('id', item.audit_id)
         .single()
       
       if (freshEmailError) {
         console.warn(`[${requestId}] ⚠️  Error fetching fresh email_sent_at for ${item.audit_id}:`, freshEmailError.message)
+        // If query failed, we can't trust the join data - skip this item to be safe
+        if (freshEmailError.code === 'PGRST116') {
+          console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
+          continue
+        }
       }
       
-      const emailSentAt = freshEmailCheck?.email_sent_at || audit?.email_sent_at
+      // If freshEmailCheck is null, the query might have failed or audit doesn't exist
+      if (!freshEmailCheck) {
+        console.warn(`[${requestId}] ⚠️  Fresh email check returned null for audit ${item.audit_id} - skipping to be safe`)
+        continue
+      }
+      
+      const emailSentAt = freshEmailCheck.email_sent_at || audit?.email_sent_at
       
       // Log what we found for debugging
-      if (freshEmailCheck?.email_sent_at && !audit?.email_sent_at) {
+      console.log(`[${requestId}] 🔍 Fresh check result for audit ${item.audit_id}: fresh=${freshEmailCheck.email_sent_at || 'null'}, join=${audit?.email_sent_at || 'null'}, using=${emailSentAt || 'null'}`)
+      
+      if (freshEmailCheck.email_sent_at && !audit?.email_sent_at) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
+      }
+      
+      // Additional safeguard: If audit status is 'completed', skip it (email was already sent)
+      if (freshEmailCheck.status === 'completed' && freshEmailCheck.email_sent_at) {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' and email_sent_at is set (${freshEmailCheck.email_sent_at})`)
+        // Mark queue item as completed since audit is already completed
+        const { error: updateError } = await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
+          .in('status', ['pending', 'processing'])
+        
+        if (updateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
+        } else {
+          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as completed (audit already completed)`)
+        }
+        continue
       }
       
       // Skip if email was already sent (not a reservation)
@@ -386,7 +421,7 @@ export async function GET(request: NextRequest) {
           !emailSentAt.startsWith('sending_') && 
           emailSentAt.length > 10) {
         // Valid timestamp exists - email was sent (regardless of age)
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check: ${freshEmailCheck?.email_sent_at ? 'found' : 'not found'}, join: ${audit?.email_sent_at || 'null'})`)
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check: ${freshEmailCheck.email_sent_at ? 'found' : 'not found'}, join: ${audit?.email_sent_at || 'null'})`)
         // Mark queue item as completed since email was sent
         const { error: updateError } = await supabase
           .from('audit_queue')
