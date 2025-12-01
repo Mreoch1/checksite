@@ -23,9 +23,21 @@ export const runtime = 'nodejs'
 
 // Create service role client for fresh reads from primary database
 // This avoids replication lag issues when checking email_sent_at
+let serviceClientInstance: SupabaseClient | null = null
+let clientConfigLogged = false
+
 function getServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  // Log client configuration once at module init (not per-request)
+  if (!clientConfigLogged) {
+    console.log('[client-config] SUPABASE_URL:', supabaseUrl || 'NOT SET')
+    console.log('[client-config] SERVICE_ROLE_KEY:', serviceRoleKey 
+      ? `SET (length=${serviceRoleKey.length}, prefix=${serviceRoleKey.substring(0, 10)}...)` 
+      : 'NOT SET')
+    clientConfigLogged = true
+  }
   
   if (!supabaseUrl || !serviceRoleKey) {
     // Fallback to anon client if service role key not available
@@ -33,12 +45,43 @@ function getServiceClient() {
     return supabase
   }
   
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+  // Reuse the same client instance to ensure consistency
+  if (!serviceClientInstance) {
+    serviceClientInstance = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  }
+  
+  return serviceClientInstance
+}
+
+/**
+ * Unified helper to get fresh audit state from database
+ * This ensures all code paths use the same query and client
+ */
+async function getFreshAuditState(
+  db: SupabaseClient,
+  auditId: string
+): Promise<{ id: string; status: string | null; email_sent_at: string | null; formatted_report_html: string | null } | null> {
+  const { data, error } = await db
+    .from('audits')
+    .select('id, status, email_sent_at, formatted_report_html')
+    .eq('id', auditId)
+    .single()
+  
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // Audit not found
+      return null
     }
-  })
+    console.warn('[getFreshAuditState] Error fetching audit:', error.message)
+    return null
+  }
+  
+  return data
 }
 
 /**
@@ -146,6 +189,13 @@ export async function GET(request: NextRequest) {
       console.error(`[${requestId}] Query error details:`, findError)
     } else {
       console.log(`[${requestId}] Query returned ${queueItems?.length || 0} items (before verification)`)
+      
+      // Log raw queue statuses as seen by this client
+      if (queueItems && queueItems.length > 0) {
+        queueItems.forEach((row: any) => {
+          console.log(`[${requestId}] [queue-raw] id=${row.id}, audit_id=${row.audit_id}, status=${row.status || 'null'}`)
+        })
+      }
     }
     
     // CRITICAL: Double-check that queue items are actually pending (handle race conditions)
@@ -539,34 +589,20 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: In-memory guard - check email_sent_at BEFORE processing
       // This prevents reprocessing audits that already have emails sent
-      // Use service role client to read from primary database (avoids replication lag)
-      const { data: freshAuditCheck, error: freshCheckError } = await supabaseService
-        .from('audits')
-        .select('id, status, email_sent_at, formatted_report_html')
-        .eq('id', item.audit_id)
-        .single()
+      // Use unified helper to ensure consistency with reservation verification
+      const freshAuditCheck = await getFreshAuditState(supabaseService, item.audit_id)
       
-      if (freshCheckError) {
-        console.warn(`[${requestId}] ⚠️  Error checking audit ${item.audit_id} for email_sent_at:`, freshCheckError.message)
-        // Continue to next item if we can't verify
+      if (!freshAuditCheck) {
+        console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found - skipping`)
         continue
       }
       
       // Log fresh check result in the format requested
-      const hasReportFromFreshCheck = !!freshAuditCheck?.formatted_report_html
-      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck?.status || 'null'}, email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, has_report=${hasReportFromFreshCheck}`)
-      
-      // DIAGNOSTIC: Re-read the same audit using the same client to verify consistency
-      // This helps identify if there's a client mismatch or replication lag
-      const { data: diagnosticCheck } = await supabaseService
-        .from('audits')
-        .select('id, status, email_sent_at, formatted_report_html')
-        .eq('id', item.audit_id)
-        .single()
-      console.log(`[${requestId}] [audit-debug] audit_id=${item.audit_id}, status=${diagnosticCheck?.status || 'null'}, email_sent_at=${diagnosticCheck?.email_sent_at || 'null'}, has_report=${!!diagnosticCheck?.formatted_report_html}`)
+      const hasReportFromFreshCheck = !!freshAuditCheck.formatted_report_html
+      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck.status || 'null'}, email_sent_at=${freshAuditCheck.email_sent_at || 'null'}, has_report=${hasReportFromFreshCheck}`)
       
       // EARLY EXIT: If email was already sent, do NOT reprocess - just finalize the queue row and move on
-      if (freshAuditCheck?.email_sent_at) {
+      if (freshAuditCheck.email_sent_at) {
         const emailAge = getEmailSentAtAge(freshAuditCheck.email_sent_at)
         const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
         
@@ -579,65 +615,8 @@ export async function GET(request: NextRequest) {
         continue
       }
       
-      // CRITICAL: Fetch fresh email_sent_at to avoid stale join data
-      // The join might show null even if email was sent (database replication lag)
-      // Use retry mechanism to handle replication lag
-      console.log(`[${requestId}] 🔍 Fetching fresh email_sent_at for audit ${item.audit_id} (join showed: ${audit?.email_sent_at || 'null'})`)
-      
-      let freshEmailCheck: any = null
-      let freshEmailError: any = null
-      const maxRetries = 3
-      const retryDelay = 500 // 500ms between retries
-      
-      // Retry logic to handle replication lag (using service client for fresh reads)
-      for (let retry = 0; retry < maxRetries; retry++) {
-        const { data: checkResult, error: checkError } = await supabaseService
-          .from('audits')
-          .select('email_sent_at, status, formatted_report_html, completed_at')
-          .eq('id', item.audit_id)
-          .single()
-        
-        if (checkError) {
-          freshEmailError = checkError
-          if (checkError.code === 'PGRST116') {
-            // Audit not found - no point retrying
-            console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
-            break
-          }
-          // For other errors, retry
-          if (retry < maxRetries - 1) {
-            console.warn(`[${requestId}] ⚠️  Error fetching fresh email_sent_at (attempt ${retry + 1}/${maxRetries}):`, checkError.message)
-            await new Promise(resolve => setTimeout(resolve, retryDelay))
-            continue
-          }
-        } else if (checkResult) {
-          freshEmailCheck = checkResult
-          // If we got a result with email_sent_at, we're done (no replication lag)
-          if (checkResult.email_sent_at) {
-            break
-          }
-          // If email_sent_at is null but audit is old and has report, retry once more to check for replication lag
-          if (retry < maxRetries - 1 && ageMinutes > 5 && checkResult.formatted_report_html) {
-            console.log(`[${requestId}] 🔍 Fresh check returned null email_sent_at but audit is old (${ageMinutes}m) with report - retrying to check for replication lag (attempt ${retry + 1}/${maxRetries})`)
-            await new Promise(resolve => setTimeout(resolve, retryDelay))
-            continue
-          }
-          // Got result (even if null) - proceed
-          break
-        }
-      }
-      
-      if (freshEmailError && freshEmailError.code === 'PGRST116') {
-        console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found in database - skipping`)
-        continue
-      }
-      
-      // If freshEmailCheck is null after retries, the query might have failed or audit doesn't exist
-      if (!freshEmailCheck) {
-        console.warn(`[${requestId}] ⚠️  Fresh email check returned null for audit ${item.audit_id} after ${maxRetries} attempts - skipping to be safe`)
-        continue
-      }
-      
+      // Use the fresh audit check we already fetched (no need to re-query)
+      const freshEmailCheck = freshAuditCheck
       const emailSentAt = freshEmailCheck.email_sent_at || audit?.email_sent_at
       
       // Log what we found for debugging - include status
