@@ -41,9 +41,19 @@ function getServiceClient() {
   }
   
   if (!supabaseUrl || !serviceRoleKey) {
-    // Fallback to anon client if service role key not available
-    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - using anon client (may have replication lag)')
-    return supabase
+    // Fallback: create a new service client with anon key if service role key not available
+    // This should never happen in production, but we need a fallback for development
+    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - creating fallback client (may have replication lag)')
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!supabaseUrl || !anonKey) {
+      throw new Error('Neither SUPABASE_SERVICE_ROLE_KEY nor NEXT_PUBLIC_SUPABASE_ANON_KEY is set')
+    }
+    return createClient(supabaseUrl, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
   }
   
   // Reuse the same client instance to ensure consistency
@@ -1298,7 +1308,7 @@ export async function GET(request: NextRequest) {
           message: 'No pending audits in queue',
           processed: false,
           warning: `Reset ${stuckItems.length} stuck processing item(s)`,
-          stuckItems: stuckItems.map(item => ({
+          stuckItems: stuckItems.map((item: any) => ({
             id: item.id,
             audit_id: item.audit_id,
             started_at: item.started_at,
