@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
 import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-status'
@@ -20,9 +21,34 @@ import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-stat
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// Create service role client for fresh reads from primary database
+// This avoids replication lag issues when checking email_sent_at
+function getServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!supabaseUrl || !serviceRoleKey) {
+    // Fallback to anon client if service role key not available
+    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - using anon client (may have replication lag)')
+    return supabase
+  }
+  
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+}
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   console.log(`[${requestId}] /api/process-queue called`)
+  
+  // CRITICAL: Use service role client for all database operations
+  // This ensures we read from primary database, not stale read replicas
+  const supabaseService = getServiceClient()
+  
   try {
     // Optional: Add basic auth to prevent unauthorized access
       // Supports both Bearer token header and query parameter (for Netlify cron job setup)
@@ -83,8 +109,9 @@ export async function GET(request: NextRequest) {
         }
         
         // Also check if the audit is already completed - if so, skip this queue item
+        // Use service client for fresh read from primary database
         if (item.audit_id) {
-          const { data: auditStatusCheck } = await supabase
+          const { data: auditStatusCheck } = await supabaseService
             .from('audits')
             .select('status, email_sent_at')
             .eq('id', item.audit_id)
@@ -98,7 +125,7 @@ export async function GET(request: NextRequest) {
                  auditStatusCheck.email_sent_at.length > 10)) {
               console.log(`[${requestId}] ⚠️  Queue item ${item.id} - audit ${item.audit_id} is already completed (status=${auditStatusCheck.status}, email_sent_at=${auditStatusCheck.email_sent_at || 'null'}) - marking queue item as completed and skipping`)
               // Mark queue item as completed to match audit status
-              await supabase
+              await supabaseService
                 .from('audit_queue')
                 .update({
                   status: 'completed',
@@ -112,7 +139,7 @@ export async function GET(request: NextRequest) {
             if (auditStatusCheck.status === 'failed') {
               console.log(`[${requestId}] ⚠️  Queue item ${item.id} - audit ${item.audit_id} is already failed (status=${auditStatusCheck.status}) - marking queue item as failed and skipping`)
               // Mark queue item as failed to match audit status
-              await supabase
+              await supabaseService
                 .from('audit_queue')
                 .update({
                   status: 'failed',
@@ -450,8 +477,8 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: In-memory guard - check email_sent_at BEFORE processing
       // This prevents reprocessing audits that already have emails sent
-      // Fetch fresh data to avoid stale join results
-      const { data: freshAuditCheck, error: freshCheckError } = await supabase
+      // Use service role client to read from primary database (avoids replication lag)
+      const { data: freshAuditCheck, error: freshCheckError } = await supabaseService
         .from('audits')
         .select('id, status, email_sent_at')
         .eq('id', item.audit_id)
@@ -493,9 +520,9 @@ export async function GET(request: NextRequest) {
       const maxRetries = 3
       const retryDelay = 500 // 500ms between retries
       
-      // Retry logic to handle replication lag
+      // Retry logic to handle replication lag (using service client for fresh reads)
       for (let retry = 0; retry < maxRetries; retry++) {
-        const { data: checkResult, error: checkError } = await supabase
+        const { data: checkResult, error: checkError } = await supabaseService
           .from('audits')
           .select('email_sent_at, status, formatted_report_html, completed_at')
           .eq('id', item.audit_id)
@@ -557,7 +584,7 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} is old (${ageMinutes}m) with report but email_sent_at is null - doing final check for replication lag`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
         
-        const { data: finalCheck } = await supabase
+        const { data: finalCheck } = await supabaseService
           .from('audits')
           .select('email_sent_at, status, completed_at')
           .eq('id', item.audit_id)
@@ -590,7 +617,7 @@ export async function GET(request: NextRequest) {
       if (hasReportEarly && ageMinutes > 2) {
         // Audit has a report and is older than 2 minutes - likely already processed
         // Check one more time if email was sent (might have propagated by now)
-        const { data: finalCheck } = await supabase
+        const { data: finalCheck } = await supabaseService
           .from('audits')
           .select('email_sent_at, status')
           .eq('id', item.audit_id)
@@ -713,7 +740,7 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} has report (join=${!!hasReportInJoin}, fresh=${!!hasReportInFresh}) but email_sent_at is null - doing additional check for replication lag`)
         // Try to get email_sent_at and status one more time - this might hit a different replica
         // Also check formatted_report_html to confirm report exists
-        const { data: doubleCheck } = await supabase
+        const { data: doubleCheck } = await supabaseService
           .from('audits')
           .select('email_sent_at, status, formatted_report_html')
           .eq('id', item.audit_id)
@@ -1077,8 +1104,8 @@ export async function GET(request: NextRequest) {
     
     // CRITICAL: Early guard - check if email was already sent BEFORE processing
     // This prevents reprocessing audits that already have emails sent
-    // Fetch fresh data to avoid stale read replica results
-    const { data: preProcessCheck, error: preProcessError } = await supabase
+    // Use service role client to read from primary database (avoids replication lag)
+    const { data: preProcessCheck, error: preProcessError } = await supabaseService
       .from('audits')
       .select('id, status, email_sent_at, formatted_report_html')
       .eq('id', auditId)
@@ -1108,7 +1135,7 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
       // Mark queue item as completed unconditionally
-      await supabase
+      await supabaseService
         .from('audit_queue')
         .update({
           status: 'completed',
