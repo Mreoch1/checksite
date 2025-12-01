@@ -662,12 +662,27 @@ export async function processAudit(auditId: string) {
                 const age = getEmailSentAtAge(updatedValue)
                 const ageMinutes = age ? Math.round(age / 1000 / 60) : null
                 console.warn(`[${reservationAttemptId}] ⚠️  Another process may have set email_sent_at: ${updatedValue} (${ageMinutes}m old)`)
-                if (isEmailSent(updatedValue)) {
-                  console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+                
+                // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
+                if (updatedValue && 
+                    !updatedValue.startsWith('sending_') && 
+                    updatedValue.length > 10) {
+                  // Valid timestamp exists - email was sent (regardless of age)
+                  console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process (timestamp: ${updatedValue})`)
                   reservationSuccessful = true // Mark as successful since email was sent
+                } else if (updatedValue && updatedValue.startsWith('sending_')) {
+                  // It's a reservation - another process is sending, we should skip
+                  console.log(`[${reservationAttemptId}] ⛔ Another process is sending email (reservation: ${updatedValue})`)
+                  return {
+                    success: true,
+                    auditId,
+                    message: 'Audit skipped - another process is sending the email',
+                    emailSent: false,
+                  }
                 } else {
-                  // It's a reservation timestamp - we can proceed
-                  reservationSuccessful = true
+                  // Invalid or unexpected format - don't proceed
+                  console.warn(`[${reservationAttemptId}] ⚠️  Unexpected email_sent_at format: ${updatedValue} - skipping email send`)
+                  reservationSuccessful = false
                 }
               }
             }
