@@ -66,10 +66,11 @@ export async function GET(request: NextRequest) {
     
     // CRITICAL: Double-check that queue items are actually pending (handle race conditions)
     // If a queue item was just marked as completed, it might still show up in the query due to replication lag
-    // Re-verify the status directly from the database
+    // Re-verify the status directly from the database AND check if the audit is already completed
     if (queueItems && queueItems.length > 0) {
       const verifiedQueueItems = []
       for (const item of queueItems) {
+        // Check queue item status
         const { data: statusCheck, error: statusError } = await supabase
           .from('audit_queue')
           .select('status')
@@ -78,13 +79,41 @@ export async function GET(request: NextRequest) {
         
         if (statusError) {
           console.error(`[${requestId}] ⚠️  Error checking queue item ${item.id} status:`, statusError)
-          // If we can't verify, trust the initial query result (item is pending)
-          verifiedQueueItems.push(item)
-        } else if (statusCheck && statusCheck.status === 'pending') {
-          verifiedQueueItems.push(item)
-        } else {
+          // If we can't verify, check audit status as fallback
+        } else if (statusCheck && statusCheck.status !== 'pending') {
           console.log(`[${requestId}] ⚠️  Queue item ${item.id} status changed to ${statusCheck?.status || 'unknown'} - skipping`)
+          continue
         }
+        
+        // Also check if the audit is already completed - if so, skip this queue item
+        if (item.audit_id) {
+          const { data: auditStatusCheck } = await supabase
+            .from('audits')
+            .select('status, email_sent_at')
+            .eq('id', item.audit_id)
+            .single()
+          
+          if (auditStatusCheck) {
+            if (auditStatusCheck.status === 'completed' || 
+                (auditStatusCheck.email_sent_at && 
+                 !auditStatusCheck.email_sent_at.startsWith('sending_') && 
+                 auditStatusCheck.email_sent_at.length > 10)) {
+              console.log(`[${requestId}] ⚠️  Queue item ${item.id} - audit ${item.audit_id} is already completed (status=${auditStatusCheck.status}, email_sent_at=${auditStatusCheck.email_sent_at || 'null'}) - marking queue item as completed and skipping`)
+              // Mark queue item as completed to match audit status
+              await supabase
+                .from('audit_queue')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                })
+                .eq('id', item.id)
+              continue
+            }
+          }
+        }
+        
+        // Item passes all checks
+        verifiedQueueItems.push(item)
       }
       queueItems = verifiedQueueItems
       console.log(`[${requestId}] After status verification: ${queueItems.length} pending queue items`)
