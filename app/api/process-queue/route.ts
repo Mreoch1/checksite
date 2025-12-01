@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
       queueItems.forEach((item: any, idx: number) => {
         const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
         const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-        const passesDelay = item.created_at < fiveMinutesAgo
-        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}, passes_5min_delay=${passesDelay}`)
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+        const passesDelay = item.created_at < twoMinutesAgo
+        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}, passes_2min_delay=${passesDelay}`)
       })
     } else {
       // Check if there are any queue items at all (regardless of status)
@@ -571,7 +571,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Skip if email was already sent (not a reservation)
-      // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >5 minutes old)
+      // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >2 minutes old)
       if (emailSentAt && 
           !emailSentAt.startsWith('sending_') && 
           emailSentAt.length > 10) {
