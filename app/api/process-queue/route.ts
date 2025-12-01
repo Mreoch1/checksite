@@ -366,7 +366,7 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] 🔍 Fetching fresh email_sent_at for audit ${item.audit_id} (join showed: ${audit?.email_sent_at || 'null'})`)
       const { data: freshEmailCheck, error: freshEmailError } = await supabase
         .from('audits')
-        .select('email_sent_at, status')
+        .select('email_sent_at, status, formatted_report_html')
         .eq('id', item.audit_id)
         .single()
       
@@ -472,14 +472,19 @@ export async function GET(request: NextRequest) {
       }
       
       // Additional check: If audit has a report but email_sent_at is null, it might be due to replication lag
-      // Try to check email_sent_at one more time with a direct query to the primary database
+      // Check both join data and fresh data for report existence
       // This helps catch cases where the fresh check returned null due to replication lag
-      if (audit?.formatted_report_html && !emailSentAt) {
-        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} has report but email_sent_at is null - doing additional check for replication lag`)
-        // Try to get email_sent_at one more time - this might hit a different replica
+      const hasReportInJoin = audit?.formatted_report_html
+      const hasReportInFresh = freshEmailCheck?.formatted_report_html
+      const hasReport = hasReportInJoin || hasReportInFresh
+      
+      if (hasReport && !emailSentAt) {
+        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} has report (join=${!!hasReportInJoin}, fresh=${!!hasReportInFresh}) but email_sent_at is null - doing additional check for replication lag`)
+        // Try to get email_sent_at and status one more time - this might hit a different replica
+        // Also check formatted_report_html to confirm report exists
         const { data: doubleCheck } = await supabase
           .from('audits')
-          .select('email_sent_at, status')
+          .select('email_sent_at, status, formatted_report_html')
           .eq('id', item.audit_id)
           .single()
         
