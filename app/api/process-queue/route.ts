@@ -358,20 +358,46 @@ export async function GET(request: NextRequest) {
         return false
       }
       
+      // CRITICAL: Double-check email_sent_at directly from database (join might be stale)
+      // Fetch fresh audit data to ensure we have the latest email_sent_at value
+      let freshAuditData: any = null
+      try {
+        const { data: freshAudit } = await supabase
+          .from('audits')
+          .select('email_sent_at, status, formatted_report_html')
+          .eq('id', item.audit_id)
+          .single()
+        freshAuditData = freshAudit
+      } catch (err) {
+        // If fetch fails, use join data as fallback
+        console.warn(`[${requestId}] ⚠️  Could not fetch fresh audit data for ${item.audit_id}, using join data`)
+      }
+      
+      // Use fresh data if available, otherwise fall back to join data
+      const emailSentAt = freshAuditData?.email_sent_at || audit?.email_sent_at
+      
       // Skip if email was already sent (not a reservation)
       // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >5 minutes old)
       // This prevents duplicate processing when email was just sent (<5 minutes ago)
-      if (audit.email_sent_at && 
-          !audit.email_sent_at.startsWith('sending_') && 
-          audit.email_sent_at.length > 10) {
+      if (emailSentAt && 
+          !emailSentAt.startsWith('sending_') && 
+          emailSentAt.length > 10) {
         // Valid timestamp exists - email was sent (regardless of age)
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${audit.email_sent_at}`)
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check)`)
+        // Mark queue item as completed since email was sent
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
         return false
       }
       
       // Skip if email is being sent (reservation exists - another process is handling it)
-      if (isEmailSending(audit.email_sent_at)) {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (reserved at ${audit.email_sent_at})`)
+      if (emailSentAt && emailSentAt.startsWith('sending_')) {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (reserved at ${emailSentAt})`)
         return false
       }
       
