@@ -920,10 +920,46 @@ export async function GET(request: NextRequest) {
       if (stuckItems && stuckItems.length > 0) {
         console.warn(`[${requestId}] Found ${stuckItems.length} stuck processing items - resetting them`)
         
+        const stuckQueueIds: string[] = []
+        
         // Reset stuck items and update audit status
         for (const stuckItem of stuckItems) {
           const stuckAudit = stuckItem.audits as any
           const auditId = stuckItem.audit_id
+          stuckQueueIds.push(stuckItem.id)
+          
+          // Check if audit is already completed (has report and email sent)
+          const auditIsComplete = stuckAudit && 
+            stuckAudit.status === 'completed' && 
+            stuckAudit.email_sent_at &&
+            !stuckAudit.email_sent_at.startsWith('sending_') &&
+            stuckAudit.email_sent_at.length > 10
+          
+          if (auditIsComplete) {
+            // Audit is already done - mark queue as completed directly
+            console.log(`[${requestId}] [stuck-reset] Audit ${auditId} is already completed - marking queue as completed`)
+            const { data: completeResult, error: completeError } = await supabaseService
+              .from('audit_queue')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                last_error: null, // Clear any error since audit succeeded
+                started_at: null, // Reset started_at
+              })
+              .eq('id', stuckItem.id)
+              .eq('status', 'processing') // Only update if still processing
+              .select('id, status')
+            
+            const updated_rows = completeResult?.length ?? 0
+            if (completeError) {
+              console.error(`[${requestId}] [stuck-reset] Error marking stuck item ${stuckItem.id} as completed:`, completeError)
+            } else if (updated_rows === 0) {
+              console.warn(`[${requestId}] [stuck-reset] No rows updated for stuck item ${stuckItem.id} (may have been updated by another worker)`)
+            } else {
+              console.log(`[${requestId}] [stuck-reset] Marked stuck item ${stuckItem.id} as completed (audit already done)`)
+            }
+            continue
+          }
           
           // Check if audit is still running (should be failed)
           if (stuckAudit && (stuckAudit.status === 'running' || stuckAudit.status === 'pending')) {
@@ -947,7 +983,7 @@ export async function GET(request: NextRequest) {
           
           // Reset queue item to pending (if retries left) or failed
           const shouldRetry = stuckItem.retry_count < 3
-          await supabaseService
+          const { data: resetResult, error: resetError } = await supabaseService
             .from('audit_queue')
             .update({
               status: shouldRetry ? 'pending' : 'failed',
@@ -955,7 +991,32 @@ export async function GET(request: NextRequest) {
               started_at: null, // Reset started_at
             })
             .eq('id', stuckItem.id)
+            .eq('status', 'processing') // CRITICAL: Only update if still processing
+            .select('id, status')
+          
+          const reset_updated_rows = resetResult?.length ?? 0
+          if (resetError) {
+            console.error(`[${requestId}] [stuck-reset] Error resetting stuck item ${stuckItem.id}:`, resetError)
+          } else if (reset_updated_rows === 0) {
+            // Re-read to see what happened
+            const { data: currentRow } = await supabaseService
+              .from('audit_queue')
+              .select('status')
+              .eq('id', stuckItem.id)
+              .maybeSingle()
+            
+            if (currentRow?.status === 'processing') {
+              console.warn(`[${requestId}] [stuck-reset] No rows updated for stuck item ${stuckItem.id}, still processing (filter may not match)`)
+            } else {
+              console.log(`[${requestId}] [stuck-reset] Stuck item ${stuckItem.id} already updated by another worker (current status: ${currentRow?.status || 'unknown'})`)
+            }
+          } else {
+            console.log(`[${requestId}] [stuck-reset] Reset stuck item ${stuckItem.id} to ${shouldRetry ? 'pending' : 'failed'} (updated_rows=${reset_updated_rows})`)
+          }
         }
+        
+        // Log summary
+        console.log(`[${requestId}] [stuck-reset] Attempted reset for ${stuckQueueIds.length} queue IDs: ${stuckQueueIds.join(', ')}`)
         
         return NextResponse.json({
           success: true,
