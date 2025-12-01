@@ -1,6 +1,6 @@
 /**
  * Netlify Scheduled Function for processing audit queue
- * Schedule is defined in netlify.toml: every 2 minutes
+ * Schedule is defined in netlify.toml: every 1 minute (reduced for testing)
  */
 
 export default async function handler(req) {
