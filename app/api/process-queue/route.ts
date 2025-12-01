@@ -593,7 +593,7 @@ export async function GET(request: NextRequest) {
     // This prevents race conditions where email was sent between the initial check and now
     const { data: finalCheck } = await supabase
       .from('audits')
-      .select('email_sent_at, customers')
+      .select('email_sent_at, customers(*)')
       .eq('id', auditId)
       .single()
     
@@ -618,7 +618,14 @@ export async function GET(request: NextRequest) {
     }
     
     // Validate customer email before processing
-    const customer = (finalCheck?.customers as any) || (auditData?.customers as any)
+    // Handle customers as either array or single object
+    let customer: any = null
+    if (finalCheck?.customers) {
+      customer = Array.isArray(finalCheck.customers) ? finalCheck.customers[0] : finalCheck.customers
+    } else if (auditData?.customers) {
+      customer = Array.isArray(auditData.customers) ? auditData.customers[0] : auditData.customers
+    }
+    
     const customerEmail = customer?.email
     if (customerEmail) {
       // Validate email format
@@ -635,21 +642,19 @@ export async function GET(request: NextRequest) {
           })
           .eq('id', queueItem.id)
         
-        // Also log error to audit if it exists
-        if (auditData) {
-          const errorLog = JSON.stringify({
-            timestamp: new Date().toISOString(),
-            error: `Invalid email address: ${customerEmail}. Email must be a valid format (e.g., user@example.com).`,
-            note: 'Queue processor skipped this audit due to invalid email',
-          }, null, 2)
-          
-          await supabase
-            .from('audits')
-            .update({
-              error_log: errorLog,
-            } as any)
-            .eq('id', auditId)
-        }
+        // Also log error to audit
+        const errorLog = JSON.stringify({
+          timestamp: new Date().toISOString(),
+          error: `Invalid email address: ${customerEmail}. Email must be a valid format (e.g., user@example.com).`,
+          note: 'Queue processor skipped this audit due to invalid email',
+        }, null, 2)
+        
+        await supabase
+          .from('audits')
+          .update({
+            error_log: errorLog,
+          } as any)
+          .eq('id', auditId)
         
         return NextResponse.json({
           success: true,
@@ -659,6 +664,10 @@ export async function GET(request: NextRequest) {
           error: `Invalid email address: ${customerEmail}`,
         })
       }
+    } else if (!customerEmail && (finalCheck || auditData)) {
+      // No email found - this is also a problem, but we'll let processAudit handle it
+      // to maintain consistent error handling
+      console.warn(`[${requestId}] ⚠️  No customer email found for audit ${auditId} - will fail in processAudit`)
     }
 
     // Mark as processing
