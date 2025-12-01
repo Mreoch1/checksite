@@ -1241,7 +1241,7 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
         } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
           // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabase
+          const { data: currentStatus } = await supabaseService
             .from('audit_queue')
             .select('status')
             .eq('id', queueItem.id)
@@ -1314,7 +1314,7 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
         } else if (!queueUpdateResult || queueUpdateResult.length === 0) {
           // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabase
+          const { data: currentStatus } = await supabaseService
             .from('audit_queue')
             .select('status')
             .eq('id', queueItem.id)
@@ -1506,7 +1506,7 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
         } else if (!queueFixResult || queueFixResult.length === 0) {
           // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabase
+          const { data: currentStatus } = await supabaseService
             .from('audit_queue')
             .select('status')
             .eq('id', queueItem.id)
@@ -1578,7 +1578,7 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
         } else if (!queueFixResult || queueFixResult.length === 0) {
           // Queue item might have been updated by another process - verify current status
-          const { data: currentStatus } = await supabase
+          const { data: currentStatus } = await supabaseService
             .from('audit_queue')
             .select('status')
             .eq('id', queueItem.id)
