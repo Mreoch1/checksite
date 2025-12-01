@@ -356,6 +356,13 @@ export async function processAudit(auditId: string) {
       throw new Error('Customer email is required to send report')
     }
     
+    // Validate email format before attempting to send
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(customer.email)) {
+      console.error(`Invalid email address for audit ${auditId}: ${customer.email}`)
+      throw new Error(`Invalid email address: ${customer.email}. Email must be a valid format (e.g., user@example.com).`)
+    }
+    
     // CRITICAL: Use atomic reservation pattern to prevent duplicate emails
     // Step 1: Check for hard timeout (30 minutes) - force clear abandoned reservations
     const reservationAttemptId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`

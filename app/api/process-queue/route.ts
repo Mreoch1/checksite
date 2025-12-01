@@ -593,7 +593,7 @@ export async function GET(request: NextRequest) {
     // This prevents race conditions where email was sent between the initial check and now
     const { data: finalCheck } = await supabase
       .from('audits')
-      .select('email_sent_at')
+      .select('email_sent_at, customers')
       .eq('id', auditId)
       .single()
     
@@ -615,6 +615,50 @@ export async function GET(request: NextRequest) {
         auditId,
         email_sent_at: finalCheck.email_sent_at,
       })
+    }
+    
+    // Validate customer email before processing
+    const customer = (finalCheck?.customers as any) || (auditData?.customers as any)
+    const customerEmail = customer?.email
+    if (customerEmail) {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(customerEmail)) {
+        console.error(`[${requestId}] ❌ Invalid email address for audit ${auditId}: ${customerEmail}`)
+        // Mark queue item as failed with error message
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            last_error: `Invalid email address: ${customerEmail}`,
+          })
+          .eq('id', queueItem.id)
+        
+        // Also log error to audit if it exists
+        if (auditData) {
+          const errorLog = JSON.stringify({
+            timestamp: new Date().toISOString(),
+            error: `Invalid email address: ${customerEmail}. Email must be a valid format (e.g., user@example.com).`,
+            note: 'Queue processor skipped this audit due to invalid email',
+          }, null, 2)
+          
+          await supabase
+            .from('audits')
+            .update({
+              error_log: errorLog,
+            } as any)
+            .eq('id', auditId)
+        }
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Audit skipped - invalid email address',
+          processed: false,
+          auditId,
+          error: `Invalid email address: ${customerEmail}`,
+        })
+      }
     }
 
     // Mark as processing
