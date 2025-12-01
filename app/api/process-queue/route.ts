@@ -1013,6 +1013,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
+        // Use atomic update: only update if still pending or processing
         const { data: queueFixResult, error: queueFixError } = await supabase
           .from('audit_queue')
           .update({
@@ -1021,14 +1022,28 @@ export async function GET(request: NextRequest) {
             last_error: null,
           })
           .eq('id', queueItem.id)
+          .in('status', ['pending', 'processing']) // Atomic: only update if still pending or processing
           .select('status')
 
         if (queueFixError) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
+        } else if (!queueFixResult || queueFixResult.length === 0) {
+          // Queue item might have been updated by another process - verify current status
+          const { data: currentStatus } = await supabase
+            .from('audit_queue')
+            .select('status')
+            .eq('id', queueItem.id)
+            .single()
+          const currentStatusValue = currentStatus?.status || 'unknown'
+          if (currentStatusValue === 'completed') {
+            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
+          } else {
+            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
+          }
         } else {
           console.log(
             `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
-            `queue marked as completed (status: ${queueFixResult?.[0]?.status ?? 'unknown'})`
+            `queue marked as completed (status: ${queueFixResult[0].status})`
           )
         }
 
@@ -1069,6 +1084,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
+        // Use atomic update: only update if still pending or processing
         const { data: queueFixResult, error: queueFixError } = await supabase
           .from('audit_queue')
           .update({
@@ -1077,14 +1093,28 @@ export async function GET(request: NextRequest) {
             last_error: null,
           })
           .eq('id', queueItem.id)
+          .in('status', ['pending', 'processing']) // Atomic: only update if still pending or processing
           .select('status')
 
         if (queueFixError) {
           console.error(`[${requestId}] ❌ Failed to mark queue as completed after error:`, queueFixError)
+        } else if (!queueFixResult || queueFixResult.length === 0) {
+          // Queue item might have been updated by another process - verify current status
+          const { data: currentStatus } = await supabase
+            .from('audit_queue')
+            .select('status')
+            .eq('id', queueItem.id)
+            .single()
+          const currentStatusValue = currentStatus?.status || 'unknown'
+          if (currentStatusValue === 'completed') {
+            console.log(`[${requestId}] ✅ Queue already marked as completed by another process`)
+          } else {
+            console.warn(`[${requestId}] ⚠️  Queue update returned no data - current status: ${currentStatusValue}`)
+          }
         } else {
           console.log(
             `[${requestId}] ✅ Audit ${auditId} fixed after error - ` +
-            `queue marked as completed (status: ${queueFixResult?.[0]?.status ?? 'unknown'})`
+            `queue marked as completed (status: ${queueFixResult[0].status})`
           )
         }
 
@@ -1098,7 +1128,7 @@ export async function GET(request: NextRequest) {
           reconciled: true,
         })
       }
-
+      
       // Only update audit status to failed if it is still running or pending
       if (currentAudit && (currentAudit.status === 'running' || currentAudit.status === 'pending')) {
         const errorLog = JSON.stringify({
