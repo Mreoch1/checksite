@@ -7,12 +7,20 @@ import { sendAuditReportEmail } from '@/lib/email-unified'
 import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
 import { isEmailSent, isEmailSending, isEmailReservationAbandoned, getEmailSentAtAge } from '@/lib/email-status'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Process an audit - runs modules, generates report, sends email
  * This function is used by both webhooks and Inngest
+ * 
+ * @param auditId - The audit ID to process
+ * @param serviceClient - Optional service role client for fresh reads from primary database
+ *                        If not provided, uses anon client (may have replication lag)
  */
-export async function processAudit(auditId: string) {
+export async function processAudit(auditId: string, serviceClient?: SupabaseClient) {
+  // Use service client if provided, otherwise fall back to anon client
+  // CRITICAL: Service client reads from primary DB, avoiding replication lag
+  const db = serviceClient || supabase
   // Store audit data at function scope for error handling
   let audit: any = null
   let auditResult: any = null
@@ -23,7 +31,8 @@ export async function processAudit(auditId: string) {
     // CRITICAL: Early check - if email was already sent AND report exists, skip processing entirely
     // This prevents duplicate processing and duplicate emails
     // BUT: If report exists but email wasn't sent, we should still send the email
-    const { data: earlyCheck } = await supabase
+    // Use service client for fresh read from primary database
+    const { data: earlyCheck } = await db
       .from('audits')
       .select('email_sent_at, status, formatted_report_html')
       .eq('id', auditId)
@@ -45,7 +54,7 @@ export async function processAudit(auditId: string) {
     }
     
     // Get audit details
-    const { data: auditData, error: auditError } = await supabase
+    const { data: auditData, error: auditError } = await db
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -74,7 +83,7 @@ export async function processAudit(auditId: string) {
       console.log(`[processAudit] Running normal audit flow for ${auditId} - no report exists yet`)
 
     // Get enabled modules
-    const { data: modules, error: modulesError } = await supabase
+    const { data: modules, error: modulesError } = await db
       .from('audit_modules')
       .select('*')
       .eq('audit_id', auditId)
@@ -228,7 +237,7 @@ export async function processAudit(auditId: string) {
 
     console.log(`Storing raw results for audit ${auditId}...`)
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('audits')
         .update({
           raw_result_json: auditResult,
@@ -249,7 +258,7 @@ export async function processAudit(auditId: string) {
     console.log(`Updating module scores for ${results.length} modules...`)
     for (const result of results) {
       try {
-        const { error: moduleUpdateError } = await supabase
+        const { error: moduleUpdateError } = await db
           .from('audit_modules')
           .update({
             raw_score: result.score,
@@ -310,7 +319,7 @@ export async function processAudit(auditId: string) {
         formatted_report_plaintext: plaintext,
       }
       
-      const { error: reportUpdateError } = await supabase
+      const { error: reportUpdateError } = await db
         .from('audits')
         .update(updateData)
         .eq('id', auditId)
@@ -322,7 +331,7 @@ export async function processAudit(auditId: string) {
       console.log('✅ Report saved to database - report URL is now accessible')
       
       // Verify report was saved (double-check)
-      const { data: savedAudit } = await supabase
+      const { data: savedAudit } = await db
         .from('audits')
         .select('formatted_report_html, status')
         .eq('id', auditId)
@@ -369,7 +378,8 @@ export async function processAudit(auditId: string) {
     console.log(`[${reservationAttemptId}] Starting email reservation for audit ${auditId}`)
     
     // First, check current state and handle hard timeout
-    const { data: currentState } = await supabase
+    // Use service client for fresh read from primary database
+    const { data: currentState } = await db
       .from('audits')
       .select('email_sent_at')
       .eq('id', auditId)
@@ -386,7 +396,7 @@ export async function processAudit(auditId: string) {
         console.warn(`[${reservationAttemptId}] ⚠️  Abandoned reservation detected (${ageMinutes}m old) - forcing clear with atomic update`)
         const oldTimestamp = currentState.email_sent_at
         // CRITICAL: Atomic clear - only clear if it still has the old value (prevents race condition)
-        const { data: clearResult, error: clearError } = await supabase
+        const { data: clearResult, error: clearError } = await db
           .from('audits')
           .update({ email_sent_at: null })
           .eq('id', auditId)
@@ -427,7 +437,8 @@ export async function processAudit(auditId: string) {
     
     // CRITICAL: Use a more reliable atomic update pattern
     // First, verify the audit exists and email_sent_at is null
-    const { data: preCheck, error: preCheckError } = await supabase
+    // Use service client for fresh read from primary database
+    const { data: preCheck, error: preCheckError } = await db
       .from('audits')
       .select('id, email_sent_at')
       .eq('id', auditId)
@@ -473,8 +484,9 @@ export async function processAudit(auditId: string) {
     // Now try the atomic update
     // CRITICAL: This query ONLY updates the specific audit_id - no joins, no customer_id, no URL filters
     // This is the CORRECT pattern: UPDATE audits SET email_sent_at = ? WHERE id = ? AND email_sent_at IS NULL
+    // Use service client for atomic update on primary database
     console.log(`[${reservationAttemptId}] 🔒 Attempting atomic reservation for audit_id=${auditId} only (no customer/URL filters)`)
-    const { data: reservationResult, error: reservationError } = await supabase
+    const { data: reservationResult, error: reservationError } = await db
       .from('audits')
       .update({ email_sent_at: reservationTimestamp })
       .eq('id', auditId) // ONLY filter by audit_id - nothing else (no customer_id, no URL, no joins)
@@ -505,8 +517,9 @@ export async function processAudit(auditId: string) {
       }
       
       // If reservation failed with 0 rows, verify the audit still exists and check email_sent_at
+      // Use service client for fresh read from primary database
       if (!reservationError && (!reservationResult || reservationResult.length === 0)) {
-        const { data: verifyAfterFail } = await supabase
+        const { data: verifyAfterFail } = await db
           .from('audits')
           .select('id, email_sent_at, status, customer_id, url')
           .eq('id', auditId)
@@ -561,7 +574,8 @@ export async function processAudit(auditId: string) {
     // If reservation failed, check what happened and handle stale reservations
     if (!reservationSuccessful) {
       // Re-check current state after failed reservation
-      const { data: doubleCheck } = await supabase
+      // Use service client for fresh read from primary database
+      const { data: doubleCheck } = await db
         .from('audits')
         .select('email_sent_at')
         .eq('id', auditId)
@@ -580,7 +594,7 @@ export async function processAudit(auditId: string) {
           console.warn(`[${reservationAttemptId}] ⚠️  Stale reservation detected (${ageMinutes}m old) - clearing atomically and retrying`)
           
           // CRITICAL: Atomic clear - only clear if it still has the old value (prevents race condition)
-          const { data: clearResult, error: clearError } = await supabase
+          const { data: clearResult, error: clearError } = await db
             .from('audits')
             .update({ email_sent_at: null })
             .eq('id', auditId)
@@ -597,7 +611,7 @@ export async function processAudit(auditId: string) {
             
             // Retry the reservation (idempotent - uses IS NULL guard)
             const retryTimestamp = new Date(Date.now() - 1000).toISOString()
-            const { data: retryResult, error: retryError } = await supabase
+            const { data: retryResult, error: retryError } = await db
               .from('audits')
               .update({ email_sent_at: retryTimestamp })
               .eq('id', auditId)
@@ -622,7 +636,7 @@ export async function processAudit(auditId: string) {
         console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is null - trying direct update as fallback`)
         
         // First, verify the audit still exists
-        const { data: verifyAuditExists, error: verifyError } = await supabase
+        const { data: verifyAuditExists, error: verifyError } = await db
           .from('audits')
           .select('id, email_sent_at, status')
           .eq('id', auditId)
@@ -662,7 +676,7 @@ export async function processAudit(auditId: string) {
         } else {
           // Audit exists and email_sent_at is still null - try direct update
           const fallbackTimestamp = new Date(Date.now() - 1000).toISOString()
-          const { data: fallbackResult, error: fallbackError } = await supabase
+          const { data: fallbackResult, error: fallbackError } = await db
             .from('audits')
             .update({ email_sent_at: fallbackTimestamp })
             .eq('id', auditId)
@@ -719,7 +733,7 @@ export async function processAudit(auditId: string) {
       if (!reservationSuccessful) {
         // CRITICAL: Ensure status is set to completed even if email reservation failed
         // The report is already saved, so the audit is complete
-        const { error: statusError } = await supabase
+        const { error: statusError } = await db
           .from('audits')
           .update({ 
             status: 'completed',
@@ -748,7 +762,8 @@ export async function processAudit(auditId: string) {
     
     // CRITICAL: Final verification - ensure report is fully saved and ready before sending email
     // This prevents sending emails before the report is accessible
-    const { data: finalVerification, error: verifyError } = await supabase
+    // Use service client for fresh read from primary database
+    const { data: finalVerification, error: verifyError } = await db
       .from('audits')
       .select('status, formatted_report_html, completed_at')
       .eq('id', auditId)
@@ -790,7 +805,7 @@ export async function processAudit(auditId: string) {
       emailSentAt = new Date().toISOString()
       
       // Update email_sent_at and verify it was actually saved
-      const { data: updateResult, error: emailUpdateError } = await supabase
+      const { data: updateResult, error: emailUpdateError } = await db
         .from('audits')
         .update({ email_sent_at: emailSentAt })
         .eq('id', auditId)
@@ -837,7 +852,7 @@ export async function processAudit(auditId: string) {
         }, null, 2)
         
         // Reset email_sent_at to null so it can be retried, and log error
-        const { error: resetError } = await supabase
+        const { error: resetError } = await db
           .from('audits')
           .update({ 
             email_sent_at: null, // Reset so email can be retried
@@ -867,7 +882,7 @@ export async function processAudit(auditId: string) {
         },
       })
       
-      await supabase
+      await db
         .from('audits')
         .update({ error_log: errorLog })
         .eq('id', auditId)
@@ -919,7 +934,7 @@ export async function processAudit(auditId: string) {
     // Mark audit as failed and store error log
     // Try to include error_log - will work once migration is applied
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('audits')
         .update({ 
           status: 'failed',
@@ -930,7 +945,7 @@ export async function processAudit(auditId: string) {
       if (updateError) {
         console.error('Could not store error_log (column may not exist):', updateError)
         // Try without error_log if column doesn't exist
-        const { error: statusError } = await supabase
+        const { error: statusError } = await db
           .from('audits')
           .update({ status: 'failed' })
           .eq('id', auditId)
@@ -945,7 +960,7 @@ export async function processAudit(auditId: string) {
       // If error_log column doesn't exist, just update status
       console.error('Exception updating audit status:', updateError)
       try {
-        const { error: statusError } = await supabase
+        const { error: statusError } = await db
           .from('audits')
           .update({ status: 'failed' })
           .eq('id', auditId)
