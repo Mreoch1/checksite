@@ -387,8 +387,8 @@ export async function GET(request: NextRequest) {
       
       const emailSentAt = freshEmailCheck.email_sent_at || audit?.email_sent_at
       
-      // Log what we found for debugging
-      console.log(`[${requestId}] 🔍 Fresh check result for audit ${item.audit_id}: fresh=${freshEmailCheck.email_sent_at || 'null'}, join=${audit?.email_sent_at || 'null'}, using=${emailSentAt || 'null'}`)
+      // Log what we found for debugging - include status
+      console.log(`[${requestId}] 🔍 Fresh check result for audit ${item.audit_id}: status=${freshEmailCheck.status || 'null'}, fresh_email=${freshEmailCheck.email_sent_at || 'null'}, join_email=${audit?.email_sent_at || 'null'}, using=${emailSentAt || 'null'}`)
       
       if (freshEmailCheck.email_sent_at && !audit?.email_sent_at) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
@@ -396,8 +396,10 @@ export async function GET(request: NextRequest) {
       
       // Additional safeguard: If audit status is 'completed', skip it (email was already sent or audit failed)
       // Check status FIRST to avoid replication lag issues with email_sent_at
-      if (freshEmailCheck.status === 'completed') {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
+      // Use fresh check status first, fallback to join data status if fresh check doesn't have it
+      const auditStatus = freshEmailCheck.status || audit?.status
+      if (auditStatus === 'completed') {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'}, email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
         // Mark queue item as completed since audit is already completed
         const { error: updateError } = await supabase
           .from('audit_queue')
