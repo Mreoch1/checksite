@@ -1110,18 +1110,39 @@ export async function GET(request: NextRequest) {
       
       // Determine if error is permanent (should not retry)
       // HTTP errors like 404, 403, 401 are permanent - website doesn't exist or is inaccessible
-      // Check for these patterns in the error message (case-insensitive)
-      const errorLower = errorMessage.toLowerCase()
+      // Check both the error message and the audit's error_log for permanent error patterns
+      let errorTextToCheck = errorMessage.toLowerCase()
+      
+      // Also check the audit's error_log if it exists (contains the original error)
+      if (currentAudit) {
+        try {
+          const { data: auditWithErrorLog } = await supabase
+            .from('audits')
+            .select('error_log')
+            .eq('id', auditId)
+            .single()
+          
+          if (auditWithErrorLog?.error_log) {
+            const errorLogStr = typeof auditWithErrorLog.error_log === 'string' 
+              ? auditWithErrorLog.error_log 
+              : JSON.stringify(auditWithErrorLog.error_log)
+            errorTextToCheck += ' ' + errorLogStr.toLowerCase()
+          }
+        } catch (err) {
+          // Ignore errors reading error_log - use original error message only
+        }
+      }
+      
       const isPermanentError = 
-        errorLower.includes('http 404') ||
-        errorLower.includes('http 403') ||
-        errorLower.includes('http 401') ||
-        (errorLower.includes('404') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
-        (errorLower.includes('403') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
-        (errorLower.includes('401') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
-        errorLower.includes('enotfound') || // DNS resolution failed
-        errorLower.includes('econnrefused') || // Connection refused
-        (errorLower.includes('etimedout') && errorLower.includes('dns')) // DNS timeout
+        errorTextToCheck.includes('http 404') ||
+        errorTextToCheck.includes('http 403') ||
+        errorTextToCheck.includes('http 401') ||
+        (errorTextToCheck.includes('404') && (errorTextToCheck.includes('fetch') || errorTextToCheck.includes('error'))) ||
+        (errorTextToCheck.includes('403') && (errorTextToCheck.includes('fetch') || errorTextToCheck.includes('error'))) ||
+        (errorTextToCheck.includes('401') && (errorTextToCheck.includes('fetch') || errorTextToCheck.includes('error'))) ||
+        errorTextToCheck.includes('enotfound') || // DNS resolution failed
+        errorTextToCheck.includes('econnrefused') || // Connection refused
+        (errorTextToCheck.includes('etimedout') && errorTextToCheck.includes('dns')) // DNS timeout
       
       // Only retry if:
       // 1. Not a permanent error
