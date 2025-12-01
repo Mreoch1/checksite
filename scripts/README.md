@@ -13,6 +13,22 @@ Helper scripts for development, testing, and debugging.
 - **`test-full-audit-with-competitor.js`** - Audit testing with competitor comparison
 - **`test-own-site-audit.js`** - Test audit on the SEO CheckSite itself
 
+## Stress Testing Scripts
+
+- **`stress-test-queue.js`** - Creates 20-30 audits in batches to test queue behavior under concurrency
+  - Tests: no duplicate emails, no stuck items, no reprocessing, queue progression
+  - Usage: `ADMIN_SECRET=your_secret node scripts/stress-test-queue.js`
+  - Creates audits in batches of 5 with 2-second delays
+  - Uses test email (Mreoch82@hotmail.com) and multiple URLs to avoid rate limits
+  - Monitor results via Netlify logs for `/api/process-queue` runs
+
+- **`check-stress-test-results.js`** - Verifies stress test results
+  - Checks that all audits completed successfully (status=completed, email_sent_at set, report exists)
+  - Detects duplicate emails and missing data
+  - Usage: 
+    - `node scripts/check-stress-test-results.js` (checks all recent test audits)
+    - `node scripts/check-stress-test-results.js <audit_id1> <audit_id2> ...` (checks specific audits)
+
 ## Debugging Scripts
 
 - **`check-audit-status.js`** - Check status of an audit by ID
