@@ -22,62 +22,48 @@ import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-stat
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// Create service role client for fresh reads from primary database
-// This avoids replication lag issues when checking email_sent_at
-let serviceClientInstance: SupabaseClient | null = null
-let clientConfigLogged = false
+// CRITICAL: Create exactly ONE primary client for this worker
+// This is the ONLY Supabase client used in this file - all reads and writes use this
+// Even with service role key, Supabase may route SELECT queries to read replicas
+// We rely on per-item verification and final guards to catch stale data
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-function getServiceClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  
-  // Log client configuration once at module init (not per-request)
-  if (!clientConfigLogged) {
-    console.log('[client-config] SUPABASE_URL:', supabaseUrl || 'NOT SET')
-    console.log('[client-config] SERVICE_ROLE_KEY:', serviceRoleKey 
-      ? `SET (length=${serviceRoleKey.length}, prefix=${serviceRoleKey.substring(0, 10)}...)` 
-      : 'NOT SET')
-    clientConfigLogged = true
-  }
-  
-  if (!supabaseUrl || !serviceRoleKey) {
-    // Fallback: create a new service client with anon key if service role key not available
-    // This should never happen in production, but we need a fallback for development
-    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - creating fallback client (may have replication lag)')
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!supabaseUrl || !anonKey) {
-      throw new Error('Neither SUPABASE_SERVICE_ROLE_KEY nor NEXT_PUBLIC_SUPABASE_ANON_KEY is set')
-    }
-    return createClient(supabaseUrl, anonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  }
-  
-  // Reuse the same client instance to ensure consistency
-  if (!serviceClientInstance) {
-    serviceClientInstance = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  }
-  
-  return serviceClientInstance
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for queue worker')
+}
+
+// Create the single primary client instance at module level
+// This ensures all operations use the same client configuration
+const supabasePrimary = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  // Note: Supabase REST API may still route SELECT queries to replicas
+  // We use per-item verification and final guards to catch stale data
+})
+
+// Log client configuration once at module init
+let clientConfigLogged = false
+if (!clientConfigLogged) {
+  console.log('[client-config] SUPABASE_URL:', SUPABASE_URL || 'NOT SET')
+  console.log('[client-config] SERVICE_ROLE_KEY:', SERVICE_ROLE_KEY 
+    ? `SET (length=${SERVICE_ROLE_KEY.length}, prefix=${SERVICE_ROLE_KEY.substring(0, 10)}...)` 
+    : 'NOT SET')
+  console.log('[client-config] Using single primary client for all operations')
+  clientConfigLogged = true
 }
 
 /**
  * Unified helper to get fresh audit state from database
- * This ensures all code paths use the same query and client
+ * CRITICAL: Uses supabasePrimary (the single primary client) for all reads
+ * This ensures all code paths use the same client
  */
 async function getFreshAuditState(
-  db: SupabaseClient,
   auditId: string
 ): Promise<{ id: string; status: string | null; email_sent_at: string | null; formatted_report_html: string | null } | null> {
-  const { data, error } = await db
+  const { data, error } = await supabasePrimary
     .from('audits')
     .select('id, status, email_sent_at, formatted_report_html')
     .eq('id', auditId)
@@ -104,13 +90,12 @@ async function getFreshAuditState(
  *                          for paths after processing has started, or ['pending', 'processing'] to cover both
  */
 async function markQueueItemCompletedWithLogging(
-  supabaseService: SupabaseClient,
   requestId: string,
   queueId: string,
   context: string = 'completion',
   expectedStatuses: ('pending' | 'processing')[] = ['pending']
 ): Promise<'updated' | 'already-completed' | 'not-updated'> {
-  const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
+  const { data: queueUpdateResult, error: queueUpdateError } = await supabasePrimary
     .from('audit_queue')
     .update({
       status: 'completed',
@@ -129,7 +114,7 @@ async function markQueueItemCompletedWithLogging(
   
   if (updated_rows === 0) {
     // Re-read the row to see what actually happened
-    const { data: row, error: readError } = await supabaseService
+    const { data: row, error: readError } = await supabasePrimary
       .from('audit_queue')
       .select('status')
       .eq('id', queueId)
@@ -163,14 +148,13 @@ async function markQueueItemCompletedWithLogging(
  *                          Typically ['pending', 'processing'] to cover both states
  */
 async function markQueueItemFailedWithLogging(
-  supabaseService: SupabaseClient,
   requestId: string,
   queueId: string,
-  context: string = 'failure',
+  context: string,
   errorMessage: string,
   expectedStatuses: ('pending' | 'processing')[] = ['pending', 'processing']
 ): Promise<'updated' | 'already-terminal' | 'not-updated'> {
-  const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
+  const { data: queueUpdateResult, error: queueUpdateError } = await supabasePrimary
     .from('audit_queue')
     .update({
       status: 'failed',
@@ -190,7 +174,7 @@ async function markQueueItemFailedWithLogging(
   
   if (updated_rows === 0) {
     // Re-read the row to see what actually happened
-    const { data: row, error: readError } = await supabaseService
+    const { data: row, error: readError } = await supabasePrimary
       .from('audit_queue')
       .select('status')
       .eq('id', queueId)
@@ -220,9 +204,10 @@ export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   console.log(`[${requestId}] /api/process-queue called`)
   
-  // CRITICAL: Use service role client for all database operations
-  // This ensures we read from primary database, not stale read replicas
-  const supabaseService = getServiceClient()
+  // CRITICAL: Use the single primary client for all database operations
+  // This is the ONLY client used in this worker - all reads and writes use supabasePrimary
+  // Note: Even with service role key, Supabase REST API may route SELECT queries to replicas
+  // We use per-item verification and final guards to catch stale data
   
   try {
     // Optional: Add basic auth to prevent unauthorized access
@@ -245,958 +230,134 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Find the oldest pending audit in the queue
-    // CRITICAL: Use service client to read from primary database (avoids replication lag)
-    // Also filter by email_sent_at IS NULL to exclude already-emailed audits at query level
-    // NOTE: Even with service role key, Supabase may route SELECT queries to read replicas
-    // We rely on per-item fresh verification to catch stale data
-    let { data: queueItems, error: findError } = await supabaseService
+    // CRITICAL: Atomically claim one pending queue item by updating it to 'processing'
+    // This eliminates all race conditions - only one worker can claim a specific row
+    // We use a two-step approach because Supabase REST API doesn't support LIMIT on UPDATE:
+    // 1. Find the oldest pending item (SELECT with LIMIT 1)
+    // 2. Atomically update that specific item from 'pending' to 'processing' (UPDATE with WHERE id = ... AND status = 'pending')
+    // The UPDATE with .eq('status', 'pending') ensures atomicity - if another worker claimed it first, the update will affect 0 rows
+    
+    // Step 1: Find the oldest pending item (need retry_count for increment)
+    const { data: oldestPending, error: findOldestError } = await supabasePrimary
       .from('audit_queue')
-      .select('*, audits!inner(id, email_sent_at, status, formatted_report_html, url)')
+      .select('id, retry_count')
       .eq('status', 'pending')
-      .is('audits.email_sent_at', null) // CRITICAL: Exclude audits with email_sent_at set
       .order('created_at', { ascending: true })
-      .limit(20)
+      .limit(1)
+      .single()
     
-    // Log that we're using service client (for debugging replica lag issues)
-    console.log(`[${requestId}] [queue-select] Using service client (should hit primary) - found ${queueItems?.length || 0} items`)
-    
-    // Log query details for debugging
-    if (findError) {
-      console.error(`[${requestId}] Query error details:`, findError)
-    } else {
-      console.log(`[${requestId}] Query returned ${queueItems?.length || 0} items (before verification)`)
-      
-      // Log raw queue statuses as seen by this client
-      if (queueItems && queueItems.length > 0) {
-        queueItems.forEach((row: any) => {
-          console.log(`[${requestId}] [queue-raw] id=${row.id}, audit_id=${row.audit_id}, status=${row.status || 'null'}`)
-        })
-      }
-    }
-    
-    // CRITICAL: Per-item verification on primary database BEFORE any processing
-    // Even though we use service client, Supabase may route SELECT queries to replicas
-    // This verification step ensures we only process items that are truly pending on primary
-    // This is the PRIMARY defense against replica lag - we verify each item individually
-    if (queueItems && queueItems.length > 0) {
-      const verifiedQueueItems = []
-      for (const item of queueItems) {
-        // CRITICAL: Per-item fresh check on primary - this is the key to avoiding replica lag
-        // Check BOTH queue status AND audit email_sent_at on primary before including in verified list
-        const { data: queueStatusCheck, error: queueStatusError } = await supabaseService
-          .from('audit_queue')
-          .select('status, completed_at')
-          .eq('id', item.id)
-          .single()
-        
-        if (queueStatusError) {
-          console.error(`[${requestId}] [verify] Error checking queue item ${item.id} status:`, queueStatusError)
-          continue // Skip items we can't verify
-        }
-        
-        // Skip if queue item is not pending (already completed/failed)
-        if (queueStatusCheck && queueStatusCheck.status !== 'pending') {
-          console.log(`[${requestId}] [verify] Queue item ${item.id} status is '${queueStatusCheck.status}' (not pending) - skipping`)
-          continue
-        }
-        
-        // CRITICAL: Check audit email_sent_at on primary - this is what catches stale replica data
-        if (item.audit_id) {
-          const { data: auditStatusCheck } = await supabaseService
-            .from('audits')
-            .select('status, email_sent_at')
-            .eq('id', item.audit_id)
-            .single()
-          
-          if (auditStatusCheck) {
-            // Skip if audit already has email sent (this catches replica lag - join showed null but primary has timestamp)
-            if (auditStatusCheck.email_sent_at && 
-                !auditStatusCheck.email_sent_at.startsWith('sending_') && 
-                auditStatusCheck.email_sent_at.length > 10) {
-              const emailAge = Math.round((Date.now() - new Date(auditStatusCheck.email_sent_at).getTime()) / 1000 / 60)
-              console.log(`[${requestId}] [verify] Queue item ${item.id} - audit ${item.audit_id} already has email_sent_at=${auditStatusCheck.email_sent_at} (${emailAge}m old) - join showed null but primary has timestamp (REPLICA LAG DETECTED) - marking queue as completed`)
-              // Mark queue item as completed to match audit status
-              await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'verify-email-already-sent', ['pending'])
-              continue
-            }
-            
-            // Skip if audit is already completed
-            if (auditStatusCheck.status === 'completed') {
-              console.log(`[${requestId}] [verify] Queue item ${item.id} - audit ${item.audit_id} is already completed (status=${auditStatusCheck.status}) - marking queue item as completed and skipping`)
-              await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'verify-audit-completed', ['pending'])
-              continue
-            }
-            
-            // Skip if audit is already failed (permanent error, no retry needed)
-            if (auditStatusCheck.status === 'failed') {
-              console.log(`[${requestId}] [verify] Queue item ${item.id} - audit ${item.audit_id} is already failed (status=${auditStatusCheck.status}) - marking queue item as failed and skipping`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'verify-audit-failed',
-                'Audit already marked as failed - skipping reprocessing',
-                ['pending']
-              )
-              continue
-            }
-          }
-        }
-        
-        // Item passes all primary verification checks
-        verifiedQueueItems.push(item)
-      }
-      queueItems = verifiedQueueItems
-      console.log(`[${requestId}] [verify] After primary verification: ${queueItems.length} pending queue items (filtered out ${(queueItems?.length || 0) - verifiedQueueItems.length} stale items)`)
-    }
-    
-    if (findError) {
-      console.error(`[${requestId}] Error finding queue items:`, findError)
-      return NextResponse.json(
-        { error: 'Database error finding queue items', details: findError.message },
-        { status: 500 }
-      )
-    }
-    
-    // Log what we found
-    console.log(`[${requestId}] Found ${queueItems?.length || 0} pending queue items`)
-    if (queueItems && queueItems.length > 0) {
-      queueItems.forEach((item: any, idx: number) => {
-        const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-        const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-        const passesDelay = item.created_at < twoMinutesAgo
-        console.log(`[${requestId}] Queue item ${idx + 1}: audit_id=${item.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}, passes_2min_delay=${passesDelay}`)
-      })
-    } else {
-      // Check if there are any queue items at all (regardless of status)
-      // Get more items to see recent ones - increase limit to catch very recent items
-      // CRITICAL: Use service client to ensure we read from primary (for accurate debugging)
-      const { data: allQueueItems, error: allQueueError } = await supabaseService
-        .from('audit_queue')
-        .select('id, audit_id, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50) // Increased from 20 to catch very recent items that might be filtered
-      
-      if (allQueueError) {
-        console.error(`[${requestId}] Error fetching all queue items:`, allQueueError)
-      }
-      
-      if (allQueueItems && allQueueItems.length > 0) {
-        // Separate pending vs non-pending
-        const pendingItems = allQueueItems.filter((item: any) => item.status === 'pending')
-        const nonPendingItems = allQueueItems.filter((item: any) => item.status !== 'pending')
-        
-        // Log all items for debugging (especially recent ones)
-        const recentItems = allQueueItems.slice(0, 20) // Show 20 most recent for better visibility
-        console.log(`[${requestId}] 📊 Recent queue items (showing ${recentItems.length} most recent out of ${allQueueItems.length} total):`)
-        recentItems.forEach((item: any) => {
-          const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-          const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
-          console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m (${ageSeconds}s), Created: ${item.created_at}`)
-        })
-        
-        // Also check specifically for the most recent pending item
-        const mostRecentPending = allQueueItems.find((item: any) => item.status === 'pending')
-        if (mostRecentPending) {
-          const ageSeconds = Math.round((Date.now() - new Date(mostRecentPending.created_at).getTime()) / 1000)
-          console.log(`[${requestId}] 🔍 Most recent pending item: Audit ID ${mostRecentPending.audit_id}, Age: ${ageSeconds}s`)
-        } else {
-          console.log(`[${requestId}] 🔍 No pending items found in ${allQueueItems.length} total queue items`)
-        }
-        
-        if (pendingItems.length > 0) {
-          console.log(`[${requestId}] ⚠️  Found ${pendingItems.length} pending queue item(s) but they didn't pass filtering:`)
-          pendingItems.forEach((item: any) => {
-            const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-            console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
-          })
-          
-          // Clean up stale pending items that didn't pass filtering
-          console.log(`[${requestId}] [stale-cleanup] Cleaning up ${pendingItems.length} stale pending queue items`)
-          
-          for (const item of pendingItems) {
-            const auditId = item.audit_id
-            const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
-            const ageMinutes = Math.round(ageSeconds / 60)
-            
-            // Fetch fresh audit state to decide what to do
-            const freshAudit = await getFreshAuditState(supabaseService, auditId)
-            
-            if (!freshAudit) {
-              // Audit doesn't exist - mark queue as failed
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} not found - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-no-audit',
-                'Stale pending queue item - audit not found',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is already completed or has email sent, mark queue as completed
-            if (freshAudit.status === 'completed' || 
-                (freshAudit.email_sent_at && 
-                 !freshAudit.email_sent_at.startsWith('sending_') && 
-                 freshAudit.email_sent_at.length > 10)) {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} already completed/emailed - marking queue as completed`)
-              await markQueueItemCompletedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-audit-already-completed',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is failed, mark queue as failed
-            if (freshAudit.status === 'failed') {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is failed - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-audit-failed',
-                'Stale pending queue item - audit already failed',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is too old (> 1 hour) and non-terminal, mark as failed
-            const MAX_STALE_AGE_SECONDS = 60 * 60 // 1 hour
-            if (ageSeconds > MAX_STALE_AGE_SECONDS && 
-                freshAudit.status !== 'completed' && 
-                freshAudit.status !== 'failed') {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is too old (${ageMinutes}m) and non-terminal - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-too-old',
-                `Stale pending queue item - too old (${ageMinutes}m) and audit not completed`,
-                ['pending']
-              )
-              continue
-            }
-            
-            // Otherwise, leave it pending - might be processable next time
-            console.log(`[${requestId}] [stale-cleanup] Leaving queue item ${item.id} as pending (audit status: ${freshAudit.status}, age: ${ageMinutes}m)`)
-          }
-        }
-        
-        if (nonPendingItems.length > 0) {
-          console.log(`[${requestId}] Found ${nonPendingItems.length} non-pending queue item(s) (showing 5 most recent):`)
-          nonPendingItems.slice(0, 5).forEach((item: any) => {
-            const ageMinutes = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000 / 60)
-            console.log(`[${requestId}]   - Queue ID: ${item.id}, Audit ID: ${item.audit_id}, Status: ${item.status}, Age: ${ageMinutes}m`)
-          })
-        }
-      } else {
-        console.log(`[${requestId}] ⚠️  No queue items found at all in database`)
-      }
-    }
-    
-    // Filter out audits that already have email_sent_at (client-side filter)
-    // Also filter out audits with "sending_" prefix (another process is sending)
-    // Handle both array and single object responses from Supabase
-    // First, identify and clean up any queue items for audits that already have emails sent
-    const itemsToCleanup: string[] = []
-    const itemsToKeep: any[] = []
-    
-    queueItems?.forEach((item: any) => {
-      const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-      if (!audit) {
-        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - this might indicate a database issue`)
-        itemsToKeep.push(item) // Keep items without audit data for now - they'll be filtered out later
-        return
-      }
-      // Check if email was sent - any real timestamp (not reservation) means email was sent
-      const emailWasSent = audit.email_sent_at && 
-                          !audit.email_sent_at.startsWith('sending_') &&
-                          audit.email_sent_at.length > 10
-      
-      if (emailWasSent || isEmailSent(audit.email_sent_at)) {
-        itemsToCleanup.push(item.id)
-      } else {
-        itemsToKeep.push(item) // Keep items that don't have emails sent
-      }
-    })
-    
-    // Clean up queue items - await to ensure they're marked as completed before continuing
-    // CRITICAL: Use service client to write to primary
-    if (itemsToCleanup.length > 0) {
-      console.log(`[${requestId}] Cleaning up ${itemsToCleanup.length} queue items for audits with emails already sent`)
-      // Await cleanup to ensure it completes before processing new items
-      await Promise.all(
-        itemsToCleanup.map(async (itemId) => {
-          try {
-            const { error: cleanupError } = await supabaseService
-              .from('audit_queue')
-              .update({
-                status: 'completed',
-                completed_at: new Date().toISOString(),
-              })
-              .eq('id', itemId)
-            
-            if (cleanupError) {
-              console.error(`[${requestId}] Failed to clean up queue item ${itemId}:`, cleanupError)
-            } else {
-              console.log(`[${requestId}] ✅ Cleaned up queue item ${itemId}`)
-            }
-          } catch (err) {
-            console.error(`[${requestId}] Failed to clean up queue item ${itemId}:`, err)
-          }
-        })
-      )
-    }
-    
-    // Update queueItems to exclude items that are being cleaned up
-    // This ensures we only look for processable items among the remaining ones
-    queueItems = itemsToKeep
-    
-    // Safety check: Look for audits that are pending/running but not in queue
-    // This handles cases where audits were created but never added to queue
-    // Also check for very recent queue items that might not be visible due to replication lag
-    if (!queueItems || queueItems.length === 0) {
-      console.log(`[${requestId}] No queue items found. Checking for very recent queue items (replication lag)...`)
-      
-      // Check for very recent queue items that might not be visible due to replication lag
-      // Look for items created in the last 10 minutes (broader window to catch items across multiple cron runs)
-      // Use service client to query primary database directly
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-      const { data: recentQueueItems } = await supabaseService
-        .from('audit_queue')
-        .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
-        .eq('status', 'pending')
-        .is('audits.email_sent_at', null) // Only items where email hasn't been sent
-        .gte('created_at', tenMinutesAgo)
-        .order('created_at', { ascending: true })
-        .limit(5)
-      
-      if (recentQueueItems && recentQueueItems.length > 0) {
-        console.log(`[${requestId}] Found ${recentQueueItems.length} very recent queue item(s) that might not have been visible - using them`)
-        queueItems = recentQueueItems
-      } else {
-        // Check for orphaned audits (audits not in queue)
-        console.log(`[${requestId}] No recent queue items found. Checking for audits not in queue...`)
-        // CRITICAL: Use service client to read from primary
-        const { data: orphanedAudits } = await supabaseService
-          .from('audits')
-          .select('id, url, status, created_at, email_sent_at, formatted_report_html')
-          .or('status.eq.running,status.eq.pending')
-          .is('email_sent_at', null)
-          .order('created_at', { ascending: true })
-          .limit(5)
-        
-        if (orphanedAudits && orphanedAudits.length > 0) {
-          console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
-          for (const audit of orphanedAudits) {
-            // Check if already in queue - use service client for primary read
-            const { data: existingQueue } = await supabaseService
-              .from('audit_queue')
-              .select('id')
-              .eq('audit_id', audit.id)
-              .single()
-            
-            if (!existingQueue) {
-              // Add to queue - use service client for primary write
-              const { error: addError } = await supabaseService
-                .from('audit_queue')
-                .insert({
-                  audit_id: audit.id,
-                  status: 'pending',
-                  retry_count: 0,
-                  last_error: null,
-                  created_at: new Date().toISOString(),
-                })
-              if (addError) {
-                console.error(`[${requestId}] Failed to add orphaned audit ${audit.id} to queue:`, addError)
-              } else {
-                console.log(`[${requestId}] ✅ Added orphaned audit ${audit.id} (${audit.url}) to queue`)
-              }
-            }
-          }
-          // Retry finding queue items after adding orphaned audits - use service client for primary read
-          const { data: retryQueueItems } = await supabaseService
-            .from('audit_queue')
-            .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
-            .eq('status', 'pending')
-            .is('audits.email_sent_at', null)
-            .order('created_at', { ascending: true })
-            .limit(20)
-          
-          if (retryQueueItems && retryQueueItems.length > 0) {
-            // Use the retry items as the new queue items
-            queueItems = retryQueueItems
-            console.log(`[${requestId}] ✅ Retrying with ${retryQueueItems.length} queue items after adding orphaned audits`)
-          }
-        }
-      }
-    }
-    
-    // Safety check: Look for audits that are pending/running but not in queue
-    // This handles cases where audits were created but never added to queue
-    // CRITICAL: Use service client to read from primary
-    if (!queueItems || queueItems.length === 0) {
-      console.log(`[${requestId}] No queue items found. Checking for audits not in queue...`)
-      const { data: orphanedAudits } = await supabaseService
-        .from('audits')
-        .select('id, url, status, created_at, email_sent_at, formatted_report_html')
-        .or('status.eq.running,status.eq.pending')
-        .is('email_sent_at', null)
-        .order('created_at', { ascending: true })
-        .limit(5)
-      
-      if (orphanedAudits && orphanedAudits.length > 0) {
-        console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
-        for (const audit of orphanedAudits) {
-          // Check if already in queue - use service client for primary read
-          const { data: existingQueue } = await supabaseService
-            .from('audit_queue')
-            .select('id')
-            .eq('audit_id', audit.id)
-            .single()
-          
-          if (!existingQueue) {
-            // Add to queue - use service client for primary write
-            const { error: addError } = await supabaseService
-              .from('audit_queue')
-              .insert({
-                audit_id: audit.id,
-                status: 'pending',
-                retry_count: 0,
-                last_error: null,
-                created_at: new Date().toISOString(),
-              })
-            if (addError) {
-              console.error(`[${requestId}] Failed to add orphaned audit ${audit.id} to queue:`, addError)
-            } else {
-              console.log(`[${requestId}] ✅ Added orphaned audit ${audit.id} (${audit.url}) to queue`)
-            }
-          }
-        }
-        // Retry finding queue items after adding orphaned audits - use service client for primary read
-        const { data: retryQueueItems } = await supabaseService
-          .from('audit_queue')
-          .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
-          .eq('status', 'pending')
-          .is('audits.email_sent_at', null)
-          .order('created_at', { ascending: true })
-          .limit(20)
-        
-        if (retryQueueItems && retryQueueItems.length > 0) {
-          // Use the retry items as the new queue items
-          queueItems = retryQueueItems
-          console.log(`[${requestId}] ✅ Retrying with ${retryQueueItems.length} queue items after adding orphaned audits`)
-        }
-      }
-    }
-    
-    // CRITICAL: Filter out queue items where email was already sent
-    // Use a for loop instead of find() so we can await fresh data fetches
-    // The join query might return stale data (email_sent=null even when email was sent)
-    // FIX: Add in-memory guard to skip audits with email_sent_at set BEFORE processing
+    // Declare queueItem outside the else block so it's accessible for processing
     let queueItem: any = null
     
-    for (const item of queueItems || []) {
-      let audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-      
-      // Log each item being checked
-      const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
-      const ageMinutes = Math.round(ageSeconds / 60)
-      
-      // CRITICAL: Check queue item status directly to handle replication lag
-      // If the queue item was marked as completed recently, skip it even if read replica shows pending
-      // Use service client to read from primary database
-      const { data: freshQueueItem, error: queueItemError } = await supabaseService
+    if (findOldestError || !oldestPending) {
+      // No pending items available - handle this case below
+      console.log(`[${requestId}] [atomic-claim] No pending queue items available`)
+    } else {
+      // Step 2: Atomically claim the oldest pending item by updating it to 'processing'
+      // This UPDATE will only succeed if the item is still 'pending' (atomic check)
+      const { data: claimedRow, error: claimError } = await supabasePrimary
         .from('audit_queue')
-        .select('status, completed_at')
-        .eq('id', item.id)
+        .update({
+          status: 'processing',
+          started_at: new Date().toISOString(),
+          retry_count: (oldestPending.retry_count || 0) + 1, // Increment retry count on claim
+        })
+        .eq('id', oldestPending.id)
+        .eq('status', 'pending') // CRITICAL: Only update if still pending (atomic claim)
+        .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
         .single()
       
-      if (!queueItemError && freshQueueItem) {
-        // If queue item is already completed or failed, skip it
-        if (freshQueueItem.status === 'completed' || freshQueueItem.status === 'failed') {
-          console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} - queue status is '${freshQueueItem.status}' (completed_at: ${freshQueueItem.completed_at || 'null'}, may be due to replication lag)`)
-          continue
+      if (claimError || !claimedRow) {
+        // Claim failed - another worker got it first, or item no longer pending
+        if (claimError?.code === 'PGRST116') {
+          console.log(`[${requestId}] [atomic-claim] Failed to claim item ${oldestPending.id} - already claimed by another worker or no longer pending`)
+        } else {
+          console.error(`[${requestId}] [atomic-claim] Error claiming queue item:`, claimError)
         }
-        // If queue item was completed recently (within last 10 minutes), skip it to avoid reprocessing
-        if (freshQueueItem.completed_at) {
-          const completedAge = Date.now() - new Date(freshQueueItem.completed_at).getTime()
-          const completedAgeMinutes = Math.round(completedAge / 1000 / 60)
-          if (completedAgeMinutes < 10) {
-            console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} - was completed ${completedAgeMinutes}m ago (may be due to replication lag)`)
-            continue
+        
+        // Return early - no work available (another worker claimed it or it was completed)
+        return NextResponse.json({
+          success: true,
+          message: 'No pending audits available (may have been claimed by another worker)',
+          processed: false,
+        })
+      }
+      
+      // Successfully claimed a queue item - log it
+      const audit = Array.isArray(claimedRow.audits) ? claimedRow.audits[0] : claimedRow.audits
+      const ageMinutes = Math.round((Date.now() - new Date(claimedRow.created_at).getTime()) / 1000 / 60)
+      console.log(`[${requestId}] [atomic-claim] ✅ Claimed queue item: id=${claimedRow.id}, audit_id=${claimedRow.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`)
+      
+      // Use claimedRow as queueItem for the rest of the processing
+      queueItem = claimedRow
+      
+      // CRITICAL: Verify the claimed item is still valid before processing
+      // Even though we atomically claimed it, we should verify the audit hasn't been completed
+      // This is a safety net, not the primary locking mechanism
+      if (queueItem.audit_id) {
+        const { data: auditStatusCheck } = await supabasePrimary
+          .from('audits')
+          .select('status, email_sent_at')
+          .eq('id', queueItem.audit_id)
+          .single()
+        
+        if (auditStatusCheck) {
+          // If audit already has email sent, release the claim and skip
+          if (auditStatusCheck.email_sent_at && 
+              !auditStatusCheck.email_sent_at.startsWith('sending_') && 
+              auditStatusCheck.email_sent_at.length > 10) {
+            const emailAge = Math.round((Date.now() - new Date(auditStatusCheck.email_sent_at).getTime()) / 1000 / 60)
+            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} already has email_sent_at=${auditStatusCheck.email_sent_at} (${emailAge}m old) - releasing claim and marking queue as completed`)
+            await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-email-sent', ['processing'])
+            return NextResponse.json({
+              success: true,
+              message: 'Audit skipped - email already sent (caught after atomic claim)',
+              processed: false,
+              auditId: queueItem.audit_id,
+              email_sent_at: auditStatusCheck.email_sent_at,
+            })
           }
-        }
-      }
-      
-      // FALLBACK: If join didn't return audit data, fetch it separately
-      // Use service client for fresh read from primary database
-      if (!audit && item.audit_id) {
-        console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately`)
-        const { data: fetchedAudit } = await supabaseService
-          .from('audits')
-          .select('email_sent_at, status, formatted_report_html, url')
-          .eq('id', item.audit_id)
-          .single()
-        audit = fetchedAudit
-      }
-      
-      if (!audit) {
-        console.warn(`[${requestId}] ⚠️  Skipping queue item ${item.id} (audit_id: ${item.audit_id}) - no audit data available`)
-        continue
-      }
-      
-      // CRITICAL: In-memory guard - check email_sent_at BEFORE processing
-      // This prevents reprocessing audits that already have emails sent
-      // Use unified helper to ensure consistency with reservation verification
-      const freshAuditCheck = await getFreshAuditState(supabaseService, item.audit_id)
-      
-      if (!freshAuditCheck) {
-        console.warn(`[${requestId}] ⚠️  Audit ${item.audit_id} not found - skipping`)
-        continue
-      }
-      
-      // Log fresh check result in the format requested
-      const hasReportFromFreshCheck = !!freshAuditCheck.formatted_report_html
-      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck.status || 'null'}, email_sent_at=${freshAuditCheck.email_sent_at || 'null'}, has_report=${hasReportFromFreshCheck}`)
-      
-      // EARLY EXIT: If email was already sent, do NOT reprocess - just finalize the queue row and move on
-      if (freshAuditCheck.email_sent_at) {
-        const emailAge = getEmailSentAtAge(freshAuditCheck.email_sent_at)
-        const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
-        
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${freshAuditCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and moving to next item`)
-        
-        // Mark queue item as completed - only update if still pending (prevents repeated updates)
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'early-guard-email-sent', ['pending'])
-        
-        // Continue to next queue item instead of processing this one
-        continue
-      }
-      
-      // Use the fresh audit check we already fetched (no need to re-query)
-      const freshEmailCheck = freshAuditCheck
-      const emailSentAt = freshEmailCheck.email_sent_at || audit?.email_sent_at
-      
-      // Log what we found for debugging - include status
-      console.log(`[${requestId}] 🔍 Fresh check result for audit ${item.audit_id}: status=${freshEmailCheck.status || 'null'}, fresh_email=${freshEmailCheck.email_sent_at || 'null'}, join_email=${audit?.email_sent_at || 'null'}, using=${emailSentAt || 'null'}`)
-      
-      if (freshEmailCheck.email_sent_at && !audit?.email_sent_at) {
-        console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
-      }
-      
-      // CRITICAL: If audit is old (>5 minutes) and has a report, but email_sent_at is still null,
-      // check one more time with a longer delay to handle severe replication lag
-      if (!emailSentAt && ageMinutes > 5 && freshEmailCheck.formatted_report_html) {
-        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} is old (${ageMinutes}m) with report but email_sent_at is null - doing final check for replication lag`)
-        await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
-        
-        const { data: finalCheck } = await supabaseService
-          .from('audits')
-          .select('email_sent_at, status, completed_at')
-          .eq('id', item.audit_id)
-          .single()
-        
-        if (finalCheck?.email_sent_at) {
-          const finalAge = getEmailSentAtAge(finalCheck.email_sent_at)
-          const finalAgeMinutes = finalAge ? Math.round(finalAge / 1000 / 60) : null
-          console.log(`[${requestId}] 🔍 Final check found email_sent_at=${finalCheck.email_sent_at} (${finalAgeMinutes}m old) - was replication lag`)
           
-          // Use the final check result
-          if (isEmailSent(finalCheck.email_sent_at)) {
-            console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email was sent (final check: ${finalCheck.email_sent_at})`)
-            await supabaseService
-              .from('audit_queue')
-              .update({
-                status: 'completed',
-                completed_at: new Date().toISOString(),
-              })
-              .eq('id', item.id)
-              .eq('status', 'pending') // Only update if still pending
-            continue
+          // If audit is already completed, release the claim and skip
+          if (auditStatusCheck.status === 'completed') {
+            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already completed - releasing claim and marking queue as completed`)
+            await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-audit-completed', ['processing'])
+            return NextResponse.json({
+              success: true,
+              message: 'Audit skipped - already completed (caught after atomic claim)',
+              processed: false,
+              auditId: queueItem.audit_id,
+            })
+          }
+          
+          // If audit is already failed, release the claim and skip
+          if (auditStatusCheck.status === 'failed') {
+            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already failed - releasing claim and marking queue as failed`)
+            await markQueueItemFailedWithLogging(
+              requestId,
+              queueItem.id,
+              'post-claim-verify-audit-failed',
+              'Audit already marked as failed - skipping reprocessing',
+              ['processing']
+            )
+            return NextResponse.json({
+              success: true,
+              message: 'Audit skipped - already failed (caught after atomic claim)',
+              processed: false,
+              auditId: queueItem.audit_id,
+            })
           }
         }
       }
       
-      // Additional safeguard: If audit has a report and is older than 2 minutes, assume it's been processed
-      // This handles cases where replication lag prevents us from seeing email_sent_at or status updates
-      const hasReportEarly = freshEmailCheck.formatted_report_html || audit?.formatted_report_html
-      if (hasReportEarly && ageMinutes > 2) {
-        // Audit has a report and is older than 2 minutes - likely already processed
-        // Check one more time if email was sent (might have propagated by now)
-        const { data: finalCheck } = await supabaseService
-          .from('audits')
-          .select('email_sent_at, status')
-          .eq('id', item.audit_id)
-          .single()
-        
-        if (finalCheck?.email_sent_at && 
-            !finalCheck.email_sent_at.startsWith('sending_') && 
-            finalCheck.email_sent_at.length > 10) {
-          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and email was sent (final check: ${finalCheck.email_sent_at})`)
-          await supabaseService
-            .from('audit_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', item.id)
-            .eq('status', 'pending') // Only update if still pending
-          continue
-        }
-        
-        if (finalCheck?.status === 'completed' || finalCheck?.status === 'failed') {
-          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and status is '${finalCheck.status}' (final check)`)
-          await supabaseService
-            .from('audit_queue')
-            .update({
-              status: finalCheck.status,
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', item.id)
-            .eq('status', 'pending') // Only update if still pending
-          continue
-        }
-      }
-      
-      // Additional safeguard: Check audit status FIRST to avoid replication lag issues
-      // Use fresh check status first, fallback to join data status if fresh check doesn't have it
-      const auditStatus = freshEmailCheck.status || audit?.status
-      
-      // Skip if audit is already completed
-      if (auditStatus === 'completed') {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'}, email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
-        // Mark queue item as completed since audit is already completed
-        const { error: updateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', item.id)
-          .eq('status', 'pending') // Only update if still pending
-        
-        if (updateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
-        } else {
-          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as completed (audit already completed)`)
-        }
-        continue
-      }
-      
-      // Skip if audit is already failed (permanent error, no retry needed)
-      if (auditStatus === 'failed') {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'failed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'})`)
-        // Mark queue item as failed to match audit status
-        const failResult = await markQueueItemFailedWithLogging(
-          supabaseService,
-          requestId,
-          item.id,
-          'fresh-check-failed-audit',
-          'Audit already marked as failed - skipping reprocessing',
-          ['pending', 'processing']
-        )
-        if (failResult === 'updated' || failResult === 'already-terminal') {
-          console.log(`[${requestId}] ✅ Queue item ${item.id} marked as failed (audit already failed)`)
-        }
-        continue
-      }
-      
-      // Skip if email was already sent (not a reservation)
-      // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >2 minutes old)
-      if (emailSentAt && 
-          !emailSentAt.startsWith('sending_') && 
-          emailSentAt.length > 10) {
-        // Valid timestamp exists - email was sent (regardless of age)
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check: ${freshEmailCheck.email_sent_at ? 'found' : 'not found'}, join: ${audit?.email_sent_at || 'null'})`)
-        // Mark queue item as completed since email was sent
-        const { error: updateError } = await supabaseService
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', item.id)
-          .eq('status', 'pending') // Only update if still pending
-        
-        if (updateError) {
-          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
-        } else {
-          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as completed (email already sent)`)
-        }
-        continue
-      }
-      
-      // Skip if email is being sent (reservation exists - another process is handling it)
-      if (emailSentAt && emailSentAt.startsWith('sending_')) {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - another process is sending email (reserved at ${emailSentAt})`)
-        continue
-      }
-      
-      // Additional check: If audit has a report but email_sent_at is null, it might be due to replication lag
-      // Check both join data and fresh data for report existence
-      // This helps catch cases where the fresh check returned null due to replication lag
-      const hasReportInJoin = audit?.formatted_report_html
-      const hasReportInFresh = freshEmailCheck?.formatted_report_html
-      const hasReport = hasReportInJoin || hasReportInFresh
-      
-      if (hasReport && !emailSentAt) {
-        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} has report (join=${!!hasReportInJoin}, fresh=${!!hasReportInFresh}) but email_sent_at is null - doing additional check for replication lag`)
-        // Try to get email_sent_at and status one more time - this might hit a different replica
-        // Also check formatted_report_html to confirm report exists
-        const { data: doubleCheck } = await supabaseService
-          .from('audits')
-          .select('email_sent_at, status, formatted_report_html')
-          .eq('id', item.audit_id)
-          .single()
-        
-        if (doubleCheck?.email_sent_at && 
-            !doubleCheck.email_sent_at.startsWith('sending_') && 
-            doubleCheck.email_sent_at.length > 10) {
-          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found email_sent_at=${doubleCheck.email_sent_at} (replication lag detected)`)
-          // Mark queue item as completed
-          await supabaseService
-            .from('audit_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', item.id)
-            .eq('status', 'pending') // Only update if still pending
-          continue
-        }
-        
-        // Also check if status is completed in double check
-        if (doubleCheck?.status === 'completed') {
-          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found status=completed (replication lag detected)`)
-          // Mark queue item as completed
-          await supabaseService
-            .from('audit_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', item.id)
-            .eq('status', 'pending') // Only update if still pending
-          continue
-        }
-      }
-      
-      // CRITICAL: Final fresh check on primary before committing to process this item
-      // This prevents processing items that were completed by another worker between selection and now
-      // Re-check both queue status and audit email_sent_at on primary to ensure they're still valid
-      const { data: finalQueueCheck, error: finalQueueCheckError } = await supabaseService
-        .from('audit_queue')
-        .select(`
-          id,
-          status,
-          audits!inner(
-            id,
-            email_sent_at,
-            status
-          )
-        `)
-        .eq('id', item.id)
-        .eq('status', 'pending') // Must still be pending
-        .is('audits.email_sent_at', null) // Email must still not be sent
-        .single()
-      
-      if (finalQueueCheckError || !finalQueueCheck) {
-        // Item no longer qualifies - was completed/failed or email was sent by another worker
-        // Re-read the queue item and audit to get current state for logging
-        const { data: currentQueueItem } = await supabaseService
-          .from('audit_queue')
-          .select('status')
-          .eq('id', item.id)
-          .maybeSingle()
-        
-        const { data: currentAudit } = await supabaseService
-          .from('audits')
-          .select('email_sent_at')
-          .eq('id', item.audit_id)
-          .maybeSingle()
-        
-        const currentStatus = currentQueueItem?.status || 'unknown'
-        const currentEmailSent = currentAudit?.email_sent_at || 'null'
-        
-        console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} (audit ${item.audit_id}) - no longer qualifies after fresh check (queue_status=${currentStatus}, email_sent_at=${currentEmailSent}) - likely completed by another worker`)
-        
-        // If it was completed, mark it as such (idempotent)
-        if (currentStatus === 'completed' || (currentEmailSent && !currentEmailSent.startsWith('sending_') && currentEmailSent.length > 10)) {
-          await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'fresh-check-already-completed', ['pending', 'processing'])
-        }
-        
-        // Continue to next item instead of processing this one
-        continue
-      }
-      
-      // CRITICAL: Final per-item primary guard RIGHT before committing to process
-      // This is the absolute last check - re-read both queue and audit on primary
-      // This catches any replica lag that slipped through earlier checks
-      const { data: finalQueueRow, error: finalQueueErr } = await supabaseService
-        .from('audit_queue')
-        .select('status, completed_at')
-        .eq('id', item.id)
-        .single()
-      
-      const { data: finalAuditRow, error: finalAuditErr } = await supabaseService
-        .from('audits')
-        .select('status, email_sent_at, formatted_report_html')
-        .eq('id', item.audit_id)
-        .single()
-      
-      // Sanity log to prove we're seeing fresh data
-      console.log(`[${requestId}] [pre-process-check] queueId=${item.id}, auditId=${item.audit_id}, queueStatus=${finalQueueRow?.status || 'error'}, queueEmailSentAt=${finalQueueRow?.completed_at || 'null'}, auditStatus=${finalAuditRow?.status || 'error'}, auditEmailSentAt=${finalAuditRow?.email_sent_at || 'null'}, auditHasReport=${!!finalAuditRow?.formatted_report_html}`)
-      
-      // If we can't read either row, skip this item
-      if (finalQueueErr || finalAuditErr || !finalQueueRow || !finalAuditRow) {
-        console.warn(`[${requestId}] [pre-process-check] Failed to read final state - skipping item (queueErr=${!!finalQueueErr}, auditErr=${!!finalAuditErr})`)
-        continue
-      }
-      
-      // Final guard: skip if queue is not pending OR audit already has email sent
-      if (finalQueueRow.status !== 'pending') {
-        console.log(`[${requestId}] [pre-process-check] Queue status is '${finalQueueRow.status}' (not pending) - skipping`)
-        continue
-      }
-      
-      if (finalAuditRow.email_sent_at && 
-          !finalAuditRow.email_sent_at.startsWith('sending_') && 
-          finalAuditRow.email_sent_at.length > 10) {
-        const emailAge = Math.round((Date.now() - new Date(finalAuditRow.email_sent_at).getTime()) / 1000 / 60)
-        console.log(`[${requestId}] [pre-process-check] Audit already has email_sent_at=${finalAuditRow.email_sent_at} (${emailAge}m old) - marking queue as completed and skipping`)
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-email-sent', ['pending'])
-        continue
-      }
-      
-      if (finalAuditRow.status === 'completed' || finalAuditRow.status === 'failed') {
-        console.log(`[${requestId}] [pre-process-check] Audit status is '${finalAuditRow.status}' - marking queue accordingly and skipping`)
-        if (finalAuditRow.status === 'completed') {
-          await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-audit-completed', ['pending'])
-        } else {
-          await markQueueItemFailedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-audit-failed', 'Audit already failed', ['pending'])
-        }
-        continue
-      }
-      
-      // This item passes ALL checks including final pre-process guard - safe to process
-      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'}) - verified fresh on primary with pre-process-check`)
-      queueItem = item
-      break // Found a processable item, stop searching
+      // Continue with the rest of the processing logic using queueItem
+      // The queueItem is already in 'processing' status, so we can proceed directly to processing
     }
     
-    if (!queueItem) {
-      // No delay - all pending items should be processable
-      if (queueItems && queueItems.length > 0) {
-        // This is important - we have queue items but none passed the filter
-        console.warn(`[${requestId}] ⚠️  Found ${queueItems.length} pending queue items but none passed filtering criteria`)
-        console.warn(`[${requestId}] This might indicate a bug in the filtering logic or missing audit data in joins`)
-        
-        // Clean up stale pending items that didn't pass filtering
-        const staleItems: any[] = []
-        for (const item of queueItems) {
-          const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
-          const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
-          const ageMinutes = Math.round(ageSeconds / 60)
-          const passesEmail = !isEmailSent(audit?.email_sent_at) && !isEmailSending(audit?.email_sent_at)
-          
-          console.warn(`[${requestId}]   - Queue item ${item.id} (audit_id: ${item.audit_id}):`)
-          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageMinutes}m, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
-          console.warn(`[${requestId}]     passes_email=${passesEmail}, should_process=${passesEmail && audit ? 'YES' : 'NO'}`)
-          
-          staleItems.push({ item, audit, ageMinutes })
-        }
-        
-        // Clean up stale pending items
-        if (staleItems.length > 0) {
-          console.log(`[${requestId}] [stale-cleanup] Cleaning up ${staleItems.length} stale pending queue items`)
-          
-          for (const { item, audit: joinAudit, ageMinutes } of staleItems) {
-            const auditId = item.audit_id
-            
-            // Fetch fresh audit state to decide what to do
-            const freshAudit = await getFreshAuditState(supabaseService, auditId)
-            
-            if (!freshAudit) {
-              // Audit doesn't exist - mark queue as failed
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} not found - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-no-audit',
-                'Stale pending queue item - audit not found',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is already completed or has email sent, mark queue as completed
-            if (freshAudit.status === 'completed' || 
-                (freshAudit.email_sent_at && 
-                 !freshAudit.email_sent_at.startsWith('sending_') && 
-                 freshAudit.email_sent_at.length > 10)) {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} already completed/emailed - marking queue as completed`)
-              await markQueueItemCompletedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-audit-already-completed',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is failed, mark queue as failed
-            if (freshAudit.status === 'failed') {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is failed - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-audit-failed',
-                'Stale pending queue item - audit already failed',
-                ['pending']
-              )
-              continue
-            }
-            
-            // If audit is too old (> 4 hours) and non-terminal, mark as failed
-            const MAX_STALE_AGE_MINUTES = 4 * 60 // 4 hours
-            if (ageMinutes > MAX_STALE_AGE_MINUTES && 
-                freshAudit.status !== 'completed' && 
-                freshAudit.status !== 'failed') {
-              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is too old (${ageMinutes}m) and non-terminal - marking queue as failed`)
-              await markQueueItemFailedWithLogging(
-                supabaseService,
-                requestId,
-                item.id,
-                'stale-pending-too-old',
-                `Stale pending queue item - too old (${ageMinutes}m) and audit not completed`,
-                ['pending']
-              )
-              continue
-            }
-            
-            // Otherwise, leave it pending - might be processable next time
-            console.log(`[${requestId}] [stale-cleanup] Leaving queue item ${item.id} as pending (audit status: ${freshAudit.status}, age: ${ageMinutes}m)`)
-          }
-        }
-      } else {
-        console.log(`[${requestId}] No pending audits in queue`)
-      }
-      
-      // Check if there are any stuck items (processing for too long)
-      // Use service client for fresh read from primary database
-      const { data: stuckItems } = await supabaseService
+    // If we reach here, no item was claimed - check for stuck items and return
+    if (!oldestPending) {
+      // Check for stuck processing items (processing for too long)
+      const { data: stuckItems } = await supabasePrimary
         .from('audit_queue')
         .select('*, audits(*)')
         .eq('status', 'processing')
@@ -1223,7 +384,7 @@ export async function GET(request: NextRequest) {
           if (auditIsComplete) {
             // Audit is already done - mark queue as completed directly
             console.log(`[${requestId}] [stuck-reset] Audit ${auditId} is already completed - marking queue as completed`)
-            const { data: completeResult, error: completeError } = await supabaseService
+            const { data: completeResult, error: completeError } = await supabasePrimary
               .from('audit_queue')
               .update({
                 status: 'completed',
@@ -1255,7 +416,7 @@ export async function GET(request: NextRequest) {
             }, null, 2)
             
             // Update audit status to failed
-            await supabaseService
+            await supabasePrimary
               .from('audits')
               .update({
                 status: 'failed',
@@ -1268,7 +429,7 @@ export async function GET(request: NextRequest) {
           
           // Reset queue item to pending (if retries left) or failed
           const shouldRetry = stuckItem.retry_count < 3
-          const { data: resetResult, error: resetError } = await supabaseService
+          const { data: resetResult, error: resetError } = await supabasePrimary
             .from('audit_queue')
             .update({
               status: shouldRetry ? 'pending' : 'failed',
@@ -1284,7 +445,7 @@ export async function GET(request: NextRequest) {
             console.error(`[${requestId}] [stuck-reset] Error resetting stuck item ${stuckItem.id}:`, resetError)
           } else if (reset_updated_rows === 0) {
             // Re-read to see what happened
-            const { data: currentRow } = await supabaseService
+            const { data: currentRow } = await supabasePrimary
               .from('audit_queue')
               .select('status')
               .eq('id', stuckItem.id)
@@ -1325,6 +486,21 @@ export async function GET(request: NextRequest) {
       })
     }
     
+    // If we reach here, we should have a queueItem from the atomic claim above
+    // But if we don't (shouldn't happen), return early
+    if (!queueItem) {
+      console.error(`[${requestId}] [atomic-claim] Logic error: no queueItem after atomic claim`)
+      return NextResponse.json({
+        success: false,
+        message: 'Logic error: no queue item after atomic claim',
+        processed: false,
+      }, { status: 500 })
+    }
+    
+    // Continue with processing the claimed queueItem
+    // All the old queueItems loop logic has been removed - we now work with a single claimedRow
+    // The queueItem is already in 'processing' status from the atomic claim, so we can proceed directly to processing
+    
     // Additional checks: skip if audit is already completed
     // Now we know queueItem exists, so we can safely access its properties
     const auditData = (queueItem.audits as any) || null;
@@ -1335,14 +511,14 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
         // Mark queue item as completed since email was sent
         // Only update if still pending (prevents repeated updates)
-        await supabaseService
+        await supabasePrimary
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
-          .eq('status', 'pending') // Only update if still pending
+          .eq('status', 'processing') // Only update if still processing
         
         return NextResponse.json({
           success: true,
@@ -1372,14 +548,14 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report and email sent`)
         // Mark queue item as completed
         // Only update if still pending (prevents repeated updates)
-        await supabaseService
+        await supabasePrimary
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
-          .eq('status', 'pending') // Only update if still pending
+          .eq('status', 'processing') // Only update if still processing
         
         return NextResponse.json({
           success: true,
@@ -1401,7 +577,7 @@ export async function GET(request: NextRequest) {
       if (auditData.formatted_report_html && auditData.status !== 'completed') {
         console.log(`[${requestId}] ⚠️  Audit ${queueItem.audit_id} has report but wrong status (${auditData.status}) - fixing...`)
         // Use service client for fresh read/write from primary database
-        const { error: fixError } = await supabaseService
+        const { error: fixError } = await supabasePrimary
           .from('audits')
           .update({
             status: 'completed',
@@ -1414,8 +590,8 @@ export async function GET(request: NextRequest) {
         } else {
           console.log(`[${requestId}] ✅ Fixed audit status to completed`)
           // Mark queue as completed since audit is actually done
-          // Use service client and only update if still pending
-          await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'status-fix', ['pending'])
+          // Use service client and only update if still processing
+          await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'status-fix', ['processing'])
           
           return NextResponse.json({
             success: true,
@@ -1433,7 +609,7 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (${queueItem.retry_count})`)
         // Mark as failed permanently
         // Use service client for fresh write to primary database
-        await supabaseService
+        await supabasePrimary
           .from('audit_queue')
           .update({
             status: 'failed',
@@ -1455,13 +631,13 @@ export async function GET(request: NextRequest) {
     // CRITICAL: Final sanity check RIGHT before processing - re-read both queue and audit on primary
     // This is the absolute last line of defense against replica lag
     // Even if all previous checks passed, this final check ensures we're seeing fresh data
-    const { data: sanityQueueCheck, error: sanityQueueErr } = await supabaseService
+    const { data: sanityQueueCheck, error: sanityQueueErr } = await supabasePrimary
       .from('audit_queue')
       .select('status, completed_at')
       .eq('id', queueItem.id)
       .single()
     
-    const { data: sanityAuditCheck, error: sanityAuditErr } = await supabaseService
+    const { data: sanityAuditCheck, error: sanityAuditErr } = await supabasePrimary
       .from('audits')
       .select('status, email_sent_at, formatted_report_html, customers(email)')
       .eq('id', auditId)
@@ -1479,12 +655,13 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    // Final guard: abort if queue is not pending OR audit already has email sent
-    if (sanityQueueCheck.status !== 'pending') {
-      console.log(`[${requestId}] [pre-process-sanity] Queue status is '${sanityQueueCheck.status}' (not pending) - aborting processing`)
+    // Final guard: abort if queue is not processing OR audit already has email sent
+    // Note: queueItem should be in 'processing' status from atomic claim
+    if (sanityQueueCheck.status !== 'processing') {
+      console.log(`[${requestId}] [pre-process-sanity] Queue status is '${sanityQueueCheck.status}' (not processing) - aborting processing`)
       return NextResponse.json({
         success: true,
-        message: 'Queue item no longer pending - skipping processing',
+        message: 'Queue item no longer processing - skipping processing',
         processed: false,
         auditId,
         queueStatus: sanityQueueCheck.status,
@@ -1496,7 +673,7 @@ export async function GET(request: NextRequest) {
         sanityAuditCheck.email_sent_at.length > 10) {
       const emailAge = Math.round((Date.now() - new Date(sanityAuditCheck.email_sent_at).getTime()) / 1000 / 60)
       console.log(`[${requestId}] [pre-process-sanity] ⛔ ABORTING - Audit already has email_sent_at=${sanityAuditCheck.email_sent_at} (${emailAge}m old) - marking queue as completed`)
-      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-email-sent', ['pending'])
+      await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'pre-process-sanity-email-sent', ['processing'])
       
       return NextResponse.json({
         success: true,
@@ -1510,9 +687,9 @@ export async function GET(request: NextRequest) {
     if (sanityAuditCheck.status === 'completed' || sanityAuditCheck.status === 'failed') {
       console.log(`[${requestId}] [pre-process-sanity] Audit status is '${sanityAuditCheck.status}' - marking queue accordingly and aborting`)
       if (sanityAuditCheck.status === 'completed') {
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-audit-completed', ['pending'])
+        await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'pre-process-sanity-audit-completed', ['processing'])
       } else {
-        await markQueueItemFailedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-audit-failed', 'Audit already failed', ['pending'])
+        await markQueueItemFailedWithLogging(requestId, queueItem.id, 'pre-process-sanity-audit-failed', 'Audit already failed', ['processing'])
       }
       
       return NextResponse.json({
@@ -1544,7 +721,7 @@ export async function GET(request: NextRequest) {
         console.error(`[${requestId}] ❌ Invalid email address for audit ${auditId}: ${customerEmail}`)
         // Mark queue item as failed with error message
         // Use service client for fresh write to primary database
-        await supabaseService
+        await supabasePrimary
           .from('audit_queue')
           .update({
             status: 'failed',
@@ -1561,7 +738,7 @@ export async function GET(request: NextRequest) {
         }, null, 2)
         
         // Use service client for fresh write to primary database
-        await supabaseService
+        await supabasePrimary
           .from('audits')
           .update({
             error_log: errorLog,
@@ -1582,35 +759,16 @@ export async function GET(request: NextRequest) {
       console.warn(`[${requestId}] ⚠️  No customer email found for audit ${auditId} - will fail in processAudit`)
     }
 
-    // Mark as processing
-    // Use service client for fresh write to primary database
-    const { error: updateError } = await supabaseService
-      .from('audit_queue')
-      .update({
-        status: 'processing',
-        started_at: new Date().toISOString(),
-        retry_count: queueItem.retry_count + 1,
-      })
-      .eq('id', queueItem.id)
-      .in('status', ['pending', 'running']) // Only update if still pending or running
-
-    if (updateError) {
-      console.error('Error updating queue status:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update queue status', details: updateError.message },
-        { status: 500 }
-      )
-    }
-
+    // Note: queueItem is already marked as 'processing' from the atomic claim, so we don't need to update it again
     // Process the audit
     // With Netlify Pro, we have 26 seconds timeout, but full audits can take longer
-    // Strategy: Attempt full processing, but return early if taking too long
+    // Strategy: Attempt full processing, but return early if it takes too long
     // The processing will continue in the background (Netlify allows this)
     
     // CRITICAL: Early guard - check if email was already sent BEFORE processing
     // This prevents reprocessing audits that already have emails sent
     // Use unified helper to ensure consistency with queue selection and reservation verification
-    const preProcessCheck = await getFreshAuditState(supabaseService, auditId)
+    const preProcessCheck = await getFreshAuditState(auditId)
     
     if (!preProcessCheck) {
       console.error(`[${requestId}] ❌ Audit ${auditId} not found before processing`)
@@ -1630,8 +788,8 @@ export async function GET(request: NextRequest) {
       
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
-      // Mark queue item as completed - only update if still pending (prevents repeated updates)
-      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-email-sent', ['pending'])
+      // Mark queue item as completed - only update if still processing (prevents repeated updates)
+      await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'pre-process-email-sent', ['processing'])
       
       return NextResponse.json({
         success: true,
@@ -1666,7 +824,7 @@ export async function GET(request: NextRequest) {
       // For full audits, we'll attempt processing but return early if it takes too long
       // The processing will continue in the background
       // CRITICAL: Pass service client to processAudit to ensure all DB operations use same client
-      const processPromise = processAudit(auditId, supabaseService)
+      const processPromise = processAudit(auditId, supabasePrimary)
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
           processTimedOut = true
@@ -1681,7 +839,7 @@ export async function GET(request: NextRequest) {
       // Verification: Check if audit is actually completed with report
       // This ensures we don't mark queue as completed if processAudit failed silently
       // Use service client for fresh read from primary database
-      const { data: verifyAudit } = await supabaseService
+      const { data: verifyAudit } = await supabasePrimary
         .from('audits')
         .select('status, formatted_report_html, email_sent_at')
         .eq('id', auditId)
@@ -1703,7 +861,7 @@ export async function GET(request: NextRequest) {
         // Email was sent - mark queue as completed immediately
         // CRITICAL: Update by queue row id - queue item is likely in 'processing' status at this point
         // This prevents the same item from being selected on the next run
-        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'email-sent', ['processing', 'pending'])
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'email-sent', ['processing'])
         if (completionResult === 'updated' || completionResult === 'already-completed') {
           console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
         }
@@ -1735,7 +893,7 @@ export async function GET(request: NextRequest) {
           console.warn(`[${requestId}] ⚠️  Audit ${auditId} has ${hasReport ? 'report' : 'email'} but status is ${verifyAudit.status} - fixing status to completed`)
           
           // Fix audit status to completed
-          const { error: fixStatusError } = await supabaseService
+          const { error: fixStatusError } = await supabasePrimary
             .from('audits')
             .update({
               status: 'completed',
@@ -1751,8 +909,8 @@ export async function GET(request: NextRequest) {
         }
         
         // Mark queue as completed
-        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
-        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, `has-${hasReport ? 'report' : 'email'}`, ['processing', 'pending'])
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' status
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, `has-${hasReport ? 'report' : 'email'}`, ['processing'])
         if (completionResult === 'updated' || completionResult === 'already-completed') {
           console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed`)
         }
@@ -1771,7 +929,7 @@ export async function GET(request: NextRequest) {
         // Audit processing didn't complete properly - no report and no email
         // CRITICAL: Re-check one more time before throwing error (handles race conditions)
         // Use service client for fresh read from primary database
-        const { data: finalCheck } = await supabaseService
+        const { data: finalCheck } = await supabasePrimary
           .from('audits')
           .select('status, formatted_report_html, email_sent_at, completed_at')
           .eq('id', auditId)
@@ -1794,7 +952,7 @@ export async function GET(request: NextRequest) {
           
           // Fix audit status
           if (!finalIsComplete) {
-            await supabaseService
+            await supabasePrimary
               .from('audits')
               .update({
                 status: 'completed',
@@ -1804,9 +962,9 @@ export async function GET(request: NextRequest) {
           }
           
           // Mark queue as completed
-          // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
+          // CRITICAL: Update by queue row id - queue item may be in 'processing' status
           // This prevents the same item from being selected on the next run
-          const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'final-check-reconciliation', ['processing', 'pending'])
+          const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'final-check-reconciliation', ['processing'])
           if (completionResult === 'updated' || completionResult === 'already-completed') {
             console.log(`[${requestId}] ✅ Queue marked as completed in final check`)
           }
@@ -1836,7 +994,7 @@ export async function GET(request: NextRequest) {
         // Continue processing in background (fire and forget)
         // Netlify allows background promises to continue after function returns
         // CRITICAL: Pass service client to processAudit to ensure all DB operations use same client
-        processAudit(auditId, supabaseService).catch((bgError) => {
+        processAudit(auditId, supabasePrimary).catch((bgError) => {
           console.error(`[${requestId}] Background processing error for ${auditId}:`, bgError)
         })
         
@@ -1857,7 +1015,7 @@ export async function GET(request: NextRequest) {
       // CRITICAL: Re-check audit status one more time before marking as failed
       // This handles race conditions where the report/email were generated but not yet visible
       // Use service client for fresh read from primary database
-      const { data: currentAudit } = await supabaseService
+      const { data: currentAudit } = await supabasePrimary
         .from('audits')
         .select('status, formatted_report_html, email_sent_at, completed_at')
         .eq('id', auditId)
@@ -1878,7 +1036,7 @@ export async function GET(request: NextRequest) {
 
         // Fix audit status to completed
         if (!isCompletedNow) {
-          const { error: fixAfterError } = await supabaseService
+          const { error: fixAfterError } = await supabasePrimary
             .from('audits')
             .update({
               status: 'completed',
@@ -1894,9 +1052,9 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' status
         // This prevents the same item from being selected on the next run
-        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing', 'pending'])
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing'])
         if (completionResult === 'updated' || completionResult === 'already-completed') {
           console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
         }
@@ -1922,7 +1080,7 @@ export async function GET(request: NextRequest) {
 
         // If status is not completed, fix it
         if (!isCompletedNow) {
-          const { error: fixAfterError } = await supabaseService
+          const { error: fixAfterError } = await supabasePrimary
             .from('audits')
             .update({
               status: 'completed',
@@ -1938,9 +1096,9 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' status
         // This prevents the same item from being selected on the next run
-        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing', 'pending'])
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing'])
         if (completionResult === 'updated' || completionResult === 'already-completed') {
           console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
         }
@@ -1966,7 +1124,7 @@ export async function GET(request: NextRequest) {
         }, null, 2)
         
         // Try to update audit status to failed
-        const { error: auditUpdateError } = await supabaseService
+        const { error: auditUpdateError } = await supabasePrimary
           .from('audits')
           .update({
             status: 'failed',
@@ -1977,7 +1135,7 @@ export async function GET(request: NextRequest) {
         if (auditUpdateError) {
           console.error(`[${requestId}] Failed to update audit status to failed:`, auditUpdateError)
           // Try without error_log if column does not exist
-          await supabaseService
+          await supabasePrimary
             .from('audits')
             .update({ status: 'failed' })
             .eq('id', auditId)
@@ -1994,7 +1152,7 @@ export async function GET(request: NextRequest) {
       // Also check the audit's error_log if it exists (contains the original error)
       if (currentAudit) {
         try {
-          const { data: auditWithErrorLog } = await supabaseService
+          const { data: auditWithErrorLog } = await supabasePrimary
             .from('audits')
             .select('error_log')
             .eq('id', auditId)
@@ -2040,12 +1198,11 @@ export async function GET(request: NextRequest) {
         
         // Mark queue item as failed using helper
         const failResult = await markQueueItemFailedWithLogging(
-          supabaseService,
           requestId,
           queueItem.id,
           'permanent-error',
           errorMessage.substring(0, 1000),
-          ['pending', 'processing']
+          ['processing']
         )
         
         if (failResult === 'updated' || failResult === 'already-terminal') {
@@ -2056,54 +1213,49 @@ export async function GET(request: NextRequest) {
         
         // For transient errors, mark as pending for retry (only if retries left)
         if (shouldRetry) {
-          await supabaseService
+          await supabasePrimary
             .from('audit_queue')
             .update({
               status: 'pending',
-              last_error: errorMessage.substring(0, 1000), // Limit error message size
+              started_at: null, // Reset started_at so it can be claimed again
+              last_error: errorMessage.substring(0, 1000),
             })
             .eq('id', queueItem.id)
+            .eq('status', 'processing') // Only update if still processing
+        
+          console.log(`[${requestId}] ✅ Queue item ${queueItem.id} reset to pending for retry (attempt ${queueItem.retry_count + 1}/3)`)
         } else {
           // Max retries exceeded - mark as failed
-          await markQueueItemFailedWithLogging(
-            supabaseService,
+          const failResult = await markQueueItemFailedWithLogging(
             requestId,
             queueItem.id,
             'max-retries-exceeded',
             errorMessage.substring(0, 1000),
-            ['pending', 'processing']
+            ['processing']
           )
+          
+          if (failResult === 'updated' || failResult === 'already-terminal') {
+            console.log(`[${requestId}] ✅ Max retries exceeded - queue item marked as failed`)
+          }
         }
       }
       
-      // Return 200 (not 500) if this is an expected failure that will be retried
-      // Only return 500 for unexpected errors that should not be retried
-      const statusCode = shouldRetry ? 200 : 500
-      
       return NextResponse.json({
-        success: !shouldRetry, // Only "success" if we are not retrying
-        message: shouldRetry 
-          ? `Audit ${auditId} processing failed - will retry (attempt ${queueItem.retry_count + 1}/3)`
-          : `Audit ${auditId} processing failed - exceeded max retries`,
-        error: errorMessage,
-        processed: true,
+        success: false,
+        message: 'Audit processing failed',
+        processed: false,
         auditId,
+        error: errorMessage.substring(0, 500),
+        permanent: isPermanentError,
         willRetry: shouldRetry,
-        retry_count: queueItem.retry_count + 1,
-        max_retries: 3,
-        auditStatusUpdated: currentAudit?.status === 'failed',
-      }, { status: statusCode })
+      }, { status: 500 })
     }
   } catch (error) {
     const requestId = getRequestId(request)
     console.error(`[${requestId}] Unexpected error in /api/process-queue:`, error)
     return NextResponse.json(
-      {
-        error: 'Unexpected error processing queue',
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
-    );
+    )
   }
 }
-

@@ -38,18 +38,23 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       .eq('id', auditId)
       .single()
     
-    // Check if email was sent (not a reservation)
-    const emailSent = isEmailSent(earlyCheck?.email_sent_at)
+    // Check if email was sent using the same logic as the reservation verification
+    // Treat any non-"sending_" timestamp with length > 10 as "sent" (matches later verification logic)
+    const rawSent = earlyCheck?.email_sent_at
+    const alreadySent = !!rawSent &&
+      typeof rawSent === 'string' &&
+      !rawSent.startsWith('sending_') &&
+      rawSent.length > 10
     
     // Only skip if BOTH email was sent AND report exists
     // If report exists but email wasn't sent, we need to continue to send the email
-    if (emailSent && earlyCheck?.formatted_report_html) {
-      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${earlyCheck.email_sent_at} and report exists`)
+    if (alreadySent && earlyCheck?.formatted_report_html) {
+      console.log(`⛔ [processAudit] SKIPPING audit ${auditId} - email already sent at ${rawSent} and report exists`)
       return {
         success: true,
         auditId,
         message: 'Audit skipped - email already sent and report exists',
-        email_sent_at: earlyCheck.email_sent_at,
+        email_sent_at: rawSent,
       }
     }
     
@@ -111,7 +116,8 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
     if (normalizedAuditUrl !== audit.url) {
       console.log(`⚠️  URL normalized from "${audit.url}" to "${normalizedAuditUrl}"`)
       // Update the database with the normalized URL to prevent future issues
-      await supabase
+      // Use db (service client) to ensure consistency with all other operations
+      await db
         .from('audits')
         .update({ url: normalizedAuditUrl })
         .eq('id', auditId)
