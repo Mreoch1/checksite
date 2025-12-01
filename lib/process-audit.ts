@@ -471,18 +471,33 @@ export async function processAudit(auditId: string) {
     }
     
     // Now try the atomic update
+    // CRITICAL: This query ONLY updates the specific audit_id - no joins, no customer_id, no URL filters
+    // This is the CORRECT pattern: UPDATE audits SET email_sent_at = ? WHERE id = ? AND email_sent_at IS NULL
+    console.log(`[${reservationAttemptId}] 🔒 Attempting atomic reservation for audit_id=${auditId} only (no customer/URL filters)`)
     const { data: reservationResult, error: reservationError } = await supabase
       .from('audits')
       .update({ email_sent_at: reservationTimestamp })
-      .eq('id', auditId)
+      .eq('id', auditId) // ONLY filter by audit_id - nothing else (no customer_id, no URL, no joins)
       .is('email_sent_at', null) // Only update if email_sent_at is NULL (atomic check)
-      .select('email_sent_at')
+      .select('id, email_sent_at, customer_id, url') // Include id and other fields to verify we got the right row
     
     // Track if we successfully reserved after retry
     let reservationSuccessful = reservationResult && reservationResult.length > 0 && !reservationError
     
     if (reservationSuccessful && reservationResult && reservationResult.length > 0) {
-      console.log(`[${reservationAttemptId}] ✅ Initial reservation succeeded: ${reservationResult[0].email_sent_at}`)
+      // CRITICAL: Verify we got the correct audit row and only one row
+      if (reservationResult.length > 1) {
+        console.error(`[${reservationAttemptId}] ❌ CRITICAL BUG: Reservation returned ${reservationResult.length} rows! Expected exactly 1 row for audit_id=${auditId}`)
+        console.error(`[${reservationAttemptId}] Returned audit IDs: ${reservationResult.map(r => r.id).join(', ')}`)
+        throw new Error(`Atomic update returned multiple rows - expected 1, got ${reservationResult.length}`)
+      }
+      
+      const reservedAudit = reservationResult[0]
+      if (reservedAudit.id !== auditId) {
+        console.error(`[${reservationAttemptId}] ❌ CRITICAL BUG: Reservation returned wrong audit! Expected ${auditId}, got ${reservedAudit.id}`)
+        throw new Error(`Database query returned wrong audit row - expected ${auditId}, got ${reservedAudit.id}`)
+      }
+      console.log(`[${reservationAttemptId}] ✅ Initial reservation succeeded for audit_id=${auditId} (customer_id=${reservedAudit.customer_id}, url=${reservedAudit.url}): ${reservedAudit.email_sent_at}`)
     } else {
       console.warn(`[${reservationAttemptId}] ⚠️  Initial reservation failed: error=${reservationError?.message || 'null'}, result=${reservationResult?.length || 0} rows`)
       if (reservationError) {
@@ -493,42 +508,52 @@ export async function processAudit(auditId: string) {
       if (!reservationError && (!reservationResult || reservationResult.length === 0)) {
         const { data: verifyAfterFail } = await supabase
           .from('audits')
-          .select('id, email_sent_at, status')
+          .select('id, email_sent_at, status, customer_id, url')
           .eq('id', auditId)
           .single()
         
         if (!verifyAfterFail) {
           console.error(`[${reservationAttemptId}] ❌ Audit ${auditId} does not exist - cannot proceed with email`)
-        } else if (verifyAfterFail.email_sent_at) {
-          const age = getEmailSentAtAge(verifyAfterFail.email_sent_at)
-          const ageMinutes = age ? Math.round(age / 1000 / 60) : null
-          console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed because email_sent_at was set: ${verifyAfterFail.email_sent_at} (${ageMinutes}m old)`)
-          // Another process set it - check if it's a valid timestamp (not a reservation)
-          // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
-          // This prevents duplicate emails when email was just sent (<5 minutes ago)
-          if (verifyAfterFail.email_sent_at && 
-              !verifyAfterFail.email_sent_at.startsWith('sending_') && 
-              verifyAfterFail.email_sent_at.length > 10) {
-            // Valid timestamp exists - email was sent (regardless of age)
-            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process (timestamp: ${verifyAfterFail.email_sent_at})`)
-            return {
-              success: true,
-              auditId,
-              message: 'Audit completed successfully (email was already sent by another process)',
-              emailSent: true,
-            }
-          } else if (verifyAfterFail.email_sent_at && verifyAfterFail.email_sent_at.startsWith('sending_')) {
-            // It's a reservation - another process is sending
-            console.log(`[${reservationAttemptId}] ⛔ Another process is sending email (reservation: ${verifyAfterFail.email_sent_at})`)
-            return {
-              success: true,
-              auditId,
-              message: 'Audit skipped - another process is sending the email',
-              emailSent: false,
-            }
-          }
         } else {
-          console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is still null - will try fallback`)
+          // CRITICAL: Verify we got the correct audit row (safety check)
+          if (verifyAfterFail.id !== auditId) {
+            console.error(`[${reservationAttemptId}] ❌ CRITICAL BUG: Verification query returned wrong audit! Expected ${auditId}, got ${verifyAfterFail.id}`)
+            throw new Error(`Database query returned wrong audit row - expected ${auditId}, got ${verifyAfterFail.id}`)
+          }
+          
+          console.log(`[${reservationAttemptId}] 🔍 Verification check: audit_id=${verifyAfterFail.id}, customer_id=${verifyAfterFail.customer_id}, url=${verifyAfterFail.url}, email_sent_at=${verifyAfterFail.email_sent_at || 'null'}`)
+          
+          if (verifyAfterFail.email_sent_at) {
+            const age = getEmailSentAtAge(verifyAfterFail.email_sent_at)
+            const ageMinutes = age ? Math.round(age / 1000 / 60) : null
+            console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed because email_sent_at was set for THIS audit (${auditId}): ${verifyAfterFail.email_sent_at} (${ageMinutes}m old)`)
+            // Another process set it - check if it's a valid timestamp (not a reservation)
+            // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
+            // This prevents duplicate emails when email was just sent (<5 minutes ago)
+            if (verifyAfterFail.email_sent_at && 
+                !verifyAfterFail.email_sent_at.startsWith('sending_') && 
+                verifyAfterFail.email_sent_at.length > 10) {
+              // Valid timestamp exists - email was sent (regardless of age)
+              console.log(`[${reservationAttemptId}] ⛔ Email already sent for THIS audit ${auditId} by another process (timestamp: ${verifyAfterFail.email_sent_at})`)
+              return {
+                success: true,
+                auditId,
+                message: 'Audit completed successfully (email was already sent by another process)',
+                emailSent: true,
+              }
+            } else if (verifyAfterFail.email_sent_at && verifyAfterFail.email_sent_at.startsWith('sending_')) {
+              // It's a reservation - another process is sending
+              console.log(`[${reservationAttemptId}] ⛔ Another process is sending email for THIS audit ${auditId} (reservation: ${verifyAfterFail.email_sent_at})`)
+              return {
+                success: true,
+                auditId,
+                message: 'Audit skipped - another process is sending the email',
+                emailSent: false,
+              }
+            }
+          } else {
+            console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed but email_sent_at is still null for THIS audit ${auditId} - will try fallback`)
+          }
         }
       }
     }
