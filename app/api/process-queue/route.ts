@@ -460,14 +460,22 @@ export async function GET(request: NextRequest) {
         
         // CRITICAL: Fresh read of audit to check email_sent_at (joined data may be stale)
         // This catches cases where the queue row is still pending but the audit is already done
-        const { data: freshAuditCheck } = await supabasePrimary
+        const { data: freshAuditCheck, error: freshCheckError } = await supabasePrimary
           .from('audits')
           .select('email_sent_at, status, formatted_report_html')
           .eq('id', queueItemWithAudit.audit_id)
           .single()
         
+        // Log what the fresh read found for debugging
+        console.log(
+          `[${requestId}] [atomic-claim-fresh-read] audit_id=${queueItemWithAudit.audit_id}, ` +
+          `fresh_email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, ` +
+          `fresh_status=${freshAuditCheck?.status || 'null'}, ` +
+          `joined_email_sent_at=${audit?.email_sent_at || 'null'}`
+        )
+        
         // CRITICAL: Check if audit already has email sent BEFORE processing
-        // This catches cases where the queue row is still pending but the audit is already done
+        // Use fresh read instead of joined data to avoid stale reads
         if (freshAuditCheck?.email_sent_at && 
             !freshAuditCheck.email_sent_at.startsWith('sending_') && 
             freshAuditCheck.email_sent_at.length > 10) {
