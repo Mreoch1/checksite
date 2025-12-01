@@ -53,6 +53,36 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-12-01: Use Service Role Client for Fresh Database Reads
+
+**Issue**: Queue processor was still reprocessing audits (b015e1a8...) even after email was sent. The early guard was checking `email_sent_at` but was reading from stale read replicas, seeing `null` even when email was already sent.
+
+**Root Cause**: 
+- Early guard checks were using anon client (reads from read replicas)
+- Read replicas have replication lag, showing stale `email_sent_at = null`
+- Reservation check uses service client (reads from primary), so it sees fresh data
+- Result: Guard doesn't catch completed audits, but reservation prevents duplicate emails
+
+**Changes Made**:
+1. Created `getServiceClient()` function that uses `SUPABASE_SERVICE_ROLE_KEY`
+2. Use service client for all critical `email_sent_at` checks:
+   - Loop guard check (before processing each item)
+   - Pre-process check (right before calling processAudit)
+   - Retry logic checks
+   - Initial verification checks
+3. Service client reads from primary database, ensuring fresh data
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Use service role client for all critical checks
+
+**Resolution**:
+- Early guard now sees fresh `email_sent_at` values from primary database
+- Prevents reprocessing of audits that already have emails sent
+- Queue will progress through different audit IDs instead of getting stuck
+- No more wasted CPU on reprocessing completed audits
+
+**Status**: ✅ Fixed - Code ready for deployment
+
 ### 2025-12-01: Early Pre-Processing Guard to Prevent Module/Report Reprocessing
 
 **Issue**: Queue processor was reprocessing audits (running modules and regenerating reports) even when email was already sent. The in-memory guard in the loop was working, but `processAudit` was still being called, causing wasted CPU on audits that already had emails sent.
