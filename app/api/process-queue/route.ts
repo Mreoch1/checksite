@@ -1154,20 +1154,8 @@ export async function GET(request: NextRequest) {
     
     // CRITICAL: Early guard - check if email was already sent BEFORE processing
     // This prevents reprocessing audits that already have emails sent
-    // Use service role client to read from primary database (avoids replication lag)
-    const { data: preProcessCheck, error: preProcessError } = await supabaseService
-      .from('audits')
-      .select('id, status, email_sent_at, formatted_report_html')
-      .eq('id', auditId)
-      .single()
-    
-    if (preProcessError) {
-      console.error(`[${requestId}] ❌ Error checking audit ${auditId} before processing:`, preProcessError)
-      return NextResponse.json(
-        { error: 'Failed to verify audit before processing', details: preProcessError.message },
-        { status: 500 }
-      )
-    }
+    // Use unified helper to ensure consistency with queue selection and reservation verification
+    const preProcessCheck = await getFreshAuditState(supabaseService, auditId)
     
     if (!preProcessCheck) {
       console.error(`[${requestId}] ❌ Audit ${auditId} not found before processing`)
