@@ -1143,25 +1143,7 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
       // Mark queue item as completed - only update if still pending (prevents repeated updates)
-      // CRITICAL: Update by queue row id (not audit_id) to ensure the specific queue row is marked completed
-      const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
-        .from('audit_queue')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', queueItem.id) // Update by queue row id, not audit_id
-        .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
-        .select('id, status')
-      
-      const count = queueUpdateResult?.length || 0
-      console.log(`[${requestId}] [queue-complete] queueId=${queueItem.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
-      
-      if (queueUpdateError) {
-        console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
-      } else if (count === 0) {
-        console.log(`[${requestId}] [queue-complete] Queue row already completed (updated_rows=0)`)
-      }
+      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-email-sent')
       
       return NextResponse.json({
         success: true,
