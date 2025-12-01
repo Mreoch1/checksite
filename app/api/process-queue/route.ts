@@ -641,9 +641,10 @@ export async function GET(request: NextRequest) {
     
     // Safety check: Look for audits that are pending/running but not in queue
     // This handles cases where audits were created but never added to queue
+    // CRITICAL: Use service client to read from primary
     if (!queueItems || queueItems.length === 0) {
       console.log(`[${requestId}] No queue items found. Checking for audits not in queue...`)
-      const { data: orphanedAudits } = await supabase
+      const { data: orphanedAudits } = await supabaseService
         .from('audits')
         .select('id, url, status, created_at, email_sent_at, formatted_report_html')
         .or('status.eq.running,status.eq.pending')
@@ -654,16 +655,16 @@ export async function GET(request: NextRequest) {
       if (orphanedAudits && orphanedAudits.length > 0) {
         console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
         for (const audit of orphanedAudits) {
-          // Check if already in queue
-          const { data: existingQueue } = await supabase
+          // Check if already in queue - use service client for primary read
+          const { data: existingQueue } = await supabaseService
             .from('audit_queue')
             .select('id')
             .eq('audit_id', audit.id)
             .single()
           
           if (!existingQueue) {
-            // Add to queue
-            const { error: addError } = await supabase
+            // Add to queue - use service client for primary write
+            const { error: addError } = await supabaseService
               .from('audit_queue')
               .insert({
                 audit_id: audit.id,
@@ -679,11 +680,12 @@ export async function GET(request: NextRequest) {
             }
           }
         }
-        // Retry finding queue items after adding orphaned audits
-        const { data: retryQueueItems } = await supabase
+        // Retry finding queue items after adding orphaned audits - use service client for primary read
+        const { data: retryQueueItems } = await supabaseService
           .from('audit_queue')
-          .select('*, audits(*)')
+          .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
           .eq('status', 'pending')
+          .is('audits.email_sent_at', null)
           .order('created_at', { ascending: true })
           .limit(20)
         
@@ -710,7 +712,8 @@ export async function GET(request: NextRequest) {
       
       // CRITICAL: Check queue item status directly to handle replication lag
       // If the queue item was marked as completed recently, skip it even if read replica shows pending
-      const { data: freshQueueItem, error: queueItemError } = await supabase
+      // Use service client to read from primary database
+      const { data: freshQueueItem, error: queueItemError } = await supabaseService
         .from('audit_queue')
         .select('status, completed_at')
         .eq('id', item.id)
