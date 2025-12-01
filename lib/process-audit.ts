@@ -444,16 +444,22 @@ export async function processAudit(auditId: string) {
       const ageMinutes = age ? Math.round(age / 1000 / 60) : null
       console.log(`[${reservationAttemptId}] ⚠️  email_sent_at already set: ${preCheck.email_sent_at} (${ageMinutes}m old)`)
       
-      if (isEmailSent(preCheck.email_sent_at)) {
-        console.log(`[${reservationAttemptId}] ⛔ Email already sent - skipping`)
+      // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
+      // This prevents duplicate emails when email was just sent (<5 minutes ago)
+      if (preCheck.email_sent_at && 
+          !preCheck.email_sent_at.startsWith('sending_') && 
+          preCheck.email_sent_at.length > 10) {
+        // Valid timestamp exists - email was sent (regardless of age)
+        console.log(`[${reservationAttemptId}] ⛔ Email already sent - skipping (timestamp: ${preCheck.email_sent_at})`)
         return {
           success: true,
           auditId,
           message: 'Audit completed successfully (email was already sent)',
           emailSent: true,
         }
-      } else if (isEmailSending(preCheck.email_sent_at)) {
-        console.log(`[${reservationAttemptId}] ⛔ Another process is sending - skipping`)
+      } else if (preCheck.email_sent_at && preCheck.email_sent_at.startsWith('sending_')) {
+        // It's a reservation - another process is sending
+        console.log(`[${reservationAttemptId}] ⛔ Another process is sending - skipping (reservation: ${preCheck.email_sent_at})`)
         return {
           success: true,
           auditId,
@@ -497,14 +503,28 @@ export async function processAudit(auditId: string) {
           const age = getEmailSentAtAge(verifyAfterFail.email_sent_at)
           const ageMinutes = age ? Math.round(age / 1000 / 60) : null
           console.warn(`[${reservationAttemptId}] ⚠️  Reservation failed because email_sent_at was set: ${verifyAfterFail.email_sent_at} (${ageMinutes}m old)`)
-          // Another process set it - check if email was sent
-          if (isEmailSent(verifyAfterFail.email_sent_at)) {
-            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process`)
+          // Another process set it - check if it's a valid timestamp (not a reservation)
+          // CRITICAL: Check for any valid email_sent_at timestamp, not just ones >5 minutes old
+          // This prevents duplicate emails when email was just sent (<5 minutes ago)
+          if (verifyAfterFail.email_sent_at && 
+              !verifyAfterFail.email_sent_at.startsWith('sending_') && 
+              verifyAfterFail.email_sent_at.length > 10) {
+            // Valid timestamp exists - email was sent (regardless of age)
+            console.log(`[${reservationAttemptId}] ⛔ Email already sent by another process (timestamp: ${verifyAfterFail.email_sent_at})`)
             return {
               success: true,
               auditId,
               message: 'Audit completed successfully (email was already sent by another process)',
               emailSent: true,
+            }
+          } else if (verifyAfterFail.email_sent_at && verifyAfterFail.email_sent_at.startsWith('sending_')) {
+            // It's a reservation - another process is sending
+            console.log(`[${reservationAttemptId}] ⛔ Another process is sending email (reservation: ${verifyAfterFail.email_sent_at})`)
+            return {
+              success: true,
+              auditId,
+              message: 'Audit skipped - another process is sending the email',
+              emailSent: false,
             }
           }
         } else {
