@@ -45,14 +45,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the oldest pending audit in the queue
-    // CRITICAL: Filter by queue status = 'pending' AND exclude audits that already have email_sent_at
-    // This prevents selecting queue items for audits that are already complete
-    // Pattern: SELECT queue items WHERE status = 'pending' AND audit.email_sent_at IS NULL
+    // CRITICAL: Filter by queue status = 'pending'
+    // We'll filter out audits with email_sent_at in the verification step to avoid join filter issues
     let { data: queueItems, error: findError } = await supabase
       .from('audit_queue')
-      .select('*, audits!inner(id, email_sent_at, status, formatted_report_html)')
+      .select('*, audits(id, email_sent_at, status, formatted_report_html, url)')
       .eq('status', 'pending')
-      .is('audits.email_sent_at', null) // CRITICAL: Exclude audits with email_sent_at set
       .order('created_at', { ascending: true })
       .limit(20)
     
@@ -399,6 +397,7 @@ export async function GET(request: NextRequest) {
     // CRITICAL: Filter out queue items where email was already sent
     // Use a for loop instead of find() so we can await fresh data fetches
     // The join query might return stale data (email_sent=null even when email was sent)
+    // FIX: Add in-memory guard to skip audits with email_sent_at set BEFORE processing
     let queueItem: any = null
     
     for (const item of queueItems || []) {
@@ -446,6 +445,41 @@ export async function GET(request: NextRequest) {
       
       if (!audit) {
         console.warn(`[${requestId}] ⚠️  Skipping queue item ${item.id} (audit_id: ${item.audit_id}) - no audit data available`)
+        continue
+      }
+      
+      // CRITICAL: In-memory guard - check email_sent_at BEFORE processing
+      // This prevents reprocessing audits that already have emails sent
+      // Fetch fresh data to avoid stale join results
+      const { data: freshAuditCheck, error: freshCheckError } = await supabase
+        .from('audits')
+        .select('id, status, email_sent_at')
+        .eq('id', item.audit_id)
+        .single()
+      
+      if (freshCheckError) {
+        console.warn(`[${requestId}] ⚠️  Error checking audit ${item.audit_id} for email_sent_at:`, freshCheckError.message)
+        // Continue to next item if we can't verify
+        continue
+      }
+      
+      if (freshAuditCheck?.email_sent_at) {
+        // Email was already sent - mark queue as completed and skip to next item
+        const emailAge = getEmailSentAtAge(freshAuditCheck.email_sent_at)
+        const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
+        
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${freshAuditCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and moving to next item`)
+        
+        // Mark queue item as completed
+        await supabase
+          .from('audit_queue')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
+        
+        // Continue to next queue item instead of processing this one
         continue
       }
       
