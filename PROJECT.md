@@ -76,9 +76,11 @@ This document is the authoritative source for all project state, decisions, TODO
 - Prevents wasted CPU on reprocessing completed audits
 - Queue progresses cleanly through items even with stale join query results
 
-**Status**: ✅ Fixed - Code ready for deployment
+**Status**: ✅ Fixed and Verified - Queue now progresses correctly through audits
 
 ### 2025-12-01: In-Memory Guard to Prevent Reprocessing Completed Audits
+
+**Status**: ✅ Fixed - Code ready for deployment
 
 **Issue**: Queue processor was reprocessing the same audit (bb2b2ce7-...) on every run even though email was already sent. The join query was returning stale data from read replicas, showing `email_sent=null` even when `email_sent_at` was set.
 
