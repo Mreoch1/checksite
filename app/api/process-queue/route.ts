@@ -12,7 +12,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+// CRITICAL: Do NOT import anon client - queue worker must use service client only
+// import { supabase } from '@/lib/supabase' // REMOVED - prevents accidental replica reads
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
@@ -1027,8 +1028,57 @@ export async function GET(request: NextRequest) {
         continue
       }
       
-      // This item passes all checks including final fresh verification - use it
-      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'}) - verified fresh on primary`)
+      // CRITICAL: Final per-item primary guard RIGHT before committing to process
+      // This is the absolute last check - re-read both queue and audit on primary
+      // This catches any replica lag that slipped through earlier checks
+      const { data: finalQueueRow, error: finalQueueErr } = await supabaseService
+        .from('audit_queue')
+        .select('status, completed_at')
+        .eq('id', item.id)
+        .single()
+      
+      const { data: finalAuditRow, error: finalAuditErr } = await supabaseService
+        .from('audits')
+        .select('status, email_sent_at, formatted_report_html')
+        .eq('id', item.audit_id)
+        .single()
+      
+      // Sanity log to prove we're seeing fresh data
+      console.log(`[${requestId}] [pre-process-check] queueId=${item.id}, auditId=${item.audit_id}, queueStatus=${finalQueueRow?.status || 'error'}, queueEmailSentAt=${finalQueueRow?.completed_at || 'null'}, auditStatus=${finalAuditRow?.status || 'error'}, auditEmailSentAt=${finalAuditRow?.email_sent_at || 'null'}, auditHasReport=${!!finalAuditRow?.formatted_report_html}`)
+      
+      // If we can't read either row, skip this item
+      if (finalQueueErr || finalAuditErr || !finalQueueRow || !finalAuditRow) {
+        console.warn(`[${requestId}] [pre-process-check] Failed to read final state - skipping item (queueErr=${!!finalQueueErr}, auditErr=${!!finalAuditErr})`)
+        continue
+      }
+      
+      // Final guard: skip if queue is not pending OR audit already has email sent
+      if (finalQueueRow.status !== 'pending') {
+        console.log(`[${requestId}] [pre-process-check] Queue status is '${finalQueueRow.status}' (not pending) - skipping`)
+        continue
+      }
+      
+      if (finalAuditRow.email_sent_at && 
+          !finalAuditRow.email_sent_at.startsWith('sending_') && 
+          finalAuditRow.email_sent_at.length > 10) {
+        const emailAge = Math.round((Date.now() - new Date(finalAuditRow.email_sent_at).getTime()) / 1000 / 60)
+        console.log(`[${requestId}] [pre-process-check] Audit already has email_sent_at=${finalAuditRow.email_sent_at} (${emailAge}m old) - marking queue as completed and skipping`)
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-email-sent', ['pending'])
+        continue
+      }
+      
+      if (finalAuditRow.status === 'completed' || finalAuditRow.status === 'failed') {
+        console.log(`[${requestId}] [pre-process-check] Audit status is '${finalAuditRow.status}' - marking queue accordingly and skipping`)
+        if (finalAuditRow.status === 'completed') {
+          await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-audit-completed', ['pending'])
+        } else {
+          await markQueueItemFailedWithLogging(supabaseService, requestId, item.id, 'pre-process-check-audit-failed', 'Audit already failed', ['pending'])
+        }
+        continue
+      }
+      
+      // This item passes ALL checks including final pre-process guard - safe to process
+      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'}) - verified fresh on primary with pre-process-check`)
       queueItem = item
       break // Found a processable item, stop searching
     }
@@ -1392,29 +1442,80 @@ export async function GET(request: NextRequest) {
 
     const auditId = queueItem.audit_id
 
-    // CRITICAL: Double-check email_sent_at one more time right before processing
-    // This prevents race conditions where email was sent between the initial check and now
-    // Use service client for fresh read from primary database
-    const { data: finalCheck } = await supabaseService
+    // CRITICAL: Final sanity check RIGHT before processing - re-read both queue and audit on primary
+    // This is the absolute last line of defense against replica lag
+    // Even if all previous checks passed, this final check ensures we're seeing fresh data
+    const { data: sanityQueueCheck, error: sanityQueueErr } = await supabaseService
+      .from('audit_queue')
+      .select('status, completed_at')
+      .eq('id', queueItem.id)
+      .single()
+    
+    const { data: sanityAuditCheck, error: sanityAuditErr } = await supabaseService
       .from('audits')
-      .select('email_sent_at, customers(*)')
+      .select('status, email_sent_at, formatted_report_html, customers(email)')
       .eq('id', auditId)
       .single()
     
-    if (finalCheck && isEmailSent(finalCheck.email_sent_at)) {
-      console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email was sent between initial check and processing (${finalCheck.email_sent_at})`)
-      // Mark queue item as completed since email was sent
-      // Use service client and only update if still pending
-      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-processing-email-sent', ['pending'])
+    // Sanity log to prove we're seeing fresh data before processing
+    console.log(`[${requestId}] [pre-process-sanity] queueId=${queueItem.id}, auditId=${auditId}, queueStatus=${sanityQueueCheck?.status || 'error'}, auditStatus=${sanityAuditCheck?.status || 'error'}, auditEmailSentAt=${sanityAuditCheck?.email_sent_at || 'null'}, auditHasReport=${!!sanityAuditCheck?.formatted_report_html}`)
+    
+    // If we can't read either row, abort
+    if (sanityQueueErr || sanityAuditErr || !sanityQueueCheck || !sanityAuditCheck) {
+      console.error(`[${requestId}] [pre-process-sanity] Failed to read final state before processing - aborting (queueErr=${!!sanityQueueErr}, auditErr=${!!sanityAuditErr})`)
+      return NextResponse.json(
+        { error: 'Failed to verify final state before processing', details: sanityQueueErr?.message || sanityAuditErr?.message },
+        { status: 500 }
+      )
+    }
+    
+    // Final guard: abort if queue is not pending OR audit already has email sent
+    if (sanityQueueCheck.status !== 'pending') {
+      console.log(`[${requestId}] [pre-process-sanity] Queue status is '${sanityQueueCheck.status}' (not pending) - aborting processing`)
+      return NextResponse.json({
+        success: true,
+        message: 'Queue item no longer pending - skipping processing',
+        processed: false,
+        auditId,
+        queueStatus: sanityQueueCheck.status,
+      })
+    }
+    
+    if (sanityAuditCheck.email_sent_at && 
+        !sanityAuditCheck.email_sent_at.startsWith('sending_') && 
+        sanityAuditCheck.email_sent_at.length > 10) {
+      const emailAge = Math.round((Date.now() - new Date(sanityAuditCheck.email_sent_at).getTime()) / 1000 / 60)
+      console.log(`[${requestId}] [pre-process-sanity] ⛔ ABORTING - Audit already has email_sent_at=${sanityAuditCheck.email_sent_at} (${emailAge}m old) - marking queue as completed`)
+      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-email-sent', ['pending'])
       
       return NextResponse.json({
         success: true,
-        message: 'Audit skipped - email was sent by another process',
+        message: 'Audit skipped - email was already sent (caught by pre-process sanity check)',
         processed: false,
         auditId,
-        email_sent_at: finalCheck.email_sent_at,
+        email_sent_at: sanityAuditCheck.email_sent_at,
       })
     }
+    
+    if (sanityAuditCheck.status === 'completed' || sanityAuditCheck.status === 'failed') {
+      console.log(`[${requestId}] [pre-process-sanity] Audit status is '${sanityAuditCheck.status}' - marking queue accordingly and aborting`)
+      if (sanityAuditCheck.status === 'completed') {
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-audit-completed', ['pending'])
+      } else {
+        await markQueueItemFailedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-sanity-audit-failed', 'Audit already failed', ['pending'])
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: `Audit already ${sanityAuditCheck.status} - skipping processing`,
+        processed: false,
+        auditId,
+        auditStatus: sanityAuditCheck.status,
+      })
+    }
+    
+    // Use the sanity check data for customer email (already fetched fresh)
+    const finalCheck = sanityAuditCheck
     
     // Validate customer email before processing
     // Handle customers as either array or single object
