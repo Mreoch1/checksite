@@ -471,6 +471,50 @@ export async function GET(request: NextRequest) {
         continue
       }
       
+      // Additional check: If audit has a report but email_sent_at is null, it might be due to replication lag
+      // Try to check email_sent_at one more time with a direct query to the primary database
+      // This helps catch cases where the fresh check returned null due to replication lag
+      if (audit?.formatted_report_html && !emailSentAt) {
+        console.log(`[${requestId}] ⚠️  Audit ${item.audit_id} has report but email_sent_at is null - doing additional check for replication lag`)
+        // Try to get email_sent_at one more time - this might hit a different replica
+        const { data: doubleCheck } = await supabase
+          .from('audits')
+          .select('email_sent_at, status')
+          .eq('id', item.audit_id)
+          .single()
+        
+        if (doubleCheck?.email_sent_at && 
+            !doubleCheck.email_sent_at.startsWith('sending_') && 
+            doubleCheck.email_sent_at.length > 10) {
+          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found email_sent_at=${doubleCheck.email_sent_at} (replication lag detected)`)
+          // Mark queue item as completed
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .in('status', ['pending', 'processing'])
+          continue
+        }
+        
+        // Also check if status is completed in double check
+        if (doubleCheck?.status === 'completed') {
+          console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found status=completed (replication lag detected)`)
+          // Mark queue item as completed
+          await supabase
+            .from('audit_queue')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .in('status', ['pending', 'processing'])
+          continue
+        }
+      }
+      
       // This item passes all checks - use it
       console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'})`)
       queueItem = item
