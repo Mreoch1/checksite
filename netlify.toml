@@ -16,7 +16,7 @@
   directory = "netlify/functions"
 
 [functions."process-queue"]
-  schedule = "*/2 * * * *"  # Every 2 minutes
+  schedule = "*/1 * * * *"  # Every 1 minute (reduced for testing)
 
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
