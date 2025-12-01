@@ -204,6 +204,25 @@ export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   console.log(`[${requestId}] /api/process-queue called`)
   
+  // CRITICAL: Log database connection info for debugging
+  console.log(`[${requestId}] [db-check] Connecting to: ${SUPABASE_URL}`)
+  console.log(`[${requestId}] [db-check] Service key prefix: ${SERVICE_ROLE_KEY?.substring(0, 10)}...`)
+  
+  // Verify database connection by checking queue table count
+  try {
+    const { count, error: countError } = await supabasePrimary
+      .from('audit_queue')
+      .select('*', { count: 'exact', head: true })
+    
+    if (countError) {
+      console.error(`[${requestId}] [db-check] ❌ Database connection error:`, countError)
+    } else {
+      console.log(`[${requestId}] [db-check] ✅ Connected to database - audit_queue has ${count} row(s)`)
+    }
+  } catch (dbCheckErr) {
+    console.error(`[${requestId}] [db-check] ❌ Failed to verify database:`, dbCheckErr)
+  }
+  
   // CRITICAL: Use the single primary client for all database operations
   // This is the ONLY client used in this worker - all reads and writes use supabasePrimary
   // Note: Even with service role key, Supabase REST API may route SELECT queries to replicas
