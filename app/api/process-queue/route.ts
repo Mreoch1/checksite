@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
             .single()
           
           if (auditStatusCheck) {
+            // Skip if audit is already completed
             if (auditStatusCheck.status === 'completed' || 
                 (auditStatusCheck.email_sent_at && 
                  !auditStatusCheck.email_sent_at.startsWith('sending_') && 
@@ -105,6 +106,20 @@ export async function GET(request: NextRequest) {
                 .update({
                   status: 'completed',
                   completed_at: new Date().toISOString(),
+                })
+                .eq('id', item.id)
+              continue
+            }
+            
+            // Skip if audit is already failed (permanent error, no retry needed)
+            if (auditStatusCheck.status === 'failed') {
+              console.log(`[${requestId}] ⚠️  Queue item ${item.id} - audit ${item.audit_id} is already failed (status=${auditStatusCheck.status}) - marking queue item as failed and skipping`)
+              // Mark queue item as failed to match audit status
+              await supabase
+                .from('audit_queue')
+                .update({
+                  status: 'failed',
+                  last_error: 'Audit already marked as failed - skipping reprocessing',
                 })
                 .eq('id', item.id)
               continue
