@@ -437,57 +437,58 @@ export async function GET(request: NextRequest) {
         // Even though we atomically claimed it, we should verify the audit hasn't been completed
         // This is a safety net, not the primary locking mechanism
         if (queueItem.audit_id) {
-        const { data: auditStatusCheck } = await supabasePrimary
-          .from('audits')
-          .select('status, email_sent_at')
-          .eq('id', queueItem.audit_id)
-          .single()
-        
-        if (auditStatusCheck) {
-          // If audit already has email sent, release the claim and skip
-          if (auditStatusCheck.email_sent_at && 
-              !auditStatusCheck.email_sent_at.startsWith('sending_') && 
-              auditStatusCheck.email_sent_at.length > 10) {
-            const emailAge = Math.round((Date.now() - new Date(auditStatusCheck.email_sent_at).getTime()) / 1000 / 60)
-            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} already has email_sent_at=${auditStatusCheck.email_sent_at} (${emailAge}m old) - releasing claim and marking queue as completed`)
-            await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-email-sent', ['processing'])
-            return NextResponse.json({
-              success: true,
-              message: 'Audit skipped - email already sent (caught after atomic claim)',
-              processed: false,
-              auditId: queueItem.audit_id,
-              email_sent_at: auditStatusCheck.email_sent_at,
-            })
-          }
+          const { data: auditStatusCheck } = await supabasePrimary
+            .from('audits')
+            .select('status, email_sent_at')
+            .eq('id', queueItem.audit_id)
+            .single()
           
-          // If audit is already completed, release the claim and skip
-          if (auditStatusCheck.status === 'completed') {
-            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already completed - releasing claim and marking queue as completed`)
-            await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-audit-completed', ['processing'])
-            return NextResponse.json({
-              success: true,
-              message: 'Audit skipped - already completed (caught after atomic claim)',
-              processed: false,
-              auditId: queueItem.audit_id,
-            })
-          }
-          
-          // If audit is already failed, release the claim and skip
-          if (auditStatusCheck.status === 'failed') {
-            console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already failed - releasing claim and marking queue as failed`)
-            await markQueueItemFailedWithLogging(
-              requestId,
-              queueItem.id,
-              'post-claim-verify-audit-failed',
-              'Audit already marked as failed - skipping reprocessing',
-              ['processing']
-            )
-            return NextResponse.json({
-              success: true,
-              message: 'Audit skipped - already failed (caught after atomic claim)',
-              processed: false,
-              auditId: queueItem.audit_id,
-            })
+          if (auditStatusCheck) {
+            // If audit already has email sent, release the claim and skip
+            if (auditStatusCheck.email_sent_at && 
+                !auditStatusCheck.email_sent_at.startsWith('sending_') && 
+                auditStatusCheck.email_sent_at.length > 10) {
+              const emailAge = Math.round((Date.now() - new Date(auditStatusCheck.email_sent_at).getTime()) / 1000 / 60)
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} already has email_sent_at=${auditStatusCheck.email_sent_at} (${emailAge}m old) - releasing claim and marking queue as completed`)
+              await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-email-sent', ['processing'])
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - email already sent (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+                email_sent_at: auditStatusCheck.email_sent_at,
+              })
+            }
+            
+            // If audit is already completed, release the claim and skip
+            if (auditStatusCheck.status === 'completed') {
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already completed - releasing claim and marking queue as completed`)
+              await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-audit-completed', ['processing'])
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - already completed (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+              })
+            }
+            
+            // If audit is already failed, release the claim and skip
+            if (auditStatusCheck.status === 'failed') {
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already failed - releasing claim and marking queue as failed`)
+              await markQueueItemFailedWithLogging(
+                requestId,
+                queueItem.id,
+                'post-claim-verify-audit-failed',
+                'Audit already marked as failed - skipping reprocessing',
+                ['processing']
+              )
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - already failed (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+              })
+            }
           }
         }
       }
