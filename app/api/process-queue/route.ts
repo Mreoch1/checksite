@@ -1004,9 +1004,21 @@ export async function GET(request: NextRequest) {
       
       if (finalQueueCheckError || !finalQueueCheck) {
         // Item no longer qualifies - was completed/failed or email was sent by another worker
-        const audit = Array.isArray(finalQueueCheck?.audits) ? finalQueueCheck?.audits[0] : finalQueueCheck?.audits
-        const currentStatus = finalQueueCheck?.status || 'unknown'
-        const currentEmailSent = audit?.email_sent_at || 'null'
+        // Re-read the queue item and audit to get current state for logging
+        const { data: currentQueueItem } = await supabaseService
+          .from('audit_queue')
+          .select('status')
+          .eq('id', item.id)
+          .maybeSingle()
+        
+        const { data: currentAudit } = await supabaseService
+          .from('audits')
+          .select('email_sent_at')
+          .eq('id', item.audit_id)
+          .maybeSingle()
+        
+        const currentStatus = currentQueueItem?.status || 'unknown'
+        const currentEmailSent = currentAudit?.email_sent_at || 'null'
         
         console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} (audit ${item.audit_id}) - no longer qualifies after fresh check (queue_status=${currentStatus}, email_sent_at=${currentEmailSent}) - likely completed by another worker`)
         
