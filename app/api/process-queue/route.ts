@@ -461,9 +461,10 @@ export async function GET(request: NextRequest) {
       }
       
       // FALLBACK: If join didn't return audit data, fetch it separately
+      // Use service client for fresh read from primary database
       if (!audit && item.audit_id) {
         console.warn(`[${requestId}] ⚠️  Queue item ${item.id} has no audit data in join - fetching separately`)
-        const { data: fetchedAudit } = await supabase
+        const { data: fetchedAudit } = await supabaseService
           .from('audits')
           .select('email_sent_at, status, formatted_report_html, url')
           .eq('id', item.audit_id)
@@ -481,7 +482,7 @@ export async function GET(request: NextRequest) {
       // Use service role client to read from primary database (avoids replication lag)
       const { data: freshAuditCheck, error: freshCheckError } = await supabaseService
         .from('audits')
-        .select('id, status, email_sent_at')
+        .select('id, status, email_sent_at, formatted_report_html')
         .eq('id', item.audit_id)
         .single()
       
@@ -491,21 +492,36 @@ export async function GET(request: NextRequest) {
         continue
       }
       
+      // Log fresh check result in the format requested
+      const hasReport = !!freshAuditCheck?.formatted_report_html
+      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck?.status || 'null'}, email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, has_report=${hasReport}`)
+      
+      // EARLY EXIT: If email was already sent, do NOT reprocess - just finalize the queue row and move on
       if (freshAuditCheck?.email_sent_at) {
-        // Email was already sent - mark queue as completed and skip to next item
         const emailAge = getEmailSentAtAge(freshAuditCheck.email_sent_at)
         const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
         
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${freshAuditCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and moving to next item`)
         
-        // Mark queue item as completed
-        await supabase
+        // Mark queue item as completed - only update if still pending (prevents repeated updates)
+        const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', item.id)
+          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
+          .select('id, status')
+        
+        const count = queueUpdateResult?.length || 0
+        console.log(`[${requestId}] [queue-complete] queueId=${item.id}, updated_rows=${count}, error=${queueUpdateError ? queueUpdateError.message : 'null'}, status=${queueUpdateResult?.[0]?.status || 'unknown'}`)
+        
+        if (queueUpdateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
+        } else if (count === 0) {
+          console.log(`[${requestId}] [queue-complete] Queue row already completed (updated_rows=0)`)
+        }
         
         // Continue to next queue item instead of processing this one
         continue
@@ -599,14 +615,14 @@ export async function GET(request: NextRequest) {
           // Use the final check result
           if (isEmailSent(finalCheck.email_sent_at)) {
             console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email was sent (final check: ${finalCheck.email_sent_at})`)
-            await supabase
+            await supabaseService
               .from('audit_queue')
               .update({
                 status: 'completed',
                 completed_at: new Date().toISOString(),
               })
               .eq('id', item.id)
-              .in('status', ['pending', 'processing'])
+              .eq('status', 'pending') // Only update if still pending
             continue
           }
         }
@@ -628,27 +644,27 @@ export async function GET(request: NextRequest) {
             !finalCheck.email_sent_at.startsWith('sending_') && 
             finalCheck.email_sent_at.length > 10) {
           console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and email was sent (final check: ${finalCheck.email_sent_at})`)
-          await supabase
+          await supabaseService
             .from('audit_queue')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id)
-            .in('status', ['pending', 'processing'])
+            .eq('status', 'pending') // Only update if still pending
           continue
         }
         
         if (finalCheck?.status === 'completed' || finalCheck?.status === 'failed') {
           console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - has report and status is '${finalCheck.status}' (final check)`)
-          await supabase
+          await supabaseService
             .from('audit_queue')
             .update({
               status: finalCheck.status,
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id)
-            .in('status', ['pending', 'processing'])
+            .eq('status', 'pending') // Only update if still pending
           continue
         }
       }
@@ -661,14 +677,14 @@ export async function GET(request: NextRequest) {
       if (auditStatus === 'completed') {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'}, email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
         // Mark queue item as completed since audit is already completed
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', item.id)
-          .in('status', ['pending', 'processing'])
+          .eq('status', 'pending') // Only update if still pending
         
         if (updateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
@@ -682,14 +698,14 @@ export async function GET(request: NextRequest) {
       if (auditStatus === 'failed') {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'failed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'})`)
         // Mark queue item as failed to match audit status
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseService
           .from('audit_queue')
           .update({
             status: 'failed',
             last_error: 'Audit already marked as failed - skipping reprocessing',
           })
           .eq('id', item.id)
-          .in('status', ['pending', 'processing'])
+          .eq('status', 'pending') // Only update if still pending
         
         if (updateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as failed:`, updateError)
@@ -707,14 +723,14 @@ export async function GET(request: NextRequest) {
         // Valid timestamp exists - email was sent (regardless of age)
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${emailSentAt} (fresh check: ${freshEmailCheck.email_sent_at ? 'found' : 'not found'}, join: ${audit?.email_sent_at || 'null'})`)
         // Mark queue item as completed since email was sent
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', item.id)
-          .in('status', ['pending', 'processing'])
+          .eq('status', 'pending') // Only update if still pending
         
         if (updateError) {
           console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
@@ -752,14 +768,14 @@ export async function GET(request: NextRequest) {
             doubleCheck.email_sent_at.length > 10) {
           console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found email_sent_at=${doubleCheck.email_sent_at} (replication lag detected)`)
           // Mark queue item as completed
-          await supabase
+          await supabaseService
             .from('audit_queue')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id)
-            .in('status', ['pending', 'processing'])
+            .eq('status', 'pending') // Only update if still pending
           continue
         }
         
@@ -767,14 +783,14 @@ export async function GET(request: NextRequest) {
         if (doubleCheck?.status === 'completed') {
           console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - double check found status=completed (replication lag detected)`)
           // Mark queue item as completed
-          await supabase
+          await supabaseService
             .from('audit_queue')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id)
-            .in('status', ['pending', 'processing'])
+            .eq('status', 'pending') // Only update if still pending
           continue
         }
       }
@@ -805,7 +821,8 @@ export async function GET(request: NextRequest) {
       }
       
       // Check if there are any stuck items (processing for too long)
-      const { data: stuckItems } = await supabase
+      // Use service client for fresh read from primary database
+      const { data: stuckItems } = await supabaseService
         .from('audit_queue')
         .select('*, audits(*)')
         .eq('status', 'processing')
@@ -828,7 +845,7 @@ export async function GET(request: NextRequest) {
             }, null, 2)
             
             // Update audit status to failed
-            await supabase
+            await supabaseService
               .from('audits')
               .update({
                 status: 'failed',
@@ -841,7 +858,7 @@ export async function GET(request: NextRequest) {
           
           // Reset queue item to pending (if retries left) or failed
           const shouldRetry = stuckItem.retry_count < 3
-          await supabase
+          await supabaseService
             .from('audit_queue')
             .update({
               status: shouldRetry ? 'pending' : 'failed',
@@ -882,13 +899,15 @@ export async function GET(request: NextRequest) {
       if (isEmailSent(auditData.email_sent_at)) {
         console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
         // Mark queue item as completed since email was sent
-        await supabase
+        // Only update if still pending (prevents repeated updates)
+        await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
+          .eq('status', 'pending') // Only update if still pending
         
         return NextResponse.json({
           success: true,
@@ -917,13 +936,15 @@ export async function GET(request: NextRequest) {
       if (auditData.status === 'completed' && auditData.formatted_report_html && auditData.email_sent_at) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report and email sent`)
         // Mark queue item as completed
-        await supabase
+        // Only update if still pending (prevents repeated updates)
+        await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id)
+          .eq('status', 'pending') // Only update if still pending
         
         return NextResponse.json({
           success: true,
@@ -1138,7 +1159,7 @@ export async function GET(request: NextRequest) {
       
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
-      // Mark queue item as completed unconditionally by queue row id
+      // Mark queue item as completed - only update if still pending (prevents repeated updates)
       // CRITICAL: Update by queue row id (not audit_id) to ensure the specific queue row is marked completed
       const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
         .from('audit_queue')
@@ -1147,6 +1168,7 @@ export async function GET(request: NextRequest) {
           completed_at: new Date().toISOString(),
         })
         .eq('id', queueItem.id) // Update by queue row id, not audit_id
+        .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
         .select('id, status')
       
       const count = queueUpdateResult?.length || 0
@@ -1155,7 +1177,7 @@ export async function GET(request: NextRequest) {
       if (queueUpdateError) {
         console.error(`[${requestId}] ❌ Failed to mark queue as completed:`, queueUpdateError)
       } else if (count === 0) {
-        console.warn(`[${requestId}] [queue-complete] No queue row updated for queueId=${queueItem.id} - queue row may not exist or was already updated`)
+        console.log(`[${requestId}] [queue-complete] Queue row already completed (updated_rows=0)`)
       }
       
       return NextResponse.json({
@@ -1226,7 +1248,7 @@ export async function GET(request: NextRequest) {
       if (emailWasSent) {
         console.log(`[${requestId}] ✅ Email was sent (timestamp: ${verifyAudit.email_sent_at}) - marking queue as completed`)
         // Email was sent - mark queue as completed immediately
-        // CRITICAL: Update unconditionally by queue row id (no status filter) to ensure it's marked completed
+        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
         const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
           .from('audit_queue')
@@ -1235,7 +1257,7 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
           })
           .eq('id', queueItem.id) // Update by queue row id, not audit_id
-          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
+          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
           .select('id, status, completed_at')
         
         const count = queueUpdateResult?.length || 0
@@ -1303,15 +1325,15 @@ export async function GET(request: NextRequest) {
         }
         
         // Mark queue as completed
-        // CRITICAL: Update unconditionally by queue row id (no status filter) to ensure it's marked completed
+        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
           .from('audit_queue')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
-          .eq('id', queueItem.id)
-          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
+          .eq('id', queueItem.id) // Update by queue row id, not audit_id
+          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
           .select('id, status, completed_at')
         
         if (queueUpdateError) {
@@ -1380,7 +1402,7 @@ export async function GET(request: NextRequest) {
           }
           
           // Mark queue as completed
-          // CRITICAL: Update queue status unconditionally by queue row id (no status filter) to ensure it's marked as completed
+          // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
           // This prevents the same item from being selected on the next run
           const { data: queueFixResult, error: queueFixError } = await supabaseService
             .from('audit_queue')
@@ -1388,8 +1410,8 @@ export async function GET(request: NextRequest) {
               status: 'completed',
               completed_at: new Date().toISOString(),
             })
-            .eq('id', queueItem.id)
-            // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
+            .eq('id', queueItem.id) // Update by queue row id, not audit_id
+            .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
             .select('id, status, completed_at')
           
           if (queueFixError) {
@@ -1494,7 +1516,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update queue status unconditionally by queue row id (no status filter) to ensure it's marked as completed
+        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
         const { data: queueFixResult, error: queueFixError } = await supabaseService
           .from('audit_queue')
@@ -1503,8 +1525,8 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
             last_error: null,
           })
-          .eq('id', queueItem.id)
-          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
+          .eq('id', queueItem.id) // Update by queue row id, not audit_id
+          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
           .select('status')
 
         if (queueFixError) {
@@ -1566,7 +1588,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update queue status unconditionally by queue row id (no status filter) to ensure it's marked as completed
+        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
         // This prevents the same item from being selected on the next run
         const { data: queueFixResult, error: queueFixError } = await supabaseService
           .from('audit_queue')
@@ -1575,8 +1597,8 @@ export async function GET(request: NextRequest) {
             completed_at: new Date().toISOString(),
             last_error: null,
           })
-          .eq('id', queueItem.id)
-          // Removed .in('status', ...) filter - update unconditionally to ensure it's marked completed
+          .eq('id', queueItem.id) // Update by queue row id, not audit_id
+          .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
           .select('status')
 
         if (queueFixError) {
