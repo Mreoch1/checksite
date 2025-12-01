@@ -1110,13 +1110,18 @@ export async function GET(request: NextRequest) {
       
       // Determine if error is permanent (should not retry)
       // HTTP errors like 404, 403, 401 are permanent - website doesn't exist or is inaccessible
+      // Check for these patterns in the error message (case-insensitive)
+      const errorLower = errorMessage.toLowerCase()
       const isPermanentError = 
-        errorMessage.includes('HTTP 404') ||
-        errorMessage.includes('HTTP 403') ||
-        errorMessage.includes('HTTP 401') ||
-        errorMessage.includes('404') && errorMessage.includes('fetch') ||
-        errorMessage.includes('ENOTFOUND') || // DNS resolution failed
-        errorMessage.includes('ECONNREFUSED') // Connection refused
+        errorLower.includes('http 404') ||
+        errorLower.includes('http 403') ||
+        errorLower.includes('http 401') ||
+        (errorLower.includes('404') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
+        (errorLower.includes('403') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
+        (errorLower.includes('401') && (errorLower.includes('fetch') || errorLower.includes('error'))) ||
+        errorLower.includes('enotfound') || // DNS resolution failed
+        errorLower.includes('econnrefused') || // Connection refused
+        (errorLower.includes('etimedout') && errorLower.includes('dns')) // DNS timeout
       
       // Only retry if:
       // 1. Not a permanent error
@@ -1124,7 +1129,9 @@ export async function GET(request: NextRequest) {
       const shouldRetry = !isPermanentError && queueItem.retry_count < 3
       
       if (isPermanentError) {
-        console.log(`[${requestId}] ⚠️  Permanent error detected (${errorMessage.substring(0, 100)}) - marking as failed without retry`)
+        console.log(`[${requestId}] ⚠️  Permanent error detected: "${errorMessage.substring(0, 150)}" - marking as failed without retry`)
+      } else {
+        console.log(`[${requestId}] ℹ️  Transient error (will retry if attempts < 3): "${errorMessage.substring(0, 150)}"`)
       }
       
       await supabase
