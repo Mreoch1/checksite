@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
 import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-status'
@@ -39,6 +39,56 @@ function getServiceClient() {
       persistSession: false
     }
   })
+}
+
+/**
+ * Helper function to mark queue item as completed with improved logging
+ * Differentiates between benign race conditions (already completed by another worker) and real problems
+ */
+async function markQueueItemCompletedWithLogging(
+  supabaseService: SupabaseClient,
+  requestId: string,
+  queueId: string,
+  context: string = 'completion'
+): Promise<void> {
+  const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
+    .from('audit_queue')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', queueId)
+    .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
+    .select('id, status')
+  
+  const updated_rows = queueUpdateResult?.length ?? 0
+  
+  if (queueUpdateError) {
+    console.error(`[${requestId}] [queue-complete] Update error for queueId=${queueId} (context: ${context}):`, queueUpdateError)
+    return
+  }
+  
+  if (updated_rows === 0) {
+    // Re-read the row to see what actually happened
+    const { data: row, error: readError } = await supabaseService
+      .from('audit_queue')
+      .select('status')
+      .eq('id', queueId)
+      .maybeSingle()
+    
+    if (readError) {
+      console.warn(`[${requestId}] [queue-complete] No rows updated and failed to read row (queueId=${queueId}, context: ${context}):`, readError)
+    } else if (!row) {
+      console.warn(`[${requestId}] [queue-complete] No rows updated and row missing (queueId=${queueId}, context: ${context})`)
+    } else if (row.status === 'completed') {
+      // Benign race: another worker completed it first
+      console.log(`[${requestId}] [queue-complete] Row already completed by another worker (queueId=${queueId}, context: ${context})`)
+    } else {
+      console.warn(`[${requestId}] [queue-complete] No rows updated, row still not completed (queueId=${queueId}, db_status=${row.status}, context: ${context})`)
+    }
+  } else {
+    console.log(`[${requestId}] [queue-complete] queueId=${queueId}, updated_rows=${updated_rows}, status=completed (context: ${context})`)
+  }
 }
 
 export async function GET(request: NextRequest) {
