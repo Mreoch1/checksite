@@ -267,56 +267,76 @@ export async function GET(request: NextRequest) {
     
     // Safety check: Look for audits that are pending/running but not in queue
     // This handles cases where audits were created but never added to queue
+    // Also check for very recent queue items that might not be visible due to replication lag
     if (!queueItems || queueItems.length === 0) {
-      console.log(`[${requestId}] No queue items found. Checking for audits not in queue...`)
-      const { data: orphanedAudits } = await supabase
-        .from('audits')
-        .select('id, url, status, created_at, email_sent_at, formatted_report_html')
-        .or('status.eq.running,status.eq.pending')
-        .is('email_sent_at', null)
+      console.log(`[${requestId}] No queue items found. Checking for very recent queue items (replication lag)...`)
+      
+      // Check for very recent queue items that might not be visible due to replication lag
+      // Look for items created in the last 2 minutes
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      const { data: recentQueueItems } = await supabase
+        .from('audit_queue')
+        .select('*, audits(*)')
+        .eq('status', 'pending')
+        .gte('created_at', twoMinutesAgo)
         .order('created_at', { ascending: true })
         .limit(5)
       
-      if (orphanedAudits && orphanedAudits.length > 0) {
-        console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
-        for (const audit of orphanedAudits) {
-          // Check if already in queue
-          const { data: existingQueue } = await supabase
-            .from('audit_queue')
-            .select('id')
-            .eq('audit_id', audit.id)
-            .single()
-          
-          if (!existingQueue) {
-            // Add to queue
-            const { error: addError } = await supabase
+      if (recentQueueItems && recentQueueItems.length > 0) {
+        console.log(`[${requestId}] Found ${recentQueueItems.length} very recent queue item(s) that might not have been visible - using them`)
+        queueItems = recentQueueItems
+      } else {
+        // Check for orphaned audits (audits not in queue)
+        console.log(`[${requestId}] No recent queue items found. Checking for audits not in queue...`)
+        const { data: orphanedAudits } = await supabase
+          .from('audits')
+          .select('id, url, status, created_at, email_sent_at, formatted_report_html')
+          .or('status.eq.running,status.eq.pending')
+          .is('email_sent_at', null)
+          .order('created_at', { ascending: true })
+          .limit(5)
+        
+        if (orphanedAudits && orphanedAudits.length > 0) {
+          console.log(`[${requestId}] Found ${orphanedAudits.length} audit(s) not in queue - adding them...`)
+          for (const audit of orphanedAudits) {
+            // Check if already in queue
+            const { data: existingQueue } = await supabase
               .from('audit_queue')
-              .insert({
-                audit_id: audit.id,
-                status: 'pending',
-                retry_count: 0,
-                last_error: null,
-                created_at: new Date().toISOString(),
-              })
-            if (addError) {
-              console.error(`[${requestId}] Failed to add orphaned audit ${audit.id} to queue:`, addError)
-            } else {
-              console.log(`[${requestId}] ✅ Added orphaned audit ${audit.id} (${audit.url}) to queue`)
+              .select('id')
+              .eq('audit_id', audit.id)
+              .single()
+            
+            if (!existingQueue) {
+              // Add to queue
+              const { error: addError } = await supabase
+                .from('audit_queue')
+                .insert({
+                  audit_id: audit.id,
+                  status: 'pending',
+                  retry_count: 0,
+                  last_error: null,
+                  created_at: new Date().toISOString(),
+                })
+              if (addError) {
+                console.error(`[${requestId}] Failed to add orphaned audit ${audit.id} to queue:`, addError)
+              } else {
+                console.log(`[${requestId}] ✅ Added orphaned audit ${audit.id} (${audit.url}) to queue`)
+              }
             }
           }
-        }
-        // Retry finding queue items after adding orphaned audits
-        const { data: retryQueueItems } = await supabase
-          .from('audit_queue')
-          .select('*, audits(*)')
-          .eq('status', 'pending')
-          .order('created_at', { ascending: true })
-          .limit(20)
-        
-        if (retryQueueItems && retryQueueItems.length > 0) {
-          // Use the retry items as the new queue items
-          queueItems = retryQueueItems
-          console.log(`[${requestId}] ✅ Retrying with ${retryQueueItems.length} queue items after adding orphaned audits`)
+          // Retry finding queue items after adding orphaned audits
+          const { data: retryQueueItems } = await supabase
+            .from('audit_queue')
+            .select('*, audits(*)')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true })
+            .limit(20)
+          
+          if (retryQueueItems && retryQueueItems.length > 0) {
+            // Use the retry items as the new queue items
+            queueItems = retryQueueItems
+            console.log(`[${requestId}] ✅ Retrying with ${retryQueueItems.length} queue items after adding orphaned audits`)
+          }
         }
       }
     }
