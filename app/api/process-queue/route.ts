@@ -556,6 +556,15 @@ export async function GET(request: NextRequest) {
       const hasReportFromFreshCheck = !!freshAuditCheck?.formatted_report_html
       console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck?.status || 'null'}, email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, has_report=${hasReportFromFreshCheck}`)
       
+      // DIAGNOSTIC: Re-read the same audit using the same client to verify consistency
+      // This helps identify if there's a client mismatch or replication lag
+      const { data: diagnosticCheck } = await supabaseService
+        .from('audits')
+        .select('id, status, email_sent_at, formatted_report_html')
+        .eq('id', item.audit_id)
+        .single()
+      console.log(`[${requestId}] [audit-debug] audit_id=${item.audit_id}, status=${diagnosticCheck?.status || 'null'}, email_sent_at=${diagnosticCheck?.email_sent_at || 'null'}, has_report=${!!diagnosticCheck?.formatted_report_html}`)
+      
       // EARLY EXIT: If email was already sent, do NOT reprocess - just finalize the queue row and move on
       if (freshAuditCheck?.email_sent_at) {
         const emailAge = getEmailSentAtAge(freshAuditCheck.email_sent_at)
@@ -1008,7 +1017,8 @@ export async function GET(request: NextRequest) {
       // FIX: If audit has report but status is wrong, fix it first
       if (auditData.formatted_report_html && auditData.status !== 'completed') {
         console.log(`[${requestId}] ⚠️  Audit ${queueItem.audit_id} has report but wrong status (${auditData.status}) - fixing...`)
-        const { error: fixError } = await supabase
+        // Use service client for fresh read/write from primary database
+        const { error: fixError } = await supabaseService
           .from('audits')
           .update({
             status: 'completed',
@@ -1021,13 +1031,8 @@ export async function GET(request: NextRequest) {
         } else {
           console.log(`[${requestId}] ✅ Fixed audit status to completed`)
           // Mark queue as completed since audit is actually done
-          await supabase
-            .from('audit_queue')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', queueItem.id)
+          // Use service client and only update if still pending
+          await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'status-fix', ['pending'])
           
           return NextResponse.json({
             success: true,
@@ -1044,7 +1049,8 @@ export async function GET(request: NextRequest) {
       if (queueItem.retry_count >= 3) {
         console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (${queueItem.retry_count})`)
         // Mark as failed permanently
-        await supabase
+        // Use service client for fresh write to primary database
+        await supabaseService
           .from('audit_queue')
           .update({
             status: 'failed',
@@ -1065,7 +1071,8 @@ export async function GET(request: NextRequest) {
 
     // CRITICAL: Double-check email_sent_at one more time right before processing
     // This prevents race conditions where email was sent between the initial check and now
-    const { data: finalCheck } = await supabase
+    // Use service client for fresh read from primary database
+    const { data: finalCheck } = await supabaseService
       .from('audits')
       .select('email_sent_at, customers(*)')
       .eq('id', auditId)
@@ -1074,13 +1081,8 @@ export async function GET(request: NextRequest) {
     if (finalCheck && isEmailSent(finalCheck.email_sent_at)) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email was sent between initial check and processing (${finalCheck.email_sent_at})`)
       // Mark queue item as completed since email was sent
-      await supabase
-        .from('audit_queue')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', queueItem.id)
+      // Use service client and only update if still pending
+      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-processing-email-sent', ['pending'])
       
       return NextResponse.json({
         success: true,
@@ -1107,7 +1109,8 @@ export async function GET(request: NextRequest) {
       if (!emailRegex.test(customerEmail)) {
         console.error(`[${requestId}] ❌ Invalid email address for audit ${auditId}: ${customerEmail}`)
         // Mark queue item as failed with error message
-        await supabase
+        // Use service client for fresh write to primary database
+        await supabaseService
           .from('audit_queue')
           .update({
             status: 'failed',
@@ -1123,7 +1126,8 @@ export async function GET(request: NextRequest) {
           note: 'Queue processor skipped this audit due to invalid email',
         }, null, 2)
         
-        await supabase
+        // Use service client for fresh write to primary database
+        await supabaseService
           .from('audits')
           .update({
             error_log: errorLog,
@@ -1145,7 +1149,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Mark as processing
-    const { error: updateError } = await supabase
+    // Use service client for fresh write to primary database
+    const { error: updateError } = await supabaseService
       .from('audit_queue')
       .update({
         status: 'processing',
@@ -1153,6 +1158,7 @@ export async function GET(request: NextRequest) {
         retry_count: queueItem.retry_count + 1,
       })
       .eq('id', queueItem.id)
+      .in('status', ['pending', 'running']) // Only update if still pending or running
 
     if (updateError) {
       console.error('Error updating queue status:', updateError)
