@@ -253,6 +253,7 @@ export async function GET(request: NextRequest) {
     // This runs in a single transaction on the primary database, eliminating stale read issues
     // The function uses FOR UPDATE SKIP LOCKED for safe concurrent access
     // Step 1+2 combined: atomically claim oldest pending queue item via RPC
+    // If RPC fails (e.g., schema cache not refreshed), fall back to SELECT+UPDATE approach
     const { data: claimedRows, error: claimError } = await supabasePrimary
       .rpc('claim_oldest_audit_queue')
     
@@ -260,52 +261,182 @@ export async function GET(request: NextRequest) {
     let queueItem: any = null
     
     if (claimError) {
-      console.error(`[${requestId}] [atomic-claim] Error claiming queue item via RPC:`, claimError)
-      return NextResponse.json({
-        success: false,
-        message: 'Failed to claim queue item',
-        processed: false,
-      }, { status: 500 })
-    }
-    
-    if (!claimedRows || claimedRows.length === 0) {
-      console.log(`[${requestId}] [atomic-claim] No pending queue items available`)
-      // No pending items - check for stuck processing items below
-    } else {
-      // Exactly one row from the UPDATE ... RETURNING
-      const claimedRow = claimedRows[0]
+      // RPC failed - likely schema cache not refreshed or function doesn't exist
+      // Fall back to the SELECT+UPDATE approach with auto-resolve
+      console.warn(`[${requestId}] [atomic-claim] RPC failed (${claimError.code}), falling back to SELECT+UPDATE approach:`, claimError.message)
       
-      // Fetch the audit data with join (RPC doesn't return joined data)
-      const { data: queueItemWithAudit, error: auditFetchError } = await supabasePrimary
+      // Fallback: Two-step approach with auto-resolve for stale rows
+      const { data: oldestPending, error: findOldestError } = await supabasePrimary
         .from('audit_queue')
-        .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
-        .eq('id', claimedRow.id)
+        .select('id, retry_count')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(1)
         .single()
       
-      if (auditFetchError || !queueItemWithAudit) {
-        console.error(`[${requestId}] [atomic-claim] Failed to fetch audit data for claimed item:`, auditFetchError)
-        return NextResponse.json({
-          success: false,
-          message: 'Failed to fetch audit data for claimed item',
-          processed: false,
-        }, { status: 500 })
+      if (findOldestError || !oldestPending) {
+        console.log(`[${requestId}] [atomic-claim-fallback] No pending queue items available`)
+        // Will check for stuck items below
+      } else {
+        // Step 2: Atomically claim the oldest pending item by updating it to 'processing'
+        const { data: claimedRow, error: updateError } = await supabasePrimary
+          .from('audit_queue')
+          .update({
+            status: 'processing',
+            started_at: new Date().toISOString(),
+            retry_count: (oldestPending.retry_count || 0) + 1,
+          })
+          .eq('id', oldestPending.id)
+          .eq('status', 'pending') // CRITICAL: Only update if still pending (atomic claim)
+          .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
+          .single()
+        
+        if (updateError || !claimedRow) {
+          // Claim failed - another worker got it first, or item no longer pending
+          if (updateError?.code === 'PGRST116') {
+            console.log(
+              `[${requestId}] [atomic-claim-fallback] Failed to claim item ${oldestPending.id} - already claimed or no longer pending on primary`
+            )
+            
+            // Auto-resolve stale rows
+            const { data: qRow, error: qErr } = await supabasePrimary
+              .from('audit_queue')
+              .select('id, status')
+              .eq('id', oldestPending.id)
+              .maybeSingle()
+            
+            if (!qErr && qRow && qRow.status !== 'pending') {
+              const { error: resolveError } = await supabasePrimary
+                .from('audit_queue')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                  last_error: 'Auto-resolved stale pending row (status differed between replica and primary)',
+                })
+                .eq('id', oldestPending.id)
+              
+              if (resolveError) {
+                console.error(`[${requestId}] [atomic-claim-fallback] Failed to auto-resolve stale row:`, resolveError)
+              } else {
+                console.log(
+                  `[${requestId}] [atomic-claim-fallback] ✅ Auto-resolved stale row ${oldestPending.id} with status=${qRow.status}`
+                )
+              }
+            }
+          } else {
+            console.error(`[${requestId}] [atomic-claim-fallback] Error claiming queue item:`, updateError)
+          }
+          
+          return NextResponse.json({
+            success: true,
+            message: 'No pending audits available for this run (stale row auto-resolved if detected)',
+            processed: false,
+          })
+        }
+        
+        // Successfully claimed via fallback
+        queueItem = claimedRow
+        const audit = Array.isArray(claimedRow.audits) ? claimedRow.audits[0] : claimedRow.audits
+        const ageMinutes = Math.round((Date.now() - new Date(claimedRow.created_at).getTime()) / 1000 / 60)
+        console.log(
+          `[${requestId}] [atomic-claim-fallback] ✅ Claimed queue item: ` +
+          `id=${claimedRow.id}, audit_id=${claimedRow.audit_id}, age=${ageMinutes}m`
+        )
+        
+        // Post-claim verification for fallback path (same as RPC path)
+        if (queueItem.audit_id) {
+          const { data: auditStatusCheck } = await supabasePrimary
+            .from('audits')
+            .select('status, email_sent_at')
+            .eq('id', queueItem.audit_id)
+            .single()
+          
+          if (auditStatusCheck) {
+            if (auditStatusCheck.email_sent_at && 
+                !auditStatusCheck.email_sent_at.startsWith('sending_') && 
+                auditStatusCheck.email_sent_at.length > 10) {
+              const emailAge = Math.round((Date.now() - new Date(auditStatusCheck.email_sent_at).getTime()) / 1000 / 60)
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} already has email_sent_at=${auditStatusCheck.email_sent_at} (${emailAge}m old) - releasing claim and marking queue as completed`)
+              await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-email-sent', ['processing'])
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - email already sent (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+                email_sent_at: auditStatusCheck.email_sent_at,
+              })
+            }
+            
+            if (auditStatusCheck.status === 'completed') {
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already completed - releasing claim and marking queue as completed`)
+              await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'post-claim-verify-audit-completed', ['processing'])
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - already completed (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+              })
+            }
+            
+            if (auditStatusCheck.status === 'failed') {
+              console.log(`[${requestId}] [post-claim-verify] Audit ${queueItem.audit_id} is already failed - releasing claim and marking queue as failed`)
+              await markQueueItemFailedWithLogging(
+                requestId,
+                queueItem.id,
+                'post-claim-verify-audit-failed',
+                'Audit already marked as failed - skipping reprocessing',
+                ['processing']
+              )
+              return NextResponse.json({
+                success: true,
+                message: 'Audit skipped - already failed (caught after atomic claim)',
+                processed: false,
+                auditId: queueItem.audit_id,
+              })
+            }
+          }
+        }
       }
-      
-      const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
-      const ageMinutes = Math.round((Date.now() - new Date(queueItemWithAudit.created_at).getTime()) / 1000 / 60)
-      console.log(
-        `[${requestId}] [atomic-claim] ✅ Claimed queue item: ` +
-        `id=${queueItemWithAudit.id}, audit_id=${queueItemWithAudit.audit_id}, age=${ageMinutes}m, ` +
-        `audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`
-      )
-      
-      // Use queueItemWithAudit for the rest of the processing
-      queueItem = queueItemWithAudit
-      
-      // CRITICAL: Verify the claimed item is still valid before processing
-      // Even though we atomically claimed it, we should verify the audit hasn't been completed
-      // This is a safety net, not the primary locking mechanism
-      if (queueItem.audit_id) {
+    } else {
+      // RPC succeeded - process the claimed row
+      if (!claimedRows || claimedRows.length === 0) {
+        console.log(`[${requestId}] [atomic-claim] No pending queue items available`)
+        // No pending items - check for stuck processing items below
+      } else {
+        // Exactly one row from the UPDATE ... RETURNING
+        const claimedRow = claimedRows[0]
+        
+        // Fetch the audit data with join (RPC doesn't return joined data)
+        const { data: queueItemWithAudit, error: auditFetchError } = await supabasePrimary
+          .from('audit_queue')
+          .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
+          .eq('id', claimedRow.id)
+          .single()
+        
+        if (auditFetchError || !queueItemWithAudit) {
+          console.error(`[${requestId}] [atomic-claim] Failed to fetch audit data for claimed item:`, auditFetchError)
+          return NextResponse.json({
+            success: false,
+            message: 'Failed to fetch audit data for claimed item',
+            processed: false,
+          }, { status: 500 })
+        }
+        
+        const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
+        const ageMinutes = Math.round((Date.now() - new Date(queueItemWithAudit.created_at).getTime()) / 1000 / 60)
+        console.log(
+          `[${requestId}] [atomic-claim] ✅ Claimed queue item: ` +
+          `id=${queueItemWithAudit.id}, audit_id=${queueItemWithAudit.audit_id}, age=${ageMinutes}m, ` +
+          `audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`
+        )
+        
+        // Use queueItemWithAudit for the rest of the processing
+        queueItem = queueItemWithAudit
+        
+        // CRITICAL: Verify the claimed item is still valid before processing
+        // Even though we atomically claimed it, we should verify the audit hasn't been completed
+        // This is a safety net, not the primary locking mechanism
+        if (queueItem.audit_id) {
         const { data: auditStatusCheck } = await supabasePrimary
           .from('audits')
           .select('status, email_sent_at')
