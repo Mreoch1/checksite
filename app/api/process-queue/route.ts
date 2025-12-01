@@ -1614,7 +1614,15 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      // Helper function to check for permanent fetch errors (HTTP 401/403/404)
+      function isPermanentFetchError(err: unknown): boolean {
+        const msg = err instanceof Error ? err.message : String(err)
+        return /HTTP 4(01|03|04)/.test(msg) || 
+               /http 4(01|03|04)/i.test(msg)
+      }
+      
       const isPermanentError = 
+        isPermanentFetchError(errorMessage) ||
         errorTextToCheck.includes('http 404') ||
         errorTextToCheck.includes('http 403') ||
         errorTextToCheck.includes('http 401') ||
@@ -1632,17 +1640,44 @@ export async function GET(request: NextRequest) {
       
       if (isPermanentError) {
         console.log(`[${requestId}] ⚠️  Permanent error detected: "${errorMessage.substring(0, 150)}" - marking as failed without retry`)
+        
+        // Mark queue item as failed using helper
+        const failResult = await markQueueItemFailedWithLogging(
+          supabaseService,
+          requestId,
+          queueItem.id,
+          'permanent-error',
+          errorMessage.substring(0, 1000),
+          ['pending', 'processing']
+        )
+        
+        if (failResult === 'updated' || failResult === 'already-terminal') {
+          console.log(`[${requestId}] ✅ Permanent error recorded - queue item marked as failed`)
+        }
       } else {
         console.log(`[${requestId}] ℹ️  Transient error (will retry if attempts < 3): "${errorMessage.substring(0, 150)}"`)
+        
+        // For transient errors, mark as pending for retry (only if retries left)
+        if (shouldRetry) {
+          await supabaseService
+            .from('audit_queue')
+            .update({
+              status: 'pending',
+              last_error: errorMessage.substring(0, 1000), // Limit error message size
+            })
+            .eq('id', queueItem.id)
+        } else {
+          // Max retries exceeded - mark as failed
+          await markQueueItemFailedWithLogging(
+            supabaseService,
+            requestId,
+            queueItem.id,
+            'max-retries-exceeded',
+            errorMessage.substring(0, 1000),
+            ['pending', 'processing']
+          )
+        }
       }
-      
-      await supabaseService
-        .from('audit_queue')
-        .update({
-          status: shouldRetry ? 'pending' : 'failed',
-          last_error: errorMessage.substring(0, 1000), // Limit error message size
-        })
-        .eq('id', queueItem.id)
       
       // Return 200 (not 500) if this is an expected failure that will be retried
       // Only return 500 for unexpected errors that should not be retried
