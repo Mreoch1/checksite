@@ -394,10 +394,11 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
       }
       
-      // Additional safeguard: If audit status is 'completed', skip it (email was already sent or audit failed)
-      // Check status FIRST to avoid replication lag issues with email_sent_at
+      // Additional safeguard: Check audit status FIRST to avoid replication lag issues
       // Use fresh check status first, fallback to join data status if fresh check doesn't have it
       const auditStatus = freshEmailCheck.status || audit?.status
+      
+      // Skip if audit is already completed
       if (auditStatus === 'completed') {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'}, email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
         // Mark queue item as completed since audit is already completed
@@ -414,6 +415,27 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as completed:`, updateError)
         } else {
           console.log(`[${requestId}] ✅ Marked queue item ${item.id} as completed (audit already completed)`)
+        }
+        continue
+      }
+      
+      // Skip if audit is already failed (permanent error, no retry needed)
+      if (auditStatus === 'failed') {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'failed' (fresh_status=${freshEmailCheck.status || 'null'}, join_status=${audit?.status || 'null'})`)
+        // Mark queue item as failed to match audit status
+        const { error: updateError } = await supabase
+          .from('audit_queue')
+          .update({
+            status: 'failed',
+            last_error: 'Audit already marked as failed - skipping reprocessing',
+          })
+          .eq('id', item.id)
+          .in('status', ['pending', 'processing'])
+        
+        if (updateError) {
+          console.error(`[${requestId}] ❌ Failed to mark queue item ${item.id} as failed:`, updateError)
+        } else {
+          console.log(`[${requestId}] ✅ Marked queue item ${item.id} as failed (audit already failed)`)
         }
         continue
       }
