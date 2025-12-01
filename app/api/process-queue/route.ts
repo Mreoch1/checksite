@@ -493,8 +493,8 @@ export async function GET(request: NextRequest) {
       }
       
       // Log fresh check result in the format requested
-      const hasReport = !!freshAuditCheck?.formatted_report_html
-      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck?.status || 'null'}, email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, has_report=${hasReport}`)
+      const hasReportFromFreshCheck = !!freshAuditCheck?.formatted_report_html
+      console.log(`[${requestId}] [fresh-check] audit_id=${item.audit_id}, status=${freshAuditCheck?.status || 'null'}, email_sent_at=${freshAuditCheck?.email_sent_at || 'null'}, has_report=${hasReportFromFreshCheck}`)
       
       // EARLY EXIT: If email was already sent, do NOT reprocess - just finalize the queue row and move on
       if (freshAuditCheck?.email_sent_at) {
