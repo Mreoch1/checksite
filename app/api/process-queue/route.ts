@@ -1075,14 +1075,60 @@ export async function GET(request: NextRequest) {
     // Strategy: Attempt full processing, but return early if taking too long
     // The processing will continue in the background (Netlify allows this)
     
-    // Check if audit already has a report (just needs email sending - fast)
-    const { data: quickCheck } = await supabase
+    // CRITICAL: Early guard - check if email was already sent BEFORE processing
+    // This prevents reprocessing audits that already have emails sent
+    // Fetch fresh data to avoid stale read replica results
+    const { data: preProcessCheck, error: preProcessError } = await supabase
       .from('audits')
-      .select('status, formatted_report_html, email_sent_at')
+      .select('id, status, email_sent_at, formatted_report_html')
       .eq('id', auditId)
       .single()
     
-    const hasReport = !!quickCheck?.formatted_report_html
+    if (preProcessError) {
+      console.error(`[${requestId}] ❌ Error checking audit ${auditId} before processing:`, preProcessError)
+      return NextResponse.json(
+        { error: 'Failed to verify audit before processing', details: preProcessError.message },
+        { status: 500 }
+      )
+    }
+    
+    if (!preProcessCheck) {
+      console.error(`[${requestId}] ❌ Audit ${auditId} not found before processing`)
+      return NextResponse.json(
+        { error: 'Audit not found' },
+        { status: 404 }
+      )
+    }
+    
+    // EARLY EXIT: If email was already sent, do NOT reprocess (skip modules and report generation)
+    if (preProcessCheck.email_sent_at) {
+      const emailAge = getEmailSentAtAge(preProcessCheck.email_sent_at)
+      const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
+      
+      console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
+      
+      // Mark queue item as completed unconditionally
+      await supabase
+        .from('audit_queue')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', queueItem.id)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Audit skipped - email already sent (no reprocessing)',
+        processed: false,
+        auditId,
+        email_sent_at: preProcessCheck.email_sent_at,
+        has_report: !!preProcessCheck.formatted_report_html,
+        skipped_processing: true,
+      })
+    }
+    
+    // Check if audit already has a report (just needs email sending - fast)
+    const hasReport = !!preProcessCheck.formatted_report_html
     const needsFullProcessing = !hasReport
     
     // Set timeout based on operation type

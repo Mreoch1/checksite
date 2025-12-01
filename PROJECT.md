@@ -53,6 +53,31 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2025-12-01: Early Pre-Processing Guard to Prevent Module/Report Reprocessing
+
+**Issue**: Queue processor was reprocessing audits (running modules and regenerating reports) even when email was already sent. The in-memory guard in the loop was working, but `processAudit` was still being called, causing wasted CPU on audits that already had emails sent.
+
+**Root Cause**: 
+- The guard in the loop was checking `email_sent_at`, but `processAudit` was still being called before that check could prevent it
+- Need to check `email_sent_at` RIGHT BEFORE calling `processAudit`, not just in the loop
+
+**Changes Made**:
+1. Added early guard RIGHT BEFORE `processAudit` call (line 1078-1128)
+2. Fetches fresh audit data to check `email_sent_at` before any processing
+3. If `email_sent_at` is set (any value), immediately marks queue as completed and returns
+4. This prevents calling `processAudit` at all, saving CPU on module execution and report generation
+
+**Files Modified**:
+- `app/api/process-queue/route.ts` - Added pre-processing guard before processAudit call
+
+**Resolution**:
+- Queue processor now checks `email_sent_at` BEFORE calling `processAudit`
+- If email was sent, skips all processing (modules, report generation) and moves to next item
+- Prevents wasted CPU on reprocessing completed audits
+- Queue progresses cleanly through items even with stale join query results
+
+**Status**: ✅ Fixed - Code ready for deployment
+
 ### 2025-12-01: In-Memory Guard to Prevent Reprocessing Completed Audits
 
 **Issue**: Queue processor was reprocessing the same audit (bb2b2ce7-...) on every run even though email was already sent. The join query was returning stale data from read replicas, showing `email_sent=null` even when `email_sent_at` was set.
