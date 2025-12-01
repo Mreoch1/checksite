@@ -406,6 +406,27 @@ export async function GET(request: NextRequest) {
         // Exactly one row from the UPDATE ... RETURNING
         const claimedRow = claimedRows[0]
         
+        // CRITICAL: Verify the claimed row is actually in 'processing' status
+        // If the RPC function somehow returned a row that's already completed/failed, skip it
+        if (claimedRow.status !== 'processing') {
+          console.warn(
+            `[${requestId}] [atomic-claim] ⚠️  RPC returned row with status='${claimedRow.status}' (expected 'processing') - ` +
+            `this should not happen. Row may have been completed between SELECT and UPDATE. Skipping.`
+          )
+          // Mark as completed if it's already completed, or failed if it's failed
+          if (claimedRow.status === 'completed') {
+            console.log(`[${requestId}] [atomic-claim] Row ${claimedRow.id} already completed - skipping`)
+          } else if (claimedRow.status === 'failed') {
+            console.log(`[${requestId}] [atomic-claim] Row ${claimedRow.id} already failed - skipping`)
+          }
+          // Return early - no work available (row was already processed)
+          return NextResponse.json({
+            success: true,
+            message: 'No pending audits available (claimed row was already processed)',
+            processed: false,
+          })
+        }
+        
         // Fetch the audit data with join (RPC doesn't return joined data)
         const { data: queueItemWithAudit, error: auditFetchError } = await supabasePrimary
           .from('audit_queue')
@@ -422,7 +443,49 @@ export async function GET(request: NextRequest) {
           }, { status: 500 })
         }
         
+        // CRITICAL: Double-check the queue row status after fetching (handles any race conditions)
+        if (queueItemWithAudit.status !== 'processing') {
+          console.warn(
+            `[${requestId}] [atomic-claim] ⚠️  Queue row ${queueItemWithAudit.id} status changed to '${queueItemWithAudit.status}' ` +
+            `after claim (expected 'processing') - another worker may have processed it. Skipping.`
+          )
+          return NextResponse.json({
+            success: true,
+            message: 'No pending audits available (queue row was processed by another worker)',
+            processed: false,
+          })
+        }
+        
         const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
+        
+        // CRITICAL: Fresh read of audit to check email_sent_at (joined data may be stale)
+        // This catches cases where the queue row is still pending but the audit is already done
+        const { data: freshAuditCheck } = await supabasePrimary
+          .from('audits')
+          .select('email_sent_at, status, formatted_report_html')
+          .eq('id', queueItemWithAudit.audit_id)
+          .single()
+        
+        // CRITICAL: Check if audit already has email sent BEFORE processing
+        // This catches cases where the queue row is still pending but the audit is already done
+        if (audit?.email_sent_at && 
+            !audit.email_sent_at.startsWith('sending_') && 
+            audit.email_sent_at.length > 10) {
+          const emailAge = Math.round((Date.now() - new Date(freshAuditCheck!.email_sent_at).getTime()) / 1000 / 60)
+          console.log(
+            `[${requestId}] [atomic-claim] ⚠️  Audit ${queueItemWithAudit.audit_id} already has email_sent_at=${freshAuditCheck!.email_sent_at} ` +
+            `(${emailAge}m old) - marking queue as completed and skipping processing`
+          )
+          await markQueueItemCompletedWithLogging(requestId, queueItemWithAudit.id, 'rpc-claim-audit-already-emailed', ['processing'])
+          return NextResponse.json({
+            success: true,
+            message: 'Audit skipped - email already sent (detected after RPC claim)',
+            processed: false,
+            auditId: queueItemWithAudit.audit_id,
+            email_sent_at: freshAuditCheck!.email_sent_at,
+          })
+        }
+        
         const ageMinutes = Math.round((Date.now() - new Date(queueItemWithAudit.created_at).getTime()) / 1000 / 60)
         console.log(
           `[${requestId}] [atomic-claim] ✅ Claimed queue item: ` +
