@@ -896,15 +896,97 @@ export async function GET(request: NextRequest) {
         // This is important - we have queue items but none passed the filter
         console.warn(`[${requestId}] ⚠️  Found ${queueItems.length} pending queue items but none passed filtering criteria`)
         console.warn(`[${requestId}] This might indicate a bug in the filtering logic or missing audit data in joins`)
-        // Log details about why each item was filtered out
-        queueItems.forEach((item: any) => {
+        
+        // Clean up stale pending items that didn't pass filtering
+        const staleItems: any[] = []
+        for (const item of queueItems) {
           const audit = Array.isArray(item.audits) ? item.audits[0] : item.audits
           const ageSeconds = Math.round((Date.now() - new Date(item.created_at).getTime()) / 1000)
+          const ageMinutes = Math.round(ageSeconds / 60)
           const passesEmail = !isEmailSent(audit?.email_sent_at) && !isEmailSending(audit?.email_sent_at)
+          
           console.warn(`[${requestId}]   - Queue item ${item.id} (audit_id: ${item.audit_id}):`)
-          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageSeconds}s, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
+          console.warn(`[${requestId}]     audit_data=${audit ? 'present' : 'MISSING'}, age=${ageMinutes}m, email_sent=${audit?.email_sent_at || 'null'}, status=${item.status}`)
           console.warn(`[${requestId}]     passes_email=${passesEmail}, should_process=${passesEmail && audit ? 'YES' : 'NO'}`)
-        })
+          
+          staleItems.push({ item, audit, ageMinutes })
+        }
+        
+        // Clean up stale pending items
+        if (staleItems.length > 0) {
+          console.log(`[${requestId}] [stale-cleanup] Cleaning up ${staleItems.length} stale pending queue items`)
+          
+          for (const { item, audit: joinAudit, ageMinutes } of staleItems) {
+            const auditId = item.audit_id
+            
+            // Fetch fresh audit state to decide what to do
+            const freshAudit = await getFreshAuditState(supabaseService, auditId)
+            
+            if (!freshAudit) {
+              // Audit doesn't exist - mark queue as failed
+              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} not found - marking queue as failed`)
+              await markQueueItemFailedWithLogging(
+                supabaseService,
+                requestId,
+                item.id,
+                'stale-pending-no-audit',
+                'Stale pending queue item - audit not found',
+                ['pending']
+              )
+              continue
+            }
+            
+            // If audit is already completed or has email sent, mark queue as completed
+            if (freshAudit.status === 'completed' || 
+                (freshAudit.email_sent_at && 
+                 !freshAudit.email_sent_at.startsWith('sending_') && 
+                 freshAudit.email_sent_at.length > 10)) {
+              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} already completed/emailed - marking queue as completed`)
+              await markQueueItemCompletedWithLogging(
+                supabaseService,
+                requestId,
+                item.id,
+                'stale-pending-audit-already-completed',
+                ['pending']
+              )
+              continue
+            }
+            
+            // If audit is failed, mark queue as failed
+            if (freshAudit.status === 'failed') {
+              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is failed - marking queue as failed`)
+              await markQueueItemFailedWithLogging(
+                supabaseService,
+                requestId,
+                item.id,
+                'stale-pending-audit-failed',
+                'Stale pending queue item - audit already failed',
+                ['pending']
+              )
+              continue
+            }
+            
+            // If audit is too old (> 4 hours) and non-terminal, mark as failed
+            const MAX_STALE_AGE_MINUTES = 4 * 60 // 4 hours
+            if (ageMinutes > MAX_STALE_AGE_MINUTES && 
+                freshAudit.status !== 'completed' && 
+                freshAudit.status !== 'failed') {
+              console.log(`[${requestId}] [stale-cleanup] Audit ${auditId} is too old (${ageMinutes}m) and non-terminal - marking queue as failed`)
+              await markQueueItemFailedWithLogging(
+                supabaseService,
+                requestId,
+                item.id,
+                'stale-pending-too-old',
+                `Stale pending queue item - too old (${ageMinutes}m) and audit not completed`,
+                ['pending']
+              )
+              continue
+            }
+            
+            // Otherwise, leave it pending - might be processable next time
+            console.log(`[${requestId}] [stale-cleanup] Leaving queue item ${item.id} as pending (audit status: ${freshAudit.status}, age: ${ageMinutes}m)`)
+          }
+        }
       } else {
         console.log(`[${requestId}] No pending audits in queue`)
       }
