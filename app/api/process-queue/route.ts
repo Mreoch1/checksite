@@ -249,103 +249,58 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // CRITICAL: Atomically claim one pending queue item by updating it to 'processing'
-    // This eliminates all race conditions - only one worker can claim a specific row
-    // We use a two-step approach because Supabase REST API doesn't support LIMIT on UPDATE:
-    // 1. Find the oldest pending item (SELECT with LIMIT 1)
-    // 2. Atomically update that specific item from 'pending' to 'processing' (UPDATE with WHERE id = ... AND status = 'pending')
-    // The UPDATE with .eq('status', 'pending') ensures atomicity - if another worker claimed it first, the update will affect 0 rows
+    // CRITICAL: Atomically claim one pending queue item using PostgreSQL function
+    // This runs in a single transaction on the primary database, eliminating stale read issues
+    // The function uses FOR UPDATE SKIP LOCKED for safe concurrent access
+    // Step 1+2 combined: atomically claim oldest pending queue item via RPC
+    const { data: claimedRows, error: claimError } = await supabasePrimary
+      .rpc('claim_oldest_audit_queue')
     
-    // Step 1: Find the oldest pending item (need retry_count for increment)
-    const { data: oldestPending, error: findOldestError } = await supabasePrimary
-      .from('audit_queue')
-      .select('id, retry_count')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single()
-    
-    // Declare queueItem outside the else block so it's accessible for processing
+    // Declare queueItem at function scope so it's accessible throughout
     let queueItem: any = null
     
-    if (findOldestError || !oldestPending) {
-      // No pending items available - handle this case below
+    if (claimError) {
+      console.error(`[${requestId}] [atomic-claim] Error claiming queue item via RPC:`, claimError)
+      return NextResponse.json({
+        success: false,
+        message: 'Failed to claim queue item',
+        processed: false,
+      }, { status: 500 })
+    }
+    
+    if (!claimedRows || claimedRows.length === 0) {
       console.log(`[${requestId}] [atomic-claim] No pending queue items available`)
+      // No pending items - check for stuck processing items below
     } else {
-      // Step 2: Atomically claim the oldest pending item by updating it to 'processing'
-      // This UPDATE will only succeed if the item is still 'pending' (atomic check)
-      const { data: claimedRow, error: claimError } = await supabasePrimary
+      // Exactly one row from the UPDATE ... RETURNING
+      const claimedRow = claimedRows[0]
+      
+      // Fetch the audit data with join (RPC doesn't return joined data)
+      const { data: queueItemWithAudit, error: auditFetchError } = await supabasePrimary
         .from('audit_queue')
-        .update({
-          status: 'processing',
-          started_at: new Date().toISOString(),
-          retry_count: (oldestPending.retry_count || 0) + 1, // Increment retry count on claim
-        })
-        .eq('id', oldestPending.id)
-        .eq('status', 'pending') // CRITICAL: Only update if still pending (atomic claim)
         .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
+        .eq('id', claimedRow.id)
         .single()
       
-      if (claimError || !claimedRow) {
-        // Claim failed - another worker got it first, or item no longer pending
-        if (claimError?.code === 'PGRST116') {
-          console.log(
-            `[${requestId}] [atomic-claim] Failed to claim item ${oldestPending.id} - already claimed or no longer pending on primary`
-          )
-
-          // Re-read from primary and auto-resolve stale "pending" rows
-          // This prevents a single stale row from permanently blocking the queue
-          const { data: qRow, error: qErr } = await supabasePrimary
-            .from('audit_queue')
-            .select('id, status')
-            .eq('id', oldestPending.id)
-            .maybeSingle()
-
-          if (!qErr && qRow && qRow.status !== 'pending') {
-            // Row exists but is not pending - it's stale (likely completed/failed on primary but replica still shows pending)
-            // Auto-resolve it to prevent it from blocking future queue runs
-            const { error: resolveError } = await supabasePrimary
-              .from('audit_queue')
-              .update({
-                status: 'completed',
-                completed_at: new Date().toISOString(),
-                last_error: 'Auto-resolved stale pending row (status differed between replica and primary)',
-              })
-              .eq('id', oldestPending.id)
-
-            if (resolveError) {
-              console.error(`[${requestId}] [atomic-claim] Failed to auto-resolve stale row:`, resolveError)
-            } else {
-              console.log(
-                `[${requestId}] [atomic-claim] ✅ Auto-resolved stale row ${oldestPending.id} with status=${qRow.status}`
-              )
-            }
-          } else if (!qErr && qRow && qRow.status === 'pending') {
-            // Row is still pending on primary - another worker may have claimed it between SELECT and UPDATE
-            // This is a normal race condition, not a stale row
-            console.log(
-              `[${requestId}] [atomic-claim] Row ${oldestPending.id} is still pending on primary - likely claimed by another worker`
-            )
-          }
-        } else {
-          console.error(`[${requestId}] [atomic-claim] Error claiming queue item:`, claimError)
-        }
-
-        // Return early - no work available for this run
+      if (auditFetchError || !queueItemWithAudit) {
+        console.error(`[${requestId}] [atomic-claim] Failed to fetch audit data for claimed item:`, auditFetchError)
         return NextResponse.json({
-          success: true,
-          message: 'No pending audits available for this run (stale row auto-resolved if detected)',
+          success: false,
+          message: 'Failed to fetch audit data for claimed item',
           processed: false,
-        })
+        }, { status: 500 })
       }
       
-      // Successfully claimed a queue item - log it
-      const audit = Array.isArray(claimedRow.audits) ? claimedRow.audits[0] : claimedRow.audits
-      const ageMinutes = Math.round((Date.now() - new Date(claimedRow.created_at).getTime()) / 1000 / 60)
-      console.log(`[${requestId}] [atomic-claim] ✅ Claimed queue item: id=${claimedRow.id}, audit_id=${claimedRow.audit_id}, age=${ageMinutes}m, audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`)
+      const audit = Array.isArray(queueItemWithAudit.audits) ? queueItemWithAudit.audits[0] : queueItemWithAudit.audits
+      const ageMinutes = Math.round((Date.now() - new Date(queueItemWithAudit.created_at).getTime()) / 1000 / 60)
+      console.log(
+        `[${requestId}] [atomic-claim] ✅ Claimed queue item: ` +
+        `id=${queueItemWithAudit.id}, audit_id=${queueItemWithAudit.audit_id}, age=${ageMinutes}m, ` +
+        `audit_data=${audit ? 'present' : 'MISSING'}, email_sent=${audit?.email_sent_at || 'null'}`
+      )
       
-      // Use claimedRow as queueItem for the rest of the processing
-      queueItem = claimedRow
+      // Use queueItemWithAudit for the rest of the processing
+      queueItem = queueItemWithAudit
       
       // CRITICAL: Verify the claimed item is still valid before processing
       // Even though we atomically claimed it, we should verify the audit hasn't been completed
@@ -408,10 +363,11 @@ export async function GET(request: NextRequest) {
       
       // Continue with the rest of the processing logic using queueItem
       // The queueItem is already in 'processing' status, so we can proceed directly to processing
+      // queueItem is now set and will be used below
     }
     
-    // If we reach here, no item was claimed - check for stuck items and return
-    if (!oldestPending) {
+    // If no item was claimed, check for stuck items and return
+    if (!queueItem) {
       // Check for stuck processing items (processing for too long)
       const { data: stuckItems } = await supabasePrimary
         .from('audit_queue')
