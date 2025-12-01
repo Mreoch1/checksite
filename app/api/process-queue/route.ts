@@ -44,13 +44,18 @@ function getServiceClient() {
 /**
  * Helper function to mark queue item as completed with improved logging
  * Differentiates between benign race conditions (already completed by another worker) and real problems
+ * 
+ * @param expectedStatuses - Array of statuses that the queue item might be in when we try to complete it
+ *                          Defaults to ['pending'] for early-guard paths, but should be ['processing'] 
+ *                          for paths after processing has started, or ['pending', 'processing'] to cover both
  */
 async function markQueueItemCompletedWithLogging(
   supabaseService: SupabaseClient,
   requestId: string,
   queueId: string,
-  context: string = 'completion'
-): Promise<void> {
+  context: string = 'completion',
+  expectedStatuses: ('pending' | 'processing')[] = ['pending']
+): Promise<'updated' | 'already-completed' | 'not-updated'> {
   const { data: queueUpdateResult, error: queueUpdateError } = await supabaseService
     .from('audit_queue')
     .update({
@@ -58,14 +63,14 @@ async function markQueueItemCompletedWithLogging(
       completed_at: new Date().toISOString(),
     })
     .eq('id', queueId)
-    .eq('status', 'pending') // Only update if still pending (prevents repeated updates)
+    .in('status', expectedStatuses) // Update if in any of the expected statuses
     .select('id, status')
   
   const updated_rows = queueUpdateResult?.length ?? 0
   
   if (queueUpdateError) {
     console.error(`[${requestId}] [queue-complete] Update error for queueId=${queueId} (context: ${context}):`, queueUpdateError)
-    return
+    return 'not-updated'
   }
   
   if (updated_rows === 0) {
@@ -78,16 +83,21 @@ async function markQueueItemCompletedWithLogging(
     
     if (readError) {
       console.warn(`[${requestId}] [queue-complete] No rows updated and failed to read row (queueId=${queueId}, context: ${context}):`, readError)
+      return 'not-updated'
     } else if (!row) {
       console.warn(`[${requestId}] [queue-complete] No rows updated and row missing (queueId=${queueId}, context: ${context})`)
+      return 'not-updated'
     } else if (row.status === 'completed') {
       // Benign race: another worker completed it first
       console.log(`[${requestId}] [queue-complete] Row already completed by another worker (queueId=${queueId}, context: ${context})`)
+      return 'already-completed'
     } else {
-      console.warn(`[${requestId}] [queue-complete] No rows updated, row still not completed (queueId=${queueId}, db_status=${row.status}, context: ${context})`)
+      console.warn(`[${requestId}] [queue-complete] No rows updated, row still not completed (queueId=${queueId}, db_status=${row.status}, context: ${context}, expected: ${expectedStatuses.join(', ')})`)
+      return 'not-updated'
     }
   } else {
     console.log(`[${requestId}] [queue-complete] queueId=${queueId}, updated_rows=${updated_rows}, status=completed (context: ${context})`)
+    return 'updated'
   }
 }
 
@@ -554,7 +564,7 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${freshAuditCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and moving to next item`)
         
         // Mark queue item as completed - only update if still pending (prevents repeated updates)
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'early-guard-email-sent')
+        await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'early-guard-email-sent', ['pending'])
         
         // Continue to next queue item instead of processing this one
         continue
@@ -1193,7 +1203,7 @@ export async function GET(request: NextRequest) {
       console.log(`[${requestId}] ⛔ SKIPPING audit ${auditId} - email already sent at ${preProcessCheck.email_sent_at} (${emailAgeMinutes}m old) - marking queue as completed and NOT calling processAudit`)
       
       // Mark queue item as completed - only update if still pending (prevents repeated updates)
-      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-email-sent')
+      await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'pre-process-email-sent', ['pending'])
       
       return NextResponse.json({
         success: true,
@@ -1263,10 +1273,12 @@ export async function GET(request: NextRequest) {
       if (emailWasSent) {
         console.log(`[${requestId}] ✅ Email was sent (timestamp: ${verifyAudit.email_sent_at}) - marking queue as completed`)
         // Email was sent - mark queue as completed immediately
-        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
+        // CRITICAL: Update by queue row id - queue item is likely in 'processing' status at this point
         // This prevents the same item from being selected on the next run
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'email-sent')
-        console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
+        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'email-sent', ['processing', 'pending'])
+        if (completionResult === 'updated' || completionResult === 'already-completed') {
+          console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
+        }
         
         return NextResponse.json({
           success: true,
@@ -1311,9 +1323,11 @@ export async function GET(request: NextRequest) {
         }
         
         // Mark queue as completed
-        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, `has-${hasReport ? 'report' : 'email'}`)
-        console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed`)
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
+        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, `has-${hasReport ? 'report' : 'email'}`, ['processing', 'pending'])
+        if (completionResult === 'updated' || completionResult === 'already-completed') {
+          console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed`)
+        }
         
         return NextResponse.json({
           success: true,
@@ -1362,10 +1376,12 @@ export async function GET(request: NextRequest) {
           }
           
           // Mark queue as completed
-          // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
+          // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
           // This prevents the same item from being selected on the next run
-          await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'final-check-reconciliation')
-          console.log(`[${requestId}] ✅ Queue marked as completed in final check`)
+          const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'final-check-reconciliation', ['processing', 'pending'])
+          if (completionResult === 'updated' || completionResult === 'already-completed') {
+            console.log(`[${requestId}] ✅ Queue marked as completed in final check`)
+          }
           
           return NextResponse.json({
             success: true,
@@ -1450,10 +1466,12 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
         // This prevents the same item from being selected on the next run
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email')
-        console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
+        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing', 'pending'])
+        if (completionResult === 'updated' || completionResult === 'already-completed') {
+          console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
+        }
 
         return NextResponse.json({
           success: true,
@@ -1492,10 +1510,12 @@ export async function GET(request: NextRequest) {
         }
 
         // Mark queue as completed
-        // CRITICAL: Update by queue row id, only if still pending (prevents repeated updates)
+        // CRITICAL: Update by queue row id - queue item may be in 'processing' or 'pending' status
         // This prevents the same item from being selected on the next run
-        await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email')
-        console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
+        const completionResult = await markQueueItemCompletedWithLogging(supabaseService, requestId, queueItem.id, 'error-reconciliation-has-report-or-email', ['processing', 'pending'])
+        if (completionResult === 'updated' || completionResult === 'already-completed') {
+          console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
+        }
 
         return NextResponse.json({
           success: true,
