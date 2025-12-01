@@ -371,7 +371,8 @@ export async function GET(request: NextRequest) {
     } else {
       // Check if there are any queue items at all (regardless of status)
       // Get more items to see recent ones - increase limit to catch very recent items
-      const { data: allQueueItems, error: allQueueError } = await supabase
+      // Use service client to ensure we read from primary (for accurate debugging)
+      const { data: allQueueItems, error: allQueueError } = await supabaseService
         .from('audit_queue')
         .select('id, audit_id, status, created_at')
         .order('created_at', { ascending: false })
@@ -982,8 +983,44 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // This item passes all checks - use it
-      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'})`)
+      // CRITICAL: Final fresh check on primary before committing to process this item
+      // This prevents processing items that were completed by another worker between selection and now
+      // Re-check both queue status and audit email_sent_at on primary to ensure they're still valid
+      const { data: finalQueueCheck, error: finalQueueCheckError } = await supabaseService
+        .from('audit_queue')
+        .select(`
+          id,
+          status,
+          audits!inner(
+            id,
+            email_sent_at,
+            status
+          )
+        `)
+        .eq('id', item.id)
+        .eq('status', 'pending') // Must still be pending
+        .is('audits.email_sent_at', null) // Email must still not be sent
+        .single()
+      
+      if (finalQueueCheckError || !finalQueueCheck) {
+        // Item no longer qualifies - was completed/failed or email was sent by another worker
+        const audit = Array.isArray(finalQueueCheck?.audits) ? finalQueueCheck?.audits[0] : finalQueueCheck?.audits
+        const currentStatus = finalQueueCheck?.status || 'unknown'
+        const currentEmailSent = audit?.email_sent_at || 'null'
+        
+        console.log(`[${requestId}] ⏳ Skipping queue item ${item.id} (audit ${item.audit_id}) - no longer qualifies after fresh check (queue_status=${currentStatus}, email_sent_at=${currentEmailSent}) - likely completed by another worker`)
+        
+        // If it was completed, mark it as such (idempotent)
+        if (currentStatus === 'completed' || (currentEmailSent && !currentEmailSent.startsWith('sending_') && currentEmailSent.length > 10)) {
+          await markQueueItemCompletedWithLogging(supabaseService, requestId, item.id, 'fresh-check-already-completed', ['pending', 'processing'])
+        }
+        
+        // Continue to next item instead of processing this one
+        continue
+      }
+      
+      // This item passes all checks including final fresh verification - use it
+      console.log(`[${requestId}] ✅ Found processable audit ${item.audit_id} (age: ${ageMinutes}m, url: ${audit.url || 'unknown'}) - verified fresh on primary`)
       queueItem = item
       break // Found a processable item, stop searching
     }
