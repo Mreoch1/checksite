@@ -359,7 +359,12 @@ export async function GET(request: NextRequest) {
       }
       
       // Skip if email was already sent (not a reservation)
-      if (isEmailSent(audit.email_sent_at)) {
+      // CRITICAL: Check for any valid email_sent_at timestamp (not just ones >5 minutes old)
+      // This prevents duplicate processing when email was just sent (<5 minutes ago)
+      if (audit.email_sent_at && 
+          !audit.email_sent_at.startsWith('sending_') && 
+          audit.email_sent_at.length > 10) {
+        // Valid timestamp exists - email was sent (regardless of age)
         console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - email already sent at ${audit.email_sent_at}`)
         return false
       }
