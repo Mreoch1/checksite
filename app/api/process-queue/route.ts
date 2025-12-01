@@ -270,15 +270,52 @@ export async function GET(request: NextRequest) {
       if (claimError || !claimedRow) {
         // Claim failed - another worker got it first, or item no longer pending
         if (claimError?.code === 'PGRST116') {
-          console.log(`[${requestId}] [atomic-claim] Failed to claim item ${oldestPending.id} - already claimed by another worker or no longer pending`)
+          console.log(
+            `[${requestId}] [atomic-claim] Failed to claim item ${oldestPending.id} - already claimed or no longer pending on primary`
+          )
+
+          // Re-read from primary and auto-resolve stale "pending" rows
+          // This prevents a single stale row from permanently blocking the queue
+          const { data: qRow, error: qErr } = await supabasePrimary
+            .from('audit_queue')
+            .select('id, status')
+            .eq('id', oldestPending.id)
+            .maybeSingle()
+
+          if (!qErr && qRow && qRow.status !== 'pending') {
+            // Row exists but is not pending - it's stale (likely completed/failed on primary but replica still shows pending)
+            // Auto-resolve it to prevent it from blocking future queue runs
+            const { error: resolveError } = await supabasePrimary
+              .from('audit_queue')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                last_error: 'Auto-resolved stale pending row (status differed between replica and primary)',
+              })
+              .eq('id', oldestPending.id)
+
+            if (resolveError) {
+              console.error(`[${requestId}] [atomic-claim] Failed to auto-resolve stale row:`, resolveError)
+            } else {
+              console.log(
+                `[${requestId}] [atomic-claim] ✅ Auto-resolved stale row ${oldestPending.id} with status=${qRow.status}`
+              )
+            }
+          } else if (!qErr && qRow && qRow.status === 'pending') {
+            // Row is still pending on primary - another worker may have claimed it between SELECT and UPDATE
+            // This is a normal race condition, not a stale row
+            console.log(
+              `[${requestId}] [atomic-claim] Row ${oldestPending.id} is still pending on primary - likely claimed by another worker`
+            )
+          }
         } else {
           console.error(`[${requestId}] [atomic-claim] Error claiming queue item:`, claimError)
         }
-        
-        // Return early - no work available (another worker claimed it or it was completed)
+
+        // Return early - no work available for this run
         return NextResponse.json({
           success: true,
-          message: 'No pending audits available (may have been claimed by another worker)',
+          message: 'No pending audits available for this run (stale row auto-resolved if detected)',
           processed: false,
         })
       }
