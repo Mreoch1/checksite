@@ -394,9 +394,10 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] 🔍 Fresh check found email_sent_at=${freshEmailCheck.email_sent_at} but join showed null for audit ${item.audit_id}`)
       }
       
-      // Additional safeguard: If audit status is 'completed', skip it (email was already sent)
-      if (freshEmailCheck.status === 'completed' && freshEmailCheck.email_sent_at) {
-        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' and email_sent_at is set (${freshEmailCheck.email_sent_at})`)
+      // Additional safeguard: If audit status is 'completed', skip it (email was already sent or audit failed)
+      // Check status FIRST to avoid replication lag issues with email_sent_at
+      if (freshEmailCheck.status === 'completed') {
+        console.log(`[${requestId}] ⏳ Skipping audit ${item.audit_id} - status is 'completed' (email_sent_at: ${freshEmailCheck.email_sent_at || 'null'}, may be due to replication lag)`)
         // Mark queue item as completed since audit is already completed
         const { error: updateError } = await supabase
           .from('audit_queue')
