@@ -194,7 +194,7 @@ async function createTestAudit(): Promise<string> {
   return audit.id
 }
 
-async function triggerQueue(): Promise<void> {
+async function triggerQueue(expectedAuditId?: string): Promise<void> {
   console.log('\n⚙️  Step 2: Triggering queue processing...')
   
   const queueUrl = `${SITE_URL}/api/process-queue?secret=${QUEUE_SECRET || ''}`
@@ -210,8 +210,14 @@ async function triggerQueue(): Promise<void> {
   }
   
   console.log(`   ✅ Queue triggered: ${data.message || 'OK'}`)
-  if (data.processed) {
+  if (data.processed && data.auditId) {
     console.log(`   ✅ Audit processed: ${data.auditId}`)
+    if (expectedAuditId && data.auditId !== expectedAuditId) {
+      console.log(`   ⚠️  WARNING: Expected audit ${expectedAuditId} but got ${data.auditId}`)
+      console.log(`   ℹ️  This is OK - queue processes oldest pending item first`)
+    }
+  } else if (data.processed === false) {
+    console.log(`   ℹ️  No audit processed this tick (may be processing another audit)`)
   }
 }
 
@@ -322,9 +328,9 @@ async function verifyResults(auditId: string): Promise<TestResult[]> {
   })
   
   // Verify email was sent
-  const emailSent = audit.email_sent_at && 
+  const emailSent = !!(audit.email_sent_at && 
                     !audit.email_sent_at.startsWith('sending_') &&
-                    audit.email_sent_at.length > 10
+                    audit.email_sent_at.length > 10)
   results.push({
     passed: emailSent,
     message: `Email sent: ${emailSent ? 'YES' : 'NO'} (${audit.email_sent_at || 'null'})`,
@@ -358,7 +364,7 @@ async function verifyResults(auditId: string): Promise<TestResult[]> {
   
   // Verify only one queue item exists
   results.push({
-    passed: queueItems && queueItems.length === 1,
+    passed: !!(queueItems && queueItems.length === 1),
     message: `Queue items: ${queueItems?.length || 0} (expected: 1)`,
     details: { queueItemCount: queueItems?.length || 0 },
   })
@@ -383,8 +389,38 @@ async function main() {
     // Create test audit
     auditId = await createTestAudit()
     
-    // Trigger queue
-    await triggerQueue()
+    // Trigger queue multiple times until our audit is processed
+    // The queue processes oldest first, so we may need to wait for other audits
+    let maxTicks = 10
+    let tick = 0
+    let ourAuditProcessed = false
+    
+    while (!ourAuditProcessed && tick < maxTicks) {
+      tick++
+      await triggerQueue(auditId)
+      
+      // Check if our audit was processed
+      const { data: checkAudit } = await supabase
+        .from('audits')
+        .select('status, email_sent_at, formatted_report_html')
+        .eq('id', auditId)
+        .single()
+      
+      if (checkAudit && checkAudit.status === 'completed' && checkAudit.email_sent_at && checkAudit.formatted_report_html) {
+        ourAuditProcessed = true
+        console.log(`   ✅ Our audit ${auditId} was processed on tick ${tick}`)
+        break
+      }
+      
+      // Wait a bit before next tick
+      if (tick < maxTicks) {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      }
+    }
+    
+    if (!ourAuditProcessed) {
+      console.log(`   ⚠️  Our audit not processed after ${maxTicks} ticks - will wait for completion`)
+    }
     
     // Wait for completion
     const completionResult = await waitForCompletion(auditId)

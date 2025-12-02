@@ -9,6 +9,40 @@
  * - Full audits may timeout but continue processing in background
  * 
  * The cron job is configured in netlify.toml and managed via Netlify CLI
+ * 
+ * ⸻
+ * 
+ * CORRECTNESS INVARIANTS:
+ * 
+ * 1. Atomic Claim: Only one worker can claim a queue item at a time.
+ *    - RPC function `claim_oldest_audit_queue()` uses FOR UPDATE SKIP LOCKED
+ *    - Fallback uses UPDATE ... WHERE status='pending' (atomic check)
+ * 
+ * 2. Email Deduplication: Each audit sends exactly one email.
+ *    - Atomic reservation: UPDATE audits SET email_sent_at=? WHERE id=? AND email_sent_at IS NULL
+ *    - Audit is considered complete if it has report AND real email_sent_at (not 'sending_...')
+ *    - Status is reconciled to 'completed' if report/email exists regardless of status field
+ * 
+ * 3. Queue State Machine:
+ *    - pending → processing (via atomic claim)
+ *    - processing → completed (when email sent and report exists)
+ *    - processing → failed (on permanent error or max retries)
+ *    - processing → pending (on transient error with retries left)
+ * 
+ * 4. Audit State Machine:
+ *    - pending → running (when queued)
+ *    - running → completed (when report generated and email sent)
+ *    - running → failed (on permanent error)
+ *    - Status reconciliation: If report exists OR email_sent_at is set, audit is functionally complete
+ * 
+ * 5. Fresh Reads: All critical reads use supabasePrimary (service role client) to avoid replica lag.
+ *    - Per-item verification before processing
+ *    - Final sanity check right before processAudit()
+ *    - Post-claim verification after atomic claim
+ * 
+ * 6. Idempotency: All queue updates are conditional on current status to prevent races.
+ *    - markQueueItemCompletedWithLogging: .eq('status', 'processing')
+ *    - markQueueItemFailedWithLogging: .in('status', ['pending', 'processing'])
  */
 
 import { NextRequest, NextResponse } from 'next/server'
