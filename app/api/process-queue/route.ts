@@ -1278,13 +1278,19 @@ export async function GET(request: NextRequest) {
           console.log(`[${requestId}] ✅ Audit ${auditId} is complete (${hasReport ? 'has report' : 'email sent'}) - marked queue as completed`)
         }
         
+        // CRITICAL: Verify auditId matches queueItem before returning
+        if (auditId !== queueItem.audit_id) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+          throw new Error(`Audit ID mismatch in response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+        }
+        
         return NextResponse.json({
           success: true,
           message: isComplete 
             ? 'Audit processed successfully'
             : `Audit has ${hasReport ? 'report' : 'email'} - marked as completed`,
           processed: true,
-          auditId,
+          auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly
           email_sent_at: verifyAudit.email_sent_at,
           status_fixed: !isComplete,
         })
@@ -1332,11 +1338,17 @@ export async function GET(request: NextRequest) {
             console.log(`[${requestId}] ✅ Queue marked as completed in final check`)
           }
           
+          // CRITICAL: Verify auditId matches queueItem before returning
+          if (auditId !== queueItem.audit_id) {
+            console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+            throw new Error(`Audit ID mismatch in response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+          }
+          
           return NextResponse.json({
             success: true,
             message: 'Audit completed successfully (reconciled after final check)',
             processed: true,
-            auditId,
+            auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly
             email_sent_at: finalCheck.email_sent_at,
             has_report: finalHasReport,
             reconciled: true,
@@ -1434,11 +1446,17 @@ export async function GET(request: NextRequest) {
           console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
         }
 
+        // CRITICAL: Verify auditId matches queueItem before returning
+        if (auditId !== queueItem.audit_id) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+          throw new Error(`Audit ID mismatch in response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+        }
+        
         return NextResponse.json({
           success: true,
           message: 'Audit completed successfully after error reconciliation',
           processed: true,
-          auditId,
+          auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly
           email_sent_at: currentAudit.email_sent_at,
           has_report: hasReportNow,
           reconciled: true,
@@ -1478,11 +1496,17 @@ export async function GET(request: NextRequest) {
           console.log(`[${requestId}] ✅ Audit ${auditId} fixed after error - queue marked as completed`)
         }
 
+        // CRITICAL: Verify auditId matches queueItem before returning
+        if (auditId !== queueItem.audit_id) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+          throw new Error(`Audit ID mismatch in response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+        }
+        
         return NextResponse.json({
           success: true,
           message: 'Audit completed successfully after error reconciliation',
           processed: true,
-          auditId,
+          auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly
           email_sent_at: currentAudit.email_sent_at,
           has_report: hasReportNow,
           reconciled: true,
