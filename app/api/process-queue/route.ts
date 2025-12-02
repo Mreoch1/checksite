@@ -1394,6 +1394,12 @@ export async function GET(request: NextRequest) {
       const hasEmailNow = isEmailSent(currentAudit?.email_sent_at)
       const isCompletedNow = currentAudit?.status === 'completed'
       
+      // CRITICAL: Verify auditId matches queueItem before any response
+      if (auditId !== queueItem.audit_id) {
+        console.error(`[${requestId}] [error-handler] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+        throw new Error(`Audit ID mismatch in error handler: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+      }
+      
       // CRITICAL: If audit has report OR email, it's actually complete - don't mark as failed
       // This handles cases where processAudit succeeded but verification happened too early
       if (currentAudit && (hasReportNow || hasEmailNow)) {
