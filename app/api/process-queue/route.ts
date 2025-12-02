@@ -1206,12 +1206,23 @@ export async function GET(request: NextRequest) {
           throw new Error(`Audit ID mismatch in response: expected ${auditId}, got ${verifyAudit.id}`)
         }
         
-        console.log(`[${requestId}] [response] Returning success for auditId=${auditId}, queueItem.id=${queueItem.id}`)
+        // CRITICAL: Final verification before returning response
+        // Ensure auditId matches queueItem.audit_id to prevent returning wrong audit
+        if (auditId !== queueItem.audit_id) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+          throw new Error(`Audit ID mismatch in response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+        }
+        if (auditId !== verifyAudit.id) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: auditId (${auditId}) !== verifyAudit.id (${verifyAudit.id})`)
+          throw new Error(`Audit ID mismatch in response: auditId=${auditId}, verifyAudit.id=${verifyAudit.id}`)
+        }
+        
+        console.log(`[${requestId}] [response] ✅ Returning success for auditId=${auditId}, queueItem.id=${queueItem.id}, verifyAudit.id=${verifyAudit.id}`)
         return NextResponse.json({
           success: true,
           message: 'Audit email sent successfully',
           processed: true,
-          auditId,  // CRITICAL: Use auditId variable, not verifyAudit.id
+          auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly, not auditId variable
           email_sent_at: verifyAudit.email_sent_at,
           has_report: !!verifyAudit.formatted_report_html,
         })
