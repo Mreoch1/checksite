@@ -1350,12 +1350,18 @@ export async function GET(request: NextRequest) {
           console.error(`[${requestId}] Background processing error for ${auditId}:`, bgError)
         })
         
+        // CRITICAL: Verify auditId matches queueItem before returning
+        if (auditId !== queueItem.audit_id) {
+          console.error(`[${requestId}] [timeout] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+          throw new Error(`Audit ID mismatch in timeout response: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+        }
+        
         // Return success - processing continues in background
         return NextResponse.json({
           success: true,
           message: 'Audit processing started - continuing in background',
           processed: true,
-          auditId,
+          auditId: queueItem.audit_id,  // CRITICAL: Use queueItem.audit_id directly
           timeout: true,
           note: 'Processing continues in background after function return',
         })
