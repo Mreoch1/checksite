@@ -874,9 +874,17 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Skip if audit has failed too many times (retry_count >= 3)
-      if (queueItem.retry_count >= 3) {
-        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (${queueItem.retry_count})`)
+      // CRITICAL: Check retry count, but note that RPC function increments it on claim
+      // So if retry_count is 3, it means it was 2 before the RPC claim (which is OK to retry)
+      // Only skip if retry_count is > 3 (meaning it was already >= 3 before claim)
+      // Actually, let's check the original retry_count before the RPC increment
+      // The RPC increments: retry_count = coalesce(retry_count, 0) + 1
+      // So if queueItem.retry_count is 3, the original was 2 (OK to process)
+      // If queueItem.retry_count is 4, the original was 3 (should skip)
+      const originalRetryCount = (queueItem.retry_count || 0) - 1 // RPC incremented it
+      
+      if (originalRetryCount >= 3) {
+        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - exceeded max retries (original: ${originalRetryCount}, after RPC increment: ${queueItem.retry_count})`)
         // Mark as failed permanently
         // Use service client for fresh write to primary database
         await supabasePrimary
@@ -893,6 +901,8 @@ export async function GET(request: NextRequest) {
           processed: false,
           auditId: queueItem.audit_id,
         })
+      } else {
+        console.log(`[${requestId}] Audit ${queueItem.audit_id} retry count OK (original: ${originalRetryCount}, after RPC: ${queueItem.retry_count}) - proceeding with processing`)
       }
     }
 
