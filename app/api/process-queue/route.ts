@@ -608,6 +608,14 @@ export async function GET(request: NextRequest) {
       // Continue with the rest of the processing logic using queueItem
       // The queueItem is already in 'processing' status, so we can proceed directly to processing
       // queueItem is now set and will be used below
+      console.log(`[${requestId}] [atomic-claim] ✅ RPC path complete - queueItem.audit_id=${queueItem?.audit_id}, queueItem.id=${queueItem?.id}`)
+    }
+    
+    // CRITICAL: Verify queueItem is set and log it before proceeding
+    if (queueItem) {
+      console.log(`[${requestId}] [pre-processing-check] ✅ queueItem exists: id=${queueItem.id}, audit_id=${queueItem.audit_id}, status=${queueItem.status}`)
+    } else {
+      console.warn(`[${requestId}] [pre-processing-check] ⚠️  queueItem is null/undefined - will check for stuck items`)
     }
     
     // If no item was claimed, check for stuck items and return
@@ -752,6 +760,9 @@ export async function GET(request: NextRequest) {
         processed: false,
       }, { status: 500 })
     }
+    
+    // CRITICAL: Log the exact queueItem we're about to process
+    console.log(`[${requestId}] [processing-start] 🔍 FINAL CHECK: queueItem.id=${queueItem.id}, queueItem.audit_id=${queueItem.audit_id}, queueItem.status=${queueItem.status}`)
     
     // Continue with processing the claimed queueItem
     // All the old queueItems loop logic has been removed - we now work with a single claimedRow
