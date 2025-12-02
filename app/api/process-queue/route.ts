@@ -444,6 +444,44 @@ export async function GET(request: NextRequest) {
         console.log(`[${requestId}] [atomic-claim] ✅ RPC succeeded - claimed queue item: id=${claimedRow.id}, audit_id=${claimedRow.audit_id}`)
         console.log(`[${requestId}] [atomic-claim] 🔍 TRACKING: Will process audit ${claimedRow.audit_id} from queue ${claimedRow.id}`)
         
+        // CRITICAL: Immediately verify the claimed row exists and is in processing status
+        // This prevents processing non-existent or already-completed items
+        const { data: verifyClaimed, error: verifyError } = await supabasePrimary
+        .from('audit_queue')
+          .select('id, audit_id, status')
+          .eq('id', claimedRow.id)
+        .single()
+      
+        if (verifyError || !verifyClaimed) {
+          console.error(`[${requestId}] [atomic-claim] ❌ CRITICAL: Claimed row ${claimedRow.id} not found after claim:`, verifyError)
+          return NextResponse.json({
+            success: false,
+            message: 'Claimed queue item not found after claim',
+            processed: false,
+          }, { status: 500 })
+        }
+        
+        if (verifyClaimed.status !== 'processing') {
+          console.warn(`[${requestId}] [atomic-claim] ⚠️  Claimed row ${claimedRow.id} has status '${verifyClaimed.status}' (expected 'processing')`)
+          // Row was claimed but status changed - another worker may have processed it
+          return NextResponse.json({
+            success: true,
+            message: 'Queue item was processed by another worker',
+            processed: false,
+          })
+        }
+        
+        if (verifyClaimed.audit_id !== claimedRow.audit_id) {
+          console.error(`[${requestId}] [atomic-claim] ❌ CRITICAL: Audit ID mismatch! Claimed: ${claimedRow.audit_id}, Verified: ${verifyClaimed.audit_id}`)
+          return NextResponse.json({
+            success: false,
+            message: 'Audit ID mismatch after claim',
+            processed: false,
+          }, { status: 500 })
+        }
+        
+        console.log(`[${requestId}] [atomic-claim] ✅ Verified claimed row: id=${verifyClaimed.id}, audit_id=${verifyClaimed.audit_id}, status=${verifyClaimed.status}`)
+        
         // CRITICAL: Verify the claimed row is actually in 'processing' status
         // If the RPC function somehow returned a row that's already completed/failed, skip it
         if (claimedRow.status !== 'processing') {
@@ -470,8 +508,8 @@ export async function GET(request: NextRequest) {
           .from('audit_queue')
           .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
           .eq('id', claimedRow.id)
-        .single()
-      
+          .single()
+        
         if (auditFetchError || !queueItemWithAudit) {
           console.error(`[${requestId}] [atomic-claim] Failed to fetch audit data for claimed item:`, auditFetchError)
           return NextResponse.json({
@@ -550,11 +588,11 @@ export async function GET(request: NextRequest) {
         // This is a safety net, not the primary locking mechanism
         if (queueItem.audit_id) {
           const { data: auditStatusCheck } = await supabasePrimary
-            .from('audits')
+          .from('audits')
             .select('status, email_sent_at')
             .eq('id', queueItem.audit_id)
-            .single()
-          
+          .single()
+        
           if (auditStatusCheck) {
             // If audit already has email sent, release the claim and skip
             if (auditStatusCheck.email_sent_at && 
@@ -614,7 +652,7 @@ export async function GET(request: NextRequest) {
     // CRITICAL: Verify queueItem is set and log it before proceeding
     if (queueItem) {
       console.log(`[${requestId}] [pre-processing-check] ✅ queueItem exists: id=${queueItem.id}, audit_id=${queueItem.audit_id}, status=${queueItem.status}`)
-    } else {
+      } else {
       console.warn(`[${requestId}] [pre-processing-check] ⚠️  queueItem is null/undefined - will check for stuck items`)
     }
     
