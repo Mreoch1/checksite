@@ -101,8 +101,8 @@ async function getFreshAuditState(
     .from('audits')
     .select('id, status, email_sent_at, formatted_report_html')
     .eq('id', auditId)
-    .single()
-  
+          .single()
+        
   if (error) {
     if (error.code === 'PGRST116') {
       // Audit not found
@@ -130,11 +130,11 @@ async function markQueueItemCompletedWithLogging(
   expectedStatuses: ('pending' | 'processing')[] = ['pending']
 ): Promise<'updated' | 'already-completed' | 'not-updated'> {
   const { data: queueUpdateResult, error: queueUpdateError } = await supabasePrimary
-    .from('audit_queue')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-    })
+                .from('audit_queue')
+                .update({
+                  status: 'completed',
+                  completed_at: new Date().toISOString(),
+                })
     .eq('id', queueId)
     .in('status', expectedStatuses) // Update if in any of the expected statuses
     .select('id, status')
@@ -149,7 +149,7 @@ async function markQueueItemCompletedWithLogging(
   if (updated_rows === 0) {
     // Re-read the row to see what actually happened
     const { data: row, error: readError } = await supabasePrimary
-      .from('audit_queue')
+                .from('audit_queue')
       .select('status')
       .eq('id', queueId)
       .maybeSingle()
@@ -189,7 +189,7 @@ async function markQueueItemFailedWithLogging(
   expectedStatuses: ('pending' | 'processing')[] = ['pending', 'processing']
 ): Promise<'updated' | 'already-terminal' | 'not-updated'> {
   const { data: queueUpdateResult, error: queueUpdateError } = await supabasePrimary
-    .from('audit_queue')
+        .from('audit_queue')
     .update({
       status: 'failed',
       completed_at: new Date().toISOString(),
@@ -224,11 +224,11 @@ async function markQueueItemFailedWithLogging(
       // Benign race: another worker already marked it as terminal
       console.log(`[${requestId}] [queue-fail] Row already marked as terminal by another worker (queueId=${queueId}, db_status=${row.status}, context: ${context})`)
       return 'already-terminal'
-    } else {
+        } else {
       console.warn(`[${requestId}] [queue-fail] No rows updated, row still not failed (queueId=${queueId}, db_status=${row.status}, context: ${context}, expected: ${expectedStatuses.join(', ')})`)
       return 'not-updated'
-    }
-  } else {
+        }
+      } else {
     console.log(`[${requestId}] [queue-fail] queueId=${queueId}, updated_rows=${updated_rows}, status=failed (context: ${context})`)
     return 'updated'
   }
@@ -245,12 +245,12 @@ export async function GET(request: NextRequest) {
   // Verify database connection by checking queue table count
   try {
     const { count, error: countError } = await supabasePrimary
-      .from('audit_queue')
+              .from('audit_queue')
       .select('*', { count: 'exact', head: true })
     
     if (countError) {
       console.error(`[${requestId}] [db-check] ❌ Database connection error:`, countError)
-    } else {
+            } else {
       console.log(`[${requestId}] [db-check] ✅ Connected to database - audit_queue has ${count} row(s)`)
     }
   } catch (dbCheckErr) {
@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Step 2: Atomically claim the oldest pending item by updating it to 'processing'
         const { data: claimedRow, error: updateError } = await supabasePrimary
-          .from('audit_queue')
+              .from('audit_queue')
           .update({
             status: 'processing',
             started_at: new Date().toISOString(),
@@ -325,8 +325,8 @@ export async function GET(request: NextRequest) {
           .eq('id', oldestPending.id)
           .eq('status', 'pending') // CRITICAL: Only update if still pending (atomic claim)
           .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
-          .single()
-        
+              .single()
+            
         if (updateError || !claimedRow) {
           // Claim failed - another worker got it first, or item no longer pending
           if (updateError?.code === 'PGRST116') {
@@ -336,7 +336,7 @@ export async function GET(request: NextRequest) {
             
             // Auto-resolve stale rows
             const { data: qRow, error: qErr } = await supabasePrimary
-              .from('audit_queue')
+                .from('audit_queue')
               .select('id, status')
               .eq('id', oldestPending.id)
               .maybeSingle()
@@ -469,8 +469,8 @@ export async function GET(request: NextRequest) {
           .from('audit_queue')
           .select('*, audits!inner(id, status, email_sent_at, formatted_report_html, url, customers(email))')
           .eq('id', claimedRow.id)
-          .single()
-        
+        .single()
+      
         if (auditFetchError || !queueItemWithAudit) {
           console.error(`[${requestId}] [atomic-claim] Failed to fetch audit data for claimed item:`, auditFetchError)
           return NextResponse.json({
@@ -1076,6 +1076,13 @@ export async function GET(request: NextRequest) {
     
     try {
       console.log(`[${requestId}] Processing audit ${auditId}${needsFullProcessing ? ' (full processing)' : ' (email only)'}`)
+      console.log(`[${requestId}] [process-start] auditId=${auditId}, queueItem.id=${queueItem.id}, queueItem.audit_id=${queueItem.audit_id}`)
+      
+      // CRITICAL: Double-check auditId matches queueItem before processing
+      if (auditId !== queueItem.audit_id) {
+        console.error(`[${requestId}] [process-start] ❌ CRITICAL BUG: auditId (${auditId}) !== queueItem.audit_id (${queueItem.audit_id})`)
+        throw new Error(`Audit ID mismatch before processing: auditId=${auditId}, queueItem.audit_id=${queueItem.audit_id}`)
+      }
       
       // Wrap processAudit in a timeout
       // For full audits, we'll attempt processing but return early if it takes too long
@@ -1123,11 +1130,18 @@ export async function GET(request: NextRequest) {
           console.log(`[${requestId}] ✅ Audit ${auditId} email sent - queue marked as completed`)
         }
         
+        // CRITICAL: Verify auditId is still correct before returning response
+        if (verifyAudit.id !== auditId) {
+          console.error(`[${requestId}] [response] ❌ CRITICAL BUG: verifyAudit.id (${verifyAudit.id}) !== auditId (${auditId})`)
+          throw new Error(`Audit ID mismatch in response: expected ${auditId}, got ${verifyAudit.id}`)
+        }
+        
+        console.log(`[${requestId}] [response] Returning success for auditId=${auditId}, queueItem.id=${queueItem.id}`)
         return NextResponse.json({
           success: true,
           message: 'Audit email sent successfully',
           processed: true,
-          auditId,
+          auditId,  // CRITICAL: Use auditId variable, not verifyAudit.id
           email_sent_at: verifyAudit.email_sent_at,
           has_report: !!verifyAudit.formatted_report_html,
         })
@@ -1478,13 +1492,13 @@ export async function GET(request: NextRequest) {
         // For transient errors, mark as pending for retry (only if retries left)
         if (shouldRetry) {
           const { data: retryResult } = await supabasePrimary
-            .from('audit_queue')
-            .update({
+        .from('audit_queue')
+        .update({
               status: 'pending',
               started_at: null, // Reset started_at so it can be claimed again
               last_error: errorMessage.substring(0, 1000),
-            })
-            .eq('id', queueItem.id)
+        })
+        .eq('id', queueItem.id)
             .eq('status', 'processing') // Only update if still processing
             .select('id, status')
           
