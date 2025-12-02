@@ -254,6 +254,7 @@ export async function GET(request: NextRequest) {
     // The function uses FOR UPDATE SKIP LOCKED for safe concurrent access
     // Step 1+2 combined: atomically claim oldest pending queue item via RPC
     // If RPC fails (e.g., schema cache not refreshed), fall back to SELECT+UPDATE approach
+    console.log(`[${requestId}] [atomic-claim] Attempting to claim queue item via RPC function...`)
     const { data: claimedRows, error: claimError } = await supabasePrimary
       .rpc('claim_oldest_audit_queue')
     
@@ -263,7 +264,8 @@ export async function GET(request: NextRequest) {
     if (claimError) {
       // RPC failed - likely schema cache not refreshed or function doesn't exist
       // Fall back to the SELECT+UPDATE approach with auto-resolve
-      console.warn(`[${requestId}] [atomic-claim] RPC failed (${claimError.code}), falling back to SELECT+UPDATE approach:`, claimError.message)
+      console.warn(`[${requestId}] [atomic-claim] RPC failed (code=${claimError.code}), falling back to SELECT+UPDATE approach:`, claimError.message)
+      console.log(`[${requestId}] [atomic-claim] Using fallback method: SELECT+UPDATE`)
       
       // Fallback: Two-step approach with auto-resolve for stale rows
       const { data: oldestPending, error: findOldestError } = await supabasePrimary
@@ -400,11 +402,12 @@ export async function GET(request: NextRequest) {
     } else {
       // RPC succeeded - process the claimed row
       if (!claimedRows || claimedRows.length === 0) {
-        console.log(`[${requestId}] [atomic-claim] No pending queue items available`)
+        console.log(`[${requestId}] [atomic-claim] RPC returned 0 rows - no pending queue items available`)
         // No pending items - check for stuck processing items below
       } else {
         // Exactly one row from the UPDATE ... RETURNING
         const claimedRow = claimedRows[0]
+        console.log(`[${requestId}] [atomic-claim] ✅ RPC succeeded - claimed queue item: id=${claimedRow.id}, audit_id=${claimedRow.audit_id}`)
         
         // CRITICAL: Verify the claimed row is actually in 'processing' status
         // If the RPC function somehow returned a row that's already completed/failed, skip it
@@ -725,17 +728,18 @@ export async function GET(request: NextRequest) {
       // CRITICAL: Skip if email was already sent (not a reservation)
       // This is the PRIMARY check to prevent duplicate emails
       if (isEmailSent(auditData.email_sent_at)) {
-        console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - email already sent at ${auditData.email_sent_at}`)
+        const emailAge = getEmailSentAtAge(auditData.email_sent_at)
+        const emailAgeMinutes = emailAge ? Math.round(emailAge / 1000 / 60) : null
+        console.log(
+          `[${requestId}] [skip] queueId=${queueItem.id}, auditId=${queueItem.audit_id}, ` +
+          `reason=email-already-sent, email_sent_at=${auditData.email_sent_at}, age=${emailAgeMinutes}m`
+        )
         // Mark queue item as completed since email was sent
         // Only update if still pending (prevents repeated updates)
-        await supabasePrimary
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id)
-          .eq('status', 'processing') // Only update if still processing
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'email-already-sent', ['processing'])
+        console.log(
+          `[${requestId}] [skip] queueId=${queueItem.id} → status=completed (result: ${completionResult})`
+        )
         
         return NextResponse.json({
           success: true,
@@ -749,7 +753,10 @@ export async function GET(request: NextRequest) {
       
       // Skip if email is in "sending_" state (another process is handling it)
       if (isEmailSending(auditData.email_sent_at)) {
-        console.log(`[${requestId}] ⛔ SKIPPING audit ${queueItem.audit_id} - another process is sending the email (${auditData.email_sent_at})`)
+        console.log(
+          `[${requestId}] [skip] queueId=${queueItem.id}, auditId=${queueItem.audit_id}, ` +
+          `reason=email-sending-in-progress, email_sent_at=${auditData.email_sent_at}`
+        )
         // Don't mark as completed - let the other process handle it
         return NextResponse.json({
           success: true,
@@ -762,17 +769,16 @@ export async function GET(request: NextRequest) {
       // CRITICAL: Skip if audit has a report AND email was sent
       // BUT: If audit is completed with report but email wasn't sent, we should still process it to send the email
       if (auditData.status === 'completed' && auditData.formatted_report_html && auditData.email_sent_at) {
-        console.log(`[${requestId}] Skipping audit ${queueItem.audit_id} - already completed with report and email sent`)
+        console.log(
+          `[${requestId}] [skip] queueId=${queueItem.id}, auditId=${queueItem.audit_id}, ` +
+          `reason=already-completed-with-email, status=${auditData.status}, hasReport=true, emailSent=true`
+        )
         // Mark queue item as completed
         // Only update if still pending (prevents repeated updates)
-        await supabasePrimary
-          .from('audit_queue')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', queueItem.id)
-          .eq('status', 'processing') // Only update if still processing
+        const completionResult = await markQueueItemCompletedWithLogging(requestId, queueItem.id, 'already-completed', ['processing'])
+        console.log(
+          `[${requestId}] [skip] queueId=${queueItem.id} → status=completed (result: ${completionResult})`
+        )
         
         return NextResponse.json({
           success: true,
@@ -1411,7 +1417,10 @@ export async function GET(request: NextRequest) {
       const shouldRetry = !isPermanentError && queueItem.retry_count < 3
       
       if (isPermanentError) {
-        console.log(`[${requestId}] ⚠️  Permanent error detected: "${errorMessage.substring(0, 150)}" - marking as failed without retry`)
+        console.log(
+          `[${requestId}] [error] queueId=${queueItem.id}, auditId=${auditId}, ` +
+          `type=permanent, error="${errorMessage.substring(0, 150)}"`
+        )
         
         // Mark queue item as failed using helper
         const failResult = await markQueueItemFailedWithLogging(
@@ -1422,15 +1431,19 @@ export async function GET(request: NextRequest) {
           ['processing']
         )
         
-        if (failResult === 'updated' || failResult === 'already-terminal') {
-          console.log(`[${requestId}] ✅ Permanent error recorded - queue item marked as failed`)
-        }
+        console.log(
+          `[${requestId}] [error] queueId=${queueItem.id} → status=failed (result: ${failResult})`
+        )
       } else {
-        console.log(`[${requestId}] ℹ️  Transient error (will retry if attempts < 3): "${errorMessage.substring(0, 150)}"`)
+        console.log(
+          `[${requestId}] [error] queueId=${queueItem.id}, auditId=${auditId}, ` +
+          `type=transient, retryCount=${queueItem.retry_count}, willRetry=${shouldRetry}, ` +
+          `error="${errorMessage.substring(0, 150)}"`
+        )
         
         // For transient errors, mark as pending for retry (only if retries left)
         if (shouldRetry) {
-          await supabasePrimary
+          const { data: retryResult } = await supabasePrimary
             .from('audit_queue')
             .update({
               status: 'pending',
@@ -1439,8 +1452,12 @@ export async function GET(request: NextRequest) {
             })
             .eq('id', queueItem.id)
             .eq('status', 'processing') // Only update if still processing
-        
-          console.log(`[${requestId}] ✅ Queue item ${queueItem.id} reset to pending for retry (attempt ${queueItem.retry_count + 1}/3)`)
+            .select('id, status')
+          
+          const updated = retryResult && retryResult.length > 0
+          console.log(
+            `[${requestId}] [error] queueId=${queueItem.id} → status=pending (retry ${queueItem.retry_count + 1}/3, updated: ${updated})`
+          )
         } else {
           // Max retries exceeded - mark as failed
           const failResult = await markQueueItemFailedWithLogging(
@@ -1451,9 +1468,9 @@ export async function GET(request: NextRequest) {
             ['processing']
           )
           
-          if (failResult === 'updated' || failResult === 'already-terminal') {
-            console.log(`[${requestId}] ✅ Max retries exceeded - queue item marked as failed`)
-          }
+          console.log(
+            `[${requestId}] [error] queueId=${queueItem.id} → status=failed (max retries, result: ${failResult})`
+          )
         }
       }
       
