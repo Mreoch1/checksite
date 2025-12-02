@@ -238,6 +238,10 @@ export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   console.log(`[${requestId}] /api/process-queue called`)
   
+  // CRITICAL: Log request timestamp to detect stale responses
+  const requestTimestamp = new Date().toISOString()
+  console.log(`[${requestId}] [request-start] timestamp=${requestTimestamp}`)
+  
   // CRITICAL: Log database connection info for debugging
   console.log(`[${requestId}] [db-check] Connecting to: ${SUPABASE_URL}`)
   console.log(`[${requestId}] [db-check] Service key prefix: ${SERVICE_ROLE_KEY?.substring(0, 10)}...`)
@@ -1228,7 +1232,7 @@ export async function GET(request: NextRequest) {
           throw new Error(`Audit ID mismatch in response: queueItem=${finalAuditId}, auditId=${auditId}, verifyAudit=${verifyAudit.id}`)
         }
         
-        console.log(`[${requestId}] [response] ✅ Returning success for auditId=${finalAuditId}, queueItem.id=${queueItem.id}`)
+        console.log(`[${requestId}] [response] ✅ Returning success for auditId=${finalAuditId}, queueItem.id=${queueItem.id}, requestTimestamp=${requestTimestamp}`)
         return NextResponse.json({
           success: true,
           message: 'Audit email sent successfully',
@@ -1236,6 +1240,8 @@ export async function GET(request: NextRequest) {
           auditId: finalAuditId,  // CRITICAL: Use queueItem.audit_id directly
           email_sent_at: verifyAudit.email_sent_at,
           has_report: !!verifyAudit.formatted_report_html,
+          requestId,  // Include requestId in response for debugging
+          requestTimestamp,  // Include timestamp to detect stale responses
         })
       }
       
