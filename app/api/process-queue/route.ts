@@ -1105,15 +1105,24 @@ export async function GET(request: NextRequest) {
       // Verification: Check if audit is actually completed with report
       // This ensures we don't mark queue as completed if processAudit failed silently
       // Use service client for fresh read from primary database
+      console.log(`[${requestId}] [verify] Checking audit ${auditId} after processing...`)
       const { data: verifyAudit } = await supabasePrimary
         .from('audits')
-        .select('status, formatted_report_html, email_sent_at')
+        .select('id, status, formatted_report_html, email_sent_at')
         .eq('id', auditId)
         .single()
       
       if (!verifyAudit) {
-        throw new Error('Audit not found after processing')
+        throw new Error(`Audit ${auditId} not found after processing`)
       }
+      
+      // CRITICAL: Verify the audit ID matches what we processed
+      if (verifyAudit.id !== auditId) {
+        console.error(`[${requestId}] [verify] ❌ CRITICAL BUG: verifyAudit.id (${verifyAudit.id}) !== auditId (${auditId})`)
+        throw new Error(`Audit ID mismatch in verification: expected ${auditId}, got ${verifyAudit.id}`)
+      }
+      
+      console.log(`[${requestId}] [verify] ✅ Verified audit ${auditId} - status=${verifyAudit.status}, email=${verifyAudit.email_sent_at || 'null'}, report=${!!verifyAudit.formatted_report_html}`)
       
       // CRITICAL: Mark queue as completed if email was sent
       // If email_sent_at exists and is not a reservation (doesn't start with 'sending_'), it's a real email
