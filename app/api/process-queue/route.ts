@@ -442,6 +442,7 @@ export async function GET(request: NextRequest) {
         // Exactly one row from the UPDATE ... RETURNING
         const claimedRow = claimedRows[0]
         console.log(`[${requestId}] [atomic-claim] ✅ RPC succeeded - claimed queue item: id=${claimedRow.id}, audit_id=${claimedRow.audit_id}`)
+        console.log(`[${requestId}] [atomic-claim] 🔍 TRACKING: Will process audit ${claimedRow.audit_id} from queue ${claimedRow.id}`)
         
         // CRITICAL: Verify the claimed row is actually in 'processing' status
         // If the RPC function somehow returned a row that's already completed/failed, skip it
@@ -542,6 +543,7 @@ export async function GET(request: NextRequest) {
         
         // Use queueItemWithAudit for the rest of the processing
         queueItem = queueItemWithAudit
+        console.log(`[${requestId}] [atomic-claim] 🔍 TRACKING: Set queueItem.audit_id=${queueItem.audit_id}, queueItem.id=${queueItem.id}`)
         
         // CRITICAL: Verify the claimed item is still valid before processing
         // Even though we atomically claimed it, we should verify the audit hasn't been completed
