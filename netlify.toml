@@ -18,6 +18,14 @@
 [functions."process-queue"]
   schedule = "*/1 * * * *"  # Every 1 minute (reduced for testing)
 
+# CRITICAL: Disable caching for queue processor endpoint
+[[headers]]
+  for = "/api/process-queue"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+    Pragma = "no-cache"
+    Expires = "0"
+
 # Environment variables will be set in Netlify dashboard
 # Make sure to add all variables from .env.local
 # NEXT_PUBLIC_* variables are required at build time
