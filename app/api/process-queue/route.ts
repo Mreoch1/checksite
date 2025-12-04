@@ -1245,14 +1245,21 @@ export async function GET(request: NextRequest) {
           requestTimestamp,  // Include timestamp to detect stale responses
           _cacheBust: Date.now(),  // Force unique response body
         }
-        console.log(`[${requestId}] [response-body] Returning auditId=${responseBody.auditId}`)
-        const response = NextResponse.json(responseBody)
-        // CRITICAL: Add cache-busting headers to prevent Netlify CDN caching
-        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
-        response.headers.set('Pragma', 'no-cache')
-        response.headers.set('Expires', '0')
-        response.headers.set('X-Request-Id', requestId)
-        response.headers.set('X-Audit-Id', finalAuditId)
+        console.log(`[${requestId}] [response-body] FINAL CHECK: Returning auditId=${responseBody.auditId}, stringified=${JSON.stringify({auditId: responseBody.auditId})}`)
+        // CRITICAL: Create a completely fresh Response object to avoid any caching
+        const responseText = JSON.stringify(responseBody)
+        console.log(`[${requestId}] [response-text] Length=${responseText.length}, contains auditId=${responseText.includes(finalAuditId)}`)
+        const response = new Response(responseText, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'X-Request-Id': requestId,
+            'X-Audit-Id': finalAuditId,
+          }
+        })
         return response
       }
       
