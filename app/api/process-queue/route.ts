@@ -236,11 +236,12 @@ async function markQueueItemFailedWithLogging(
 
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
-  console.log(`[${requestId}] /api/process-queue called`)
-  
-  // CRITICAL: Log request timestamp to detect stale responses
   const requestTimestamp = new Date().toISOString()
-  console.log(`[${requestId}] [request-start] timestamp=${requestTimestamp}`)
+  console.log(`[${requestId}] /api/process-queue called at ${requestTimestamp}`)
+  console.log(`[${requestId}] [ENTRY] Function instance started - this should be a fresh execution`)
+  
+  // CRITICAL: Log request URL to verify cache-busting params
+  console.log(`[${requestId}] [request-url] ${request.url}`)
   
   // CRITICAL: Log database connection info for debugging
   console.log(`[${requestId}] [db-check] Connecting to: ${SUPABASE_URL}`)
