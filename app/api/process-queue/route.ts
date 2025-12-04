@@ -1233,7 +1233,7 @@ export async function GET(request: NextRequest) {
         }
         
         console.log(`[${requestId}] [response] ✅ Returning success for auditId=${finalAuditId}, queueItem.id=${queueItem.id}, requestTimestamp=${requestTimestamp}`)
-        return NextResponse.json({
+        const response = NextResponse.json({
           success: true,
           message: 'Audit email sent successfully',
           processed: true,
@@ -1243,6 +1243,11 @@ export async function GET(request: NextRequest) {
           requestId,  // Include requestId in response for debugging
           requestTimestamp,  // Include timestamp to detect stale responses
         })
+        // CRITICAL: Add cache-busting headers to prevent Netlify CDN caching
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+        return response
       }
       
       // CRITICAL: If audit has report OR email was sent, it's complete regardless of status
