@@ -16,7 +16,8 @@ export default async function handler(req) {
   }
 
   const siteUrl = process.env.URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app';
-  const endpoint = `${siteUrl}/api/process-queue`;
+  // Use standalone Netlify function instead of Next.js API route to avoid caching issues
+  const endpoint = `${siteUrl}/.netlify/functions/queue-worker`;
   const queueSecret = process.env.QUEUE_SECRET;
   
   // Build the URL with optional secret
