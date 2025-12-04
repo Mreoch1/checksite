@@ -1233,7 +1233,7 @@ export async function GET(request: NextRequest) {
         }
         
         console.log(`[${requestId}] [response] ✅ Returning success for auditId=${finalAuditId}, queueItem.id=${queueItem.id}, requestTimestamp=${requestTimestamp}`)
-        const response = NextResponse.json({
+        const responseBody = {
           success: true,
           message: 'Audit email sent successfully',
           processed: true,
@@ -1242,11 +1242,16 @@ export async function GET(request: NextRequest) {
           has_report: !!verifyAudit.formatted_report_html,
           requestId,  // Include requestId in response for debugging
           requestTimestamp,  // Include timestamp to detect stale responses
-        })
+          _cacheBust: Date.now(),  // Force unique response body
+        }
+        console.log(`[${requestId}] [response-body] Returning auditId=${responseBody.auditId}`)
+        const response = NextResponse.json(responseBody)
         // CRITICAL: Add cache-busting headers to prevent Netlify CDN caching
         response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
         response.headers.set('Pragma', 'no-cache')
         response.headers.set('Expires', '0')
+        response.headers.set('X-Request-Id', requestId)
+        response.headers.set('X-Audit-Id', finalAuditId)
         return response
       }
       
