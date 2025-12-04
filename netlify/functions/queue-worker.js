@@ -75,27 +75,58 @@ exports.handler = async (event, context) => {
     
     console.log(`[${requestId}] [atomic-claim] ✅ Claimed queue item: id=${queueItem.id.substring(0, 8)}, audit_id=${auditId.substring(0, 8)}`);
     
-    // Return immediately - actual processing will be handled by the Next.js endpoint
-    // This function's job is just to prove the RPC works and return the correct audit ID
+    // Now call the Next.js API route to do the actual processing
+    // We pass the queueId so it processes the specific item we claimed
+    console.log(`[${requestId}] [processing] Calling Next.js endpoint to process audit...`);
+    
+    const https = require('https');
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net';
+    const hostname = siteUrl.replace('https://', '').replace('http://', '');
+    
+    const processResult = await new Promise((resolve) => {
+      const opts = {
+        hostname: hostname,
+        path: `/api/process-queue-v2?secret=${process.env.QUEUE_SECRET}&_claimed=${queueItem.id}`,
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'X-Queue-Item-Id': queueItem.id,
+          'X-Audit-Id': auditId
+        }
+      };
+      
+      https.get(opts, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            resolve({error: 'parse', raw: data});
+          }
+        });
+      }).on('error', (e) => {
+        console.error(`[${requestId}] [processing] Error calling Next.js:`, e);
+        resolve({error: e.message});
+      });
+    });
+    
+    console.log(`[${requestId}] [processing] Next.js processing completed`);
+    
     const responseBody = {
       success: true,
-      message: 'Queue item claimed successfully',
+      message: 'Audit processing initiated',
       processed: true,
       auditId: auditId,
       queueId: queueItem.id,
       requestId: requestId,
       requestTimestamp: requestTimestamp,
       _cacheBust: Date.now(),
-      note: 'This is from the standalone Netlify function, not Next.js'
+      processingResult: processResult
     };
     
     console.log(`[${requestId}] [response] Returning auditId=${auditId.substring(0, 8)}`);
-    
-    // Release the claim so it can be processed by the real worker
-    await supabase.from('audit_queue').update({
-      status: 'pending',
-      started_at: null
-    }).eq('id', queueItem.id);
     
     return {
       statusCode: 200,
