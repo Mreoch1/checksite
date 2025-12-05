@@ -40,6 +40,10 @@ interface SimpleReportData {
     evidence?: any
   }>
   overallScore: number
+  screenshots?: {
+    desktop?: string
+    mobile?: string
+  }
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
@@ -187,6 +191,7 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     topActions,
     modules: auditResult.modules,
     overallScore: auditResult.overallScore,
+    screenshots: auditResult.screenshots,
   })
   
   // Generate plaintext report
@@ -215,6 +220,10 @@ function generateHTMLReport(data: {
   topActions: any[]
   modules: any[]
   overallScore: number
+  screenshots?: {
+    desktop?: string
+    mobile?: string
+  }
 }): string {
   return `<!DOCTYPE html>
 <html>
@@ -519,6 +528,77 @@ function generateHTMLReport(data: {
         Overall, your site is in strong shape. Fixing the recommendations above will give you even better performance in search.
       </p>
     </div>
+
+    ${data.screenshots ? `
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
+    <h2 style="color: #0284c7; margin-top: 40px; margin-bottom: 20px;">Website Snapshot</h2>
+    <p style="color: #6b7280; font-size: 0.95em; margin-bottom: 20px;">
+      We captured these screenshots of your website during the audit:
+    </p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+      ${data.screenshots.desktop ? `
+      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <h3 style="color: #374151; font-size: 1em; margin-top: 0; margin-bottom: 10px;">Desktop View</h3>
+        <img src="${data.screenshots.desktop}" alt="Desktop view of ${escapeHtml(data.domain)}" style="width: 100%; height: auto; border-radius: 4px; border: 1px solid #e5e7eb;" />
+      </div>
+      ` : ''}
+      ${data.screenshots.mobile ? `
+      <div style="background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+        <h3 style="color: #374151; font-size: 1em; margin-top: 0; margin-bottom: 10px;">Mobile View</h3>
+        <img src="${data.screenshots.mobile}" alt="Mobile view of ${escapeHtml(data.domain)}" style="width: 100%; max-width: 375px; height: auto; border-radius: 4px; border: 1px solid #e5e7eb; margin: 0 auto; display: block;" />
+      </div>
+      ` : ''}
+    </div>
+    ` : ''}
+
+    <hr style="margin: 50px 0 30px 0; border: none; border-top: 2px solid #e5e7eb;">
+    <div style="background: #f9fafb; padding: 30px; border-radius: 8px; margin: 30px 0;">
+      <h2 style="color: #0284c7; margin-top: 0; margin-bottom: 25px; font-size: 1.5em;">Understanding Your Report</h2>
+      
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.2em;">What is SEO?</h3>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0;">
+          SEO (Search Engine Optimization) helps people find your business on Google and other search engines. 
+          It improves your website's visibility, rankings, traffic, and leads. Your site's performance, structure, 
+          content, and local information all affect how well you show up in search results.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.2em;">How to Use This Report</h3>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 12px;">
+          Follow these steps to get the most value from your audit:
+        </p>
+        <ol style="color: #374151; font-size: 16px; line-height: 1.8; padding-left: 25px; margin: 0;">
+          <li style="margin-bottom: 8px;"><strong>Fix the High Priority Issues</strong> - These have the biggest impact on your visibility and performance.</li>
+          <li style="margin-bottom: 8px;"><strong>Work through the Medium Issues</strong> - These improve your long-term growth and rankings.</li>
+          <li style="margin-bottom: 8px;"><strong>Keep your site updated</strong> - Fresh content and improved usability help sustain progress.</li>
+        </ol>
+      </div>
+
+      <div style="margin-bottom: 30px;">
+        <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.2em;">What to Expect Moving Forward</h3>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0;">
+          SEO improvements take time. Small changes can have quick positive effects, while bigger improvements may take 
+          weeks or months to show results. Google reviews updates over time, so be patient and consistent. 
+          Keep updating your content every 1 to 3 months to maintain momentum.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 0;">
+        <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.2em;">When to Rerun an Audit</h3>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6; margin-bottom: 12px;">
+          Consider running a new audit:
+        </p>
+        <ul style="color: #374151; font-size: 16px; line-height: 1.8; padding-left: 25px; margin: 0;">
+          <li style="margin-bottom: 8px;">After making updates to fix the issues in this report</li>
+          <li style="margin-bottom: 8px;">After adding new content or pages</li>
+          <li style="margin-bottom: 8px;">After redesigning your site</li>
+          <li style="margin-bottom: 8px;">Every 3 months to stay up to date</li>
+        </ul>
+      </div>
+    </div>
+
     <p style="color: #6b7280; font-size: 0.9em; text-align: center; margin-top: 30px;">
       This report was generated by SEO CheckSite. For questions, email us at admin@seochecksite.net. We're here to help!
     </p>

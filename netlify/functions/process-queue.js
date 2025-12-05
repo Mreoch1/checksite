@@ -1,76 +1,80 @@
 /**
  * Netlify Scheduled Function for processing audit queue
- * Schedule is defined in netlify.toml: every 1 minute (reduced for testing)
+ * This function runs automatically every 2 minutes
+ * Schedule is defined in netlify.toml
  */
 
 export default async function handler(req) {
-  // For scheduled functions, Netlify sends a Request whose body contains JSON:
-  // { "next_run": "<ISO string>" }
+  const timestamp = new Date().toISOString();
+  console.log(`[process-queue-scheduled] Started at ${timestamp}`);
+  
+  // Get next_run from scheduled function payload
   try {
     const body = await req.json().catch(() => ({}));
-    const { next_run } = body;
-    console.log(`[process-queue-scheduled] Scheduled run. Next run: ${next_run || 'unknown'}`);
+    if (body.next_run) {
+      console.log(`[process-queue-scheduled] Next run: ${body.next_run}`);
+    }
   } catch (e) {
-    // If body is empty for some reason, just continue
-    console.log(`[process-queue-scheduled] Scheduled run. No next_run in body`);
+    // Ignore JSON parse errors
   }
 
-  const siteUrl = process.env.URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app';
-  // Use standalone Netlify function instead of Next.js API route to avoid caching issues
-  const endpoint = `${siteUrl}/.netlify/functions/queue-worker`;
+  // Call the Next.js API route directly with cache-busting
+  const siteUrl = process.env.URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net';
   const queueSecret = process.env.QUEUE_SECRET;
+  const cacheBust = Date.now();
+  const apiUrl = `${siteUrl}/api/process-queue?_t=${cacheBust}${queueSecret ? `&secret=${queueSecret}` : ''}`;
   
-  // Build the URL with optional secret
-  const url = queueSecret 
-    ? `${endpoint}?secret=${queueSecret}`
-    : endpoint;
-  
-  console.log(`[process-queue-scheduled] Calling ${endpoint}...`);
+  console.log(`[process-queue-scheduled] Calling ${siteUrl}/api/process-queue with cache-bust=${cacheBust}...`);
   
   try {
-    const response = await fetch(url, {
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Netlify-Scheduled-Function/1.0',
+        'User-Agent': 'Netlify-Scheduled-Function',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
-      // Note: fetch doesn't have a direct timeout option, but Netlify functions have a 26s limit
-      // The API route should handle its own timeout
     });
     
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      data = { raw: text };
+    }
+    
+    console.log(`[process-queue-scheduled] Response ${response.status}:`, data);
+    
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
-      console.error(`[process-queue-scheduled] Call failed: ${response.status} ${errorText}`);
       return new Response(JSON.stringify({
         success: false,
-        error: `API returned ${response.status}: ${errorText}`,
+        error: `API returned ${response.status}`,
+        details: data,
       }), {
         status: response.status,
         headers: { 'Content-Type': 'application/json' },
       });
     }
     
-    const data = await response.json().catch(() => ({}));
-    console.log(`[process-queue-scheduled] Response: ${response.status}`, data);
-    
     return new Response(JSON.stringify({
       success: true,
-      message: 'Queue processing triggered',
-      apiResponse: data,
+      message: 'Queue processing completed',
+      result: data,
+      timestamp,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+    
   } catch (error) {
-    console.error('[process-queue-scheduled] Error:', error);
+    console.error('[process-queue-scheduled] Error:', error.message);
     return new Response(JSON.stringify({
       success: false,
       error: error.message,
+      timestamp,
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 }
-
-// Schedule is defined in netlify.toml instead of here
-// This avoids potential parsing conflicts with the cron expression

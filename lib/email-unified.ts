@@ -434,13 +434,34 @@ export async function sendAuditReportEmail(
 }
 
 /**
- * Send audit failure notification
+ * Send audit failure notification with specific error details
  */
 export async function sendAuditFailureEmail(
   email: string,
-  url: string
+  url: string,
+  errorMessage?: string
 ): Promise<void> {
   const domain = new URL(url).hostname
+  
+  // Determine user-friendly error explanation
+  let errorExplanation = 'We encountered a technical issue while analyzing your website.'
+  let canRetry = true
+  
+  if (errorMessage) {
+    if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+      errorExplanation = `${domain} blocked our automated analysis. This is a security measure some websites use to prevent automated access.`
+      canRetry = false
+    } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+      errorExplanation = `We couldn't access ${domain}. The URL may be incorrect or the site may be temporarily unavailable.`
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+      errorExplanation = `${domain} took too long to respond. The site may be temporarily slow or overloaded.`
+    } else if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('getaddrinfo')) {
+      errorExplanation = `We couldn't find ${domain}. Please verify the URL is correct.`
+      canRetry = false
+    } else if (errorMessage.includes('SSL') || errorMessage.includes('certificate')) {
+      errorExplanation = `${domain} has SSL certificate issues that prevented our analysis.`
+    }
+  }
   
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
@@ -463,23 +484,48 @@ export async function sendAuditFailureEmail(
           </div>
         </div>
         
-        <h2 style="color: #dc2626; font-size: 24px; margin-top: 0;">Report Generation Issue</h2>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hi there,</p>
+        <h2 style="color: #dc2626; font-size: 24px; margin-top: 0;">Unable to Complete Your Website Analysis</h2>
+        
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hello,</p>
+        
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          We encountered an issue while generating your website report for <strong style="color: #dc2626;">${domain}</strong>.
+          We were unable to complete the analysis for <strong style="color: #dc2626;">${domain}</strong>.
         </p>
+        
+        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 600;">Reason:</p>
+          <p style="color: #7f1d1d; font-size: 14px; margin: 8px 0 0 0;">${errorExplanation}</p>
+        </div>
+        
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          Our team has been notified and will either re-run the audit or issue a refund. We'll be in touch shortly.
+          We apologize for the inconvenience. You can request a full refund using the form below, or contact us to discuss re-running the audit at no additional charge.
         </p>
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          If you have any questions, please contact our support team.
+        
+        <div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; padding: 20px; margin: 25px 0; border-radius: 8px;">
+          <h3 style="color: #0369a1; font-size: 18px; margin-top: 0;">Request a Full Refund</h3>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
+            We're sorry we couldn't complete your audit. You're entitled to a full refund.
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
+            <strong>To request your refund:</strong><br>
+            Email us at <a href="mailto:admin@seochecksite.net?subject=Refund%20Request%20for%20${encodeURIComponent(domain)}" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a>
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
+            Include: Your website URL (<strong>${url}</strong>) and this email address (<strong>${email}</strong>)
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
+            <strong>We'll process your refund within 24-48 hours.</strong>
+          </p>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin-top: 20px;">
+          Questions? Reply to this email or contact us at 
+          <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; text-decoration: none;">admin@seochecksite.net</a>
         </p>
       </div>
       
       <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
-          <a href="${SITE_URL}" style="color: #0ea5e9; text-decoration: none;">seochecksite.net</a>
-        </p>
+        <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">SEO CheckSite - Professional Website Analysis</p>
         <p style="color: #9ca3af; font-size: 11px; margin: 4px 0;">
           <a href="${SITE_URL}/privacy" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Privacy Policy</a> |
           <a href="${SITE_URL}/terms" style="color: #9ca3af; text-decoration: none; margin: 0 8px;">Terms of Service</a> |
@@ -491,7 +537,7 @@ export async function sendAuditFailureEmail(
   
   await sendEmail({
     to: email,
-    subject: `Issue with your SEO CheckSite report for ${domain}`,
+    subject: `Unable to Complete Analysis for ${domain}`,
     html,
   })
 }
