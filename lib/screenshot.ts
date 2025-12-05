@@ -54,11 +54,12 @@ export async function captureScreenshot(
 
     const context = await browser.newContext({
       viewport: device === 'mobile' 
-        ? { width: 375, height: 667, deviceScaleFactor: 2 }
+        ? { width: 375, height: 667 }
         : { width, height },
       userAgent: device === 'mobile'
         ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
         : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      deviceScaleFactor: device === 'mobile' ? 2 : 1,
     })
 
     const page = await context.newPage()
