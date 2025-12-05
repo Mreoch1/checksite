@@ -1002,13 +1002,26 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
               .select('*, customers(*)')
               .eq('id', auditId)
               .single()
-
+            
             if (audit) {
               const customer = audit.customers as any
               const errorMsg = error instanceof Error ? error.message : String(error)
               console.log(`📧 Sending failure email to ${customer.email} for ${audit.url}`)
               await sendAuditFailureEmail(customer.email, audit.url, errorMsg)
               console.log('✅ Failure email sent successfully')
+              
+              // CRITICAL: Mark email_sent_at so queue processor knows email was sent
+              const failureEmailSentAt = new Date().toISOString()
+              const { error: emailUpdateError } = await db
+                .from('audits')
+                .update({ email_sent_at: failureEmailSentAt })
+                .eq('id', auditId)
+              
+              if (emailUpdateError) {
+                console.error('❌ Error updating email_sent_at for failure email:', emailUpdateError)
+              } else {
+                console.log(`✅ Marked email_sent_at=${failureEmailSentAt} for failure email`)
+              }
             }
           } catch (failureEmailError) {
             console.error('❌ Error sending failure email:', failureEmailError)
