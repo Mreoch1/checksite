@@ -55,6 +55,8 @@ import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-stat
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const revalidate = 0 // Never cache
+export const fetchCache = 'force-no-store'
 
 // CRITICAL: Create exactly ONE primary client for this worker
 // This is the ONLY Supabase client used in this file - all reads and writes use this
@@ -234,6 +236,103 @@ async function markQueueItemFailedWithLogging(
   }
 }
 
+/**
+ * Auto-heal stuck audits and clean up completed queue items
+ * This runs before each queue processing cycle to automatically fix stuck items
+ */
+async function resetStuckAudits(requestId: string) {
+  const STUCK_THRESHOLD_MINUTES = 3 // Consider stuck if processing for more than 3 minutes (aggressive)
+  const stuckCutoff = new Date(Date.now() - STUCK_THRESHOLD_MINUTES * 60 * 1000).toISOString()
+  
+  console.log(`[${requestId}] [auto-heal] Starting auto-heal checks...`)
+  
+  try {
+    // 1. Clean up queue items pointing to already-completed audits
+    const { data: completedAuditQueueItems, error: findCompletedError } = await supabasePrimary
+      .from('audit_queue')
+      .select('id, audit_id, audits!inner(id, status, email_sent_at, formatted_report_html)')
+      .eq('status', 'pending')
+      .not('audits.email_sent_at', 'is', null)
+    
+    if (!findCompletedError && completedAuditQueueItems && completedAuditQueueItems.length > 0) {
+      console.log(`[${requestId}] [auto-heal] Found ${completedAuditQueueItems.length} queue items pointing to completed audits, marking as completed...`)
+      
+      const completedQueueIds = completedAuditQueueItems.map(item => item.id)
+      const { error: markCompletedError } = await supabasePrimary
+        .from('audit_queue')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .in('id', completedQueueIds)
+      
+      if (!markCompletedError) {
+        console.log(`[${requestId}] [auto-heal] ✅ Marked ${completedQueueIds.length} queue items as completed`)
+      }
+    }
+    
+    // 2. Find and reset stuck queue items (processing for >10 min)
+    const { data: stuckQueueItems, error: findError } = await supabasePrimary
+      .from('audit_queue')
+      .select('id, audit_id, started_at')
+      .eq('status', 'processing')
+      .lt('started_at', stuckCutoff)
+    
+    if (!findError && stuckQueueItems && stuckQueueItems.length > 0) {
+      console.log(`[${requestId}] [auto-heal] Found ${stuckQueueItems.length} stuck queue items (processing >10min), resetting...`)
+      
+      // Reset stuck queue items to pending
+      const { error: resetQueueError } = await supabasePrimary
+        .from('audit_queue')
+        .update({ 
+          status: 'pending',
+          started_at: null
+        })
+        .eq('status', 'processing')
+        .lt('started_at', stuckCutoff)
+      
+      if (!resetQueueError) {
+        console.log(`[${requestId}] [auto-heal] ✅ Reset ${stuckQueueItems.length} stuck queue items to pending`)
+      }
+      
+      // Reset corresponding stuck audits
+      const stuckAuditIds = stuckQueueItems.map(item => item.audit_id)
+      await supabasePrimary
+        .from('audits')
+        .update({ status: 'pending' })
+        .in('id', stuckAuditIds)
+        .eq('status', 'running')
+    }
+    
+    // 3. Find and reset audits stuck in "running" status (>10 min old)
+    const { data: stuckAudits, error: findStuckAuditsError } = await supabasePrimary
+      .from('audits')
+      .select('id, created_at')
+      .eq('status', 'running')
+      .lt('created_at', stuckCutoff)
+    
+    if (!findStuckAuditsError && stuckAudits && stuckAudits.length > 0) {
+      console.log(`[${requestId}] [auto-heal] Found ${stuckAudits.length} audits stuck in running status (>10min), resetting...`)
+      
+      const stuckAuditIds = stuckAudits.map(a => a.id)
+      const { error: resetAuditsError } = await supabasePrimary
+        .from('audits')
+        .update({ status: 'pending' })
+        .in('id', stuckAuditIds)
+        .eq('status', 'running')
+      
+      if (!resetAuditsError) {
+        console.log(`[${requestId}] [auto-heal] ✅ Reset ${stuckAuditIds.length} stuck audits to pending`)
+      }
+    }
+    
+    console.log(`[${requestId}] [auto-heal] ✅ Auto-heal checks complete`)
+    
+  } catch (err) {
+    console.error(`[${requestId}] [auto-heal] ❌ Unexpected error:`, err)
+  }
+}
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request)
   const requestTimestamp = new Date().toISOString()
@@ -262,6 +361,9 @@ export async function GET(request: NextRequest) {
     console.error(`[${requestId}] [db-check] ❌ Failed to verify database:`, dbCheckErr)
   }
   
+  // AUTO-HEAL: Reset stuck audits before processing
+  await resetStuckAudits(requestId)
+  
   // CRITICAL: Use the single primary client for all database operations
   // This is the ONLY client used in this worker - all reads and writes use supabasePrimary
   // Note: Even with service role key, Supabase REST API may route SELECT queries to replicas
@@ -288,14 +390,57 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // DIAGNOSTIC: Check queue state before claiming
+    console.log(`[${requestId}] [diagnostic] Checking queue state before claiming...`)
+    const { data: queueStats, error: statsError } = await supabasePrimary
+      .from('audit_queue')
+      .select('status')
+    
+    if (!statsError && queueStats) {
+      const statusCounts: Record<string, number> = {}
+      queueStats.forEach((item: any) => {
+        statusCounts[item.status] = (statusCounts[item.status] || 0) + 1
+      })
+      console.log(`[${requestId}] [diagnostic] Queue status counts:`, JSON.stringify(statusCounts))
+    }
+    
+    // Check oldest pending item details
+    const { data: oldestPendingCheck, error: oldestError } = await supabasePrimary
+      .from('audit_queue')
+      .select('id, audit_id, status, created_at, audits!inner(id, status, email_sent_at)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    
+    if (!oldestError && oldestPendingCheck) {
+      const audit = Array.isArray(oldestPendingCheck.audits) ? oldestPendingCheck.audits[0] : oldestPendingCheck.audits
+      console.log(`[${requestId}] [diagnostic] Oldest pending queue item:`)
+      console.log(`[${requestId}] [diagnostic]   Queue ID: ${oldestPendingCheck.id?.substring(0, 8)}...`)
+      console.log(`[${requestId}] [diagnostic]   Audit ID: ${oldestPendingCheck.audit_id?.substring(0, 8)}...`)
+      console.log(`[${requestId}] [diagnostic]   Queue status: ${oldestPendingCheck.status}`)
+      console.log(`[${requestId}] [diagnostic]   Audit status: ${audit?.status || 'unknown'}`)
+      console.log(`[${requestId}] [diagnostic]   Email sent: ${audit?.email_sent_at ? 'YES' : 'NO'}`)
+      console.log(`[${requestId}] [diagnostic]   Created: ${oldestPendingCheck.created_at}`)
+    } else {
+      console.log(`[${requestId}] [diagnostic] No pending items found in diagnostic check`)
+      console.log(`[${requestId}] [diagnostic] Error:`, oldestError?.message || 'none')
+    }
+    
     // CRITICAL: Atomically claim one pending queue item using PostgreSQL function
-    // This runs in a single transaction on the primary database, eliminating stale read issues
-    // The function uses FOR UPDATE SKIP LOCKED for safe concurrent access
-    // Step 1+2 combined: atomically claim oldest pending queue item via RPC
-    // If RPC fails (e.g., schema cache not refreshed), fall back to SELECT+UPDATE approach
+    // Updated RPC function no longer checks email_sent_at in the query (avoids replication lag)
+    // Instead, we check email_sent_at AFTER claiming using primary database
     console.log(`[${requestId}] [atomic-claim] Attempting to claim queue item via RPC function...`)
     const { data: claimedRows, error: claimError } = await supabasePrimary
       .rpc('claim_oldest_audit_queue')
+    
+    // DIAGNOSTIC: Log RPC result
+    console.log(`[${requestId}] [atomic-claim] RPC completed`)
+    console.log(`[${requestId}] [atomic-claim] RPC error:`, claimError ? claimError.message : 'none')
+    console.log(`[${requestId}] [atomic-claim] RPC data:`, claimedRows ? `${claimedRows.length} row(s)` : 'null')
+    if (claimedRows && claimedRows.length > 0) {
+      console.log(`[${requestId}] [atomic-claim] RPC claimed: audit_id=${claimedRows[0].audit_id?.substring(0, 8)}...`)
+    }
     
     // Declare queueItem at function scope so it's accessible throughout
     let queueItem: any = null

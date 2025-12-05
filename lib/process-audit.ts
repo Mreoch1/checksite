@@ -2,11 +2,11 @@ import { supabase } from '@/lib/supabase'
 import { runAuditModules } from '@/lib/audit/modules'
 import { generateSimpleReport } from '@/lib/generate-simple-report'
 // import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
-import { sendAuditReportEmail } from '@/lib/email-unified'
-// sendAuditFailureEmail disabled to preserve email quota
+import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
 import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
 import { isEmailSent, isEmailSending, isEmailReservationAbandoned, getEmailSentAtAge } from '@/lib/email-status'
+import { captureWebsiteScreenshots } from '@/lib/screenshot'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -288,6 +288,21 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
           // (Database constraint only allows: pending, running, completed, failed)
           console.log('Generating report (status remains: running)...')
     
+      // Capture website screenshots (desktop and mobile)
+      console.log('📸 Capturing website screenshots...')
+      let screenshots: { desktop?: string; mobile?: string } | undefined
+      try {
+        screenshots = await captureWebsiteScreenshots(audit.url)
+        if (screenshots.desktop || screenshots.mobile) {
+          console.log(`✅ Screenshots captured: ${screenshots.desktop ? 'desktop' : ''} ${screenshots.mobile ? 'mobile' : ''}`)
+        } else {
+          console.log('⚠️  No screenshots captured (API may not be configured)')
+        }
+      } catch (screenshotError) {
+        console.warn('⚠️  Screenshot capture failed (continuing without screenshots):', screenshotError)
+        screenshots = undefined
+      }
+      
       // Generate formatted report using simple script-based generator (no LLM for now)
       console.log('Generating formatted report (simple script-based)...')
       console.log(`Audit result has ${auditResult.modules.length} modules`)
@@ -298,6 +313,7 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
           pageAnalysis,
           modules: results,
           overallScore,
+          screenshots,
         })
         // Assign to outer scope variables (declared at function level)
         html = result.html
@@ -979,11 +995,9 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       }
     }
 
-          // Send failure email - DISABLED to preserve email quota
-          // Uncomment below to re-enable failure emails
-          /*
+          // Send failure email to customer
           try {
-            const { data: audit } = await supabase
+            const { data: audit } = await db
               .from('audits')
               .select('*, customers(*)')
               .eq('id', auditId)
@@ -991,13 +1005,14 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
 
             if (audit) {
               const customer = audit.customers as any
-              await sendAuditFailureEmail(customer.email, audit.url)
+              const errorMsg = error instanceof Error ? error.message : String(error)
+              console.log(`📧 Sending failure email to ${customer.email} for ${audit.url}`)
+              await sendAuditFailureEmail(customer.email, audit.url, errorMsg)
+              console.log('✅ Failure email sent successfully')
             }
           } catch (failureEmailError) {
-            console.error('Error sending failure email:', failureEmailError)
+            console.error('❌ Error sending failure email:', failureEmailError)
           }
-          */
-          console.log('⚠️  Failure email disabled to preserve email quota')
   }
 }
 

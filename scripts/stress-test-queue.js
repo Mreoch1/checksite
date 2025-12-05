@@ -11,7 +11,7 @@ const https = require('https');
 const http = require('http');
 
 // Configuration
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net';
+const BASE_URL = 'https://seochecksite.net'; // Always use production for stress test
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const TEST_EMAIL = 'Mreoch82@hotmail.com';
 const BATCH_SIZE = 5; // Create audits in batches to avoid overwhelming the system

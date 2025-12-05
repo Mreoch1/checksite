@@ -15,8 +15,10 @@
 [functions]
   directory = "netlify/functions"
 
-[functions."process-queue"]
-  schedule = "*/1 * * * *"  # Every 1 minute (reduced for testing)
+# Scheduled function DISABLED - using external cron-job.org instead
+# This prevents dual-cron conflict where both systems compete for the same audits
+# [functions."process-queue"]
+#   schedule = "*/2 * * * *"  # Every 2 minutes
 
 # CRITICAL: Disable caching for queue processor endpoint
 [[headers]]
