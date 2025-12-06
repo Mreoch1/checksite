@@ -781,9 +781,15 @@ function generateHTMLReport(data: {
       <p style="color: #6b7280; font-size: 0.9em; margin: 8px 0;">
         If you notice an error in this report or believe results may be inaccurate, contact us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a>
       </p>
+      <p style="color: #9ca3af; font-size: 0.85em; margin: 8px 0; line-height: 1.6;">
+        <span style="color: #10b981;">✓</span> No login required &nbsp;|&nbsp;
+        <span style="color: #10b981;">✓</span> No website access &nbsp;|&nbsp;
+        <span style="color: #10b981;">✓</span> Read-only crawl &nbsp;|&nbsp;
+        <span style="color: #10b981;">✓</span> Zero data reselling
+      </p>
       <p style="color: #9ca3af; font-size: 0.85em; margin-top: 15px;">
         <a href="https://seochecksite.net" style="color: #9ca3af; text-decoration: none;">Visit SEO CheckSite</a> | 
-        <a href="https://seochecksite.net" style="color: #9ca3af; text-decoration: none;">Run Another Audit</a>
+        <a href="https://seochecksite.net" style="color: #9ca3af; text-decoration: none;">Generate Another Report</a>
       </p>
     </div>
   </div>
