@@ -497,24 +497,21 @@ export async function sendAuditFailureEmail(
           <p style="color: #7f1d1d; font-size: 14px; margin: 8px 0 0 0;">${errorExplanation}</p>
         </div>
         
-        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          We apologize for the inconvenience. You can request a full refund using the form below, or contact us to discuss re-running the audit at no additional charge.
-        </p>
-        
         <div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; padding: 20px; margin: 25px 0; border-radius: 8px;">
           <h3 style="color: #0369a1; font-size: 18px; margin-top: 0;">Request a Full Refund</h3>
           <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
             We're sorry we couldn't complete your audit. You're entitled to a full refund.
           </p>
           <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            <strong>To request your refund:</strong><br>
-            Email us at <a href="mailto:admin@seochecksite.net?subject=Refund%20Request%20for%20${encodeURIComponent(domain)}" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a>
+            <strong>To request your refund:</strong>
           </p>
+          <ul style="color: #374151; font-size: 14px; line-height: 1.8; margin: 10px 0; padding-left: 20px;">
+            <li>Email us at <a href="mailto:admin@seochecksite.net?subject=Refund%20Request%20for%20${encodeURIComponent(domain)}" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a></li>
+            <li>Include: The website you tried to audit (<strong>${url}</strong>)</li>
+            <li>Include: The email address you used at checkout (<strong>${email}</strong>)</li>
+          </ul>
           <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            Include: Your website URL (<strong>${url}</strong>) and this email address (<strong>${email}</strong>)
-          </p>
-          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            <strong>We'll process your refund within 24-48 hours.</strong>
+            <strong>We'll process a full refund within 24–48 hours.</strong>
           </p>
         </div>
         
