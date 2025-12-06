@@ -61,8 +61,8 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
 
 function getModuleDescription(moduleKey: string): string {
   const descriptions: Record<string, string> = {
-    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This looks at your HTTPS status, images, scripts, and page resources.</p>',
-    crawl_health: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks robots.txt, sitemap, internal links, and broken links.</p>',
+    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks page load time, JavaScript/CSS weight, render-blocking resources, and Core Web Vitals.</p>',
+    crawl_health: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks HTTPS status, robots.txt, sitemap, internal links, and broken links.</p>',
     on_page: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your page title, description, headings, and content quality.</p>',
     mobile: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks how well your site works on phones and tablets.</p>',
     local: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for business address, phone, and local business information.</p>',
@@ -91,16 +91,21 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
   
   // Calculate executive summary
   const executiveSummary: string[] = []
+  
+  // Count issues by severity first (needed for conditional logic)
+  const highIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'high').length, 0)
+  
   if (auditResult.overallScore >= 80) {
     executiveSummary.push('Your website is in good overall health with strong SEO fundamentals.')
   } else if (auditResult.overallScore >= 60) {
     executiveSummary.push('Your website has room for improvement but shows solid foundations.')
+    // Add a "but" statement for clarity when there are high-priority issues
+    if (highIssues > 0) {
+      executiveSummary.push(`However, you're missing some key elements that will help improve your search visibility and click-through rates.`)
+    }
   } else {
     executiveSummary.push('Your website needs attention in several key areas to improve search visibility.')
   }
-  
-  // Count issues by severity
-  const highIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'high').length, 0)
   const mediumIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'medium').length, 0)
   const lowIssuesCount = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'low').length, 0)
   const totalIssues = highIssues + mediumIssues + lowIssuesCount
@@ -135,15 +140,43 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     executiveSummary.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} significant improvement.`)
   }
   
-  // Quick fix checklist - top 5 high priority issues (deduplicated by title)
-  const quickFixChecklist: string[] = []
+  // Quick fix checklist - top 5 high priority issues with severity and effort info
+  const quickFixChecklist: Array<{ title: string; severity: string; effort: string }> = []
   const allIssues = auditResult.modules.flatMap((m: any) => m.issues.map((i: any) => ({ ...i, module: m.moduleKey })))
   const highPriorityIssues = allIssues.filter(i => i.severity === 'high').slice(0, 5)
   const seenTitles = new Set<string>()
+  
+  // Determine effort level based on issue type
+  const getEffortLevel = (issue: any): string => {
+    const title = issue.title.toLowerCase()
+    const fix = (issue.suggestedFix || '').toLowerCase()
+    
+    // Quick wins - simple changes
+    if (title.includes('meta description') || title.includes('title') || 
+        title.includes('alt text') || title.includes('heading') ||
+        fix.includes('add') || fix.includes('update')) {
+      return 'Quick win'
+    }
+    
+    // Requires developer
+    if (title.includes('https') || title.includes('ssl') || 
+        title.includes('script') || title.includes('lazy loading') ||
+        title.includes('redirect') || fix.includes('contact') || fix.includes('developer')) {
+      return 'Requires dev'
+    }
+    
+    // Medium effort
+    return 'Medium effort'
+  }
+  
   highPriorityIssues.forEach(issue => {
     if (!seenTitles.has(issue.title)) {
       seenTitles.add(issue.title)
-      quickFixChecklist.push(issue.title)
+      quickFixChecklist.push({
+        title: issue.title,
+        severity: issue.severity,
+        effort: getEffortLevel(issue),
+      })
     }
   })
   
@@ -180,6 +213,29 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     severity: issue.severity,
   }))
   
+  // Calculate score overview summary
+  const excellentModules = auditResult.modules.filter(m => m.score >= 90).length
+  const goodModules = auditResult.modules.filter(m => m.score >= 75 && m.score < 90).length
+  const needsWorkModules = auditResult.modules.filter(m => m.score < 75).length
+  
+  const scoreSummaryParts: string[] = []
+  if (excellentModules > 0) {
+    const moduleNames = auditResult.modules
+      .filter(m => m.score >= 90)
+      .map(m => MODULE_DISPLAY_NAMES[m.moduleKey] || m.moduleKey)
+      .slice(0, 2)
+    if (moduleNames.length > 0) {
+      scoreSummaryParts.push(`especially strong ${moduleNames.join(' and ')}`)
+    }
+  }
+  if (needsWorkModules > 0) {
+    scoreSummaryParts.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} attention`)
+  }
+  
+  const scoreOverviewSummary = scoreSummaryParts.length > 0
+    ? `Your site is in ${auditResult.overallScore >= 80 ? 'good' : auditResult.overallScore >= 60 ? 'fair' : 'poor'} overall shape${scoreSummaryParts.length > 0 ? `, with ${scoreSummaryParts.join(' and ')}.` : '.'}`
+    : `Your site is performing well across all checked areas.`
+
   // Generate HTML report
   const html = generateHTMLReport({
     domain,
@@ -192,6 +248,7 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     modules: auditResult.modules,
     overallScore: auditResult.overallScore,
     screenshots: auditResult.screenshots,
+    scoreOverviewSummary,
   })
   
   // Generate plaintext report
@@ -216,7 +273,7 @@ function generateHTMLReport(data: {
   url: string
   pageAnalysis?: any
   executiveSummary: string[]
-  quickFixChecklist: string[]
+  quickFixChecklist: Array<string | { title: string; severity: string; effort: string }>
   topActions: any[]
   modules: any[]
   overallScore: number
@@ -224,6 +281,7 @@ function generateHTMLReport(data: {
     desktop?: string
     mobile?: string
   }
+  scoreOverviewSummary?: string
 }): string {
   return `<!DOCTYPE html>
 <html>
@@ -366,24 +424,31 @@ function generateHTMLReport(data: {
 </head>
 <body>
   <div class="container">
-    <h1>SEO CheckSite</h1>
-    <div style="margin-bottom: 20px;">
-      <a href="/" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">← Back to Home</a>
+    <!-- Brand/Logo (not a heading) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <div style="font-size: 1.5em; font-weight: 700; color: #0369a1;">SEO CheckSite</div>
+      <a href="/" style="color: #0ea5e9; text-decoration: none; font-weight: 600; font-size: 0.9em;">← Back to Home</a>
     </div>
     
-    <h1 style="margin-top: 20px;">Website Report</h1>
-    <div class="meta-info">
-      <p><strong>Website:</strong> ${escapeHtml(data.domain)}</p>
-      <p><strong>Date:</strong> ${data.date}</p>
-      <p><strong>Overall Score:</strong> 
-        <span class="score-badge ${data.overallScore >= 80 ? 'score-high' : data.overallScore >= 60 ? 'score-medium' : 'score-low'}">
-          ${data.overallScore}/100
+    <!-- Hero Section - Score-Centric -->
+    <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 40px; border-radius: 12px; margin: 30px 0; text-align: center; color: white;">
+      <div style="font-size: 4em; font-weight: 700; margin-bottom: 10px; line-height: 1;">
+        ${data.overallScore}
+        <span style="font-size: 0.5em; opacity: 0.9;">/100</span>
+      </div>
+      <div style="margin-bottom: 20px;">
+        <span class="score-badge ${data.overallScore >= 80 ? 'score-high' : data.overallScore >= 60 ? 'score-medium' : 'score-low'}" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid white; font-size: 1.2em; padding: 10px 24px;">
+          ${data.overallScore >= 80 ? 'GOOD' : data.overallScore >= 60 ? 'NEEDS IMPROVEMENT' : 'NEEDS WORK'}
         </span>
-      </p>
+      </div>
+      <h1 style="color: white; border: none; margin: 0; padding: 0; font-size: 1.8em;">Website Report for ${escapeHtml(data.domain)}</h1>
+      <div style="margin-top: 15px; opacity: 0.95;">
+        <p style="margin: 5px 0; font-size: 0.95em;">${data.date}</p>
+      </div>
     </div>
 
     ${data.pageAnalysis ? `
-    <h2>Page Breakdown</h2>
+    <h2 id="page-breakdown">Page Breakdown</h2>
     <div class="summary">
       <table class="evidence-table">
         <tr><th>Page URL</th><td>${escapeHtml(data.pageAnalysis.url || data.url)}</td></tr>
@@ -400,33 +465,86 @@ function generateHTMLReport(data: {
     </div>
     ` : ''}
 
-    <h2>Executive Summary</h2>
+    <h2 id="executive-summary">Overall SEO Health Summary</h2>
     <div class="summary">
-      <div style="margin-bottom: 15px;">
-        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: ${data.overallScore}/100</strong>
-        <span class="score-badge ${data.overallScore >= 80 ? 'score-high' : data.overallScore >= 60 ? 'score-medium' : 'score-low'}" style="margin-left: 10px;">
-          ${data.overallScore >= 80 ? 'GOOD' : data.overallScore >= 60 ? 'NEEDS IMPROVEMENT' : 'NEEDS WORK'}
-        </span>
-      </div>
       ${data.executiveSummary.map(point => `<p style="margin: 8px 0;">${escapeHtml(point)}</p>`).join('')}
+    </div>
+    
+    <!-- Score Overview -->
+    <h2 id="score-overview">Score Overview</h2>
+    <div class="summary" style="background: #f9fafb; border-left-color: #6b7280;">
+      ${data.scoreOverviewSummary ? `<p style="margin-bottom: 20px; font-size: 1.05em; color: #374151; font-weight: 500;">${escapeHtml(data.scoreOverviewSummary)}</p>` : ''}
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+        ${data.modules.map((module: any) => {
+          const displayName = MODULE_DISPLAY_NAMES[module.moduleKey] || module.moduleKey
+          const scoreClass = module.score >= 90 ? 'score-high' : module.score >= 75 ? 'score-medium' : 'score-low'
+          const scoreLabel = module.score >= 90 ? 'Excellent' : module.score >= 75 ? 'Good' : 'Needs work'
+          const scoreColor = module.score >= 90 ? '#065f46' : module.score >= 75 ? '#92400e' : '#991b1b'
+          const scoreBg = module.score >= 90 ? '#d1fae5' : module.score >= 75 ? '#fef3c7' : '#fee2e2'
+          
+          return `
+          <div style="background: white; padding: 15px; border-radius: 6px; border-left: 3px solid ${scoreColor};">
+            <div style="font-size: 0.9em; color: #6b7280; margin-bottom: 8px;">${escapeHtml(displayName)}</div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+              <span style="font-size: 1.8em; font-weight: 700; color: ${scoreColor};">${module.score}</span>
+              <span style="color: #9ca3af; font-size: 1em;">/100</span>
+            </div>
+            <span style="background: ${scoreBg}; color: ${scoreColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: 600; display: inline-block;">
+              ${scoreLabel}
+            </span>
+          </div>
+          `
+        }).join('')}
+      </div>
+    </div>
+    
+    <!-- Call to Action -->
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #0ea5e9; text-align: center;">
+      <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.3em;">Need Help Implementing These Fixes?</h3>
+      <p style="color: #374151; margin-bottom: 15px; font-size: 1em;">
+        Reply to this email or contact us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; font-weight: 600; text-decoration: none;">admin@seochecksite.net</a> for implementation assistance.
+      </p>
+      <p style="color: #6b7280; font-size: 0.9em; margin: 0;">
+        We can help you prioritize fixes and connect you with developers if needed.
+      </p>
     </div>
 
     ${data.quickFixChecklist.length > 0 ? `
-    <h2>Quick Fix Checklist</h2>
+    <h2 id="quick-fix-checklist">Quick Fix Checklist</h2>
     <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
       <ul style="list-style: none; padding-left: 0;">
-        ${data.quickFixChecklist.map(item => `
-          <li style="margin: 10px 0; padding-left: 30px; position: relative;">
-            <span style="position: absolute; left: 0; color: #10b981; font-size: 1.2em;">☐</span>
-            ${escapeHtml(item)}
+        ${data.quickFixChecklist.map((item: any) => {
+          const severityLabel = item.severity === 'high' ? 'High impact' : item.severity === 'medium' ? 'Medium impact' : 'Low impact'
+          const severityColor = item.severity === 'high' ? '#dc2626' : item.severity === 'medium' ? '#f59e0b' : '#10b981'
+          const effortColor = item.effort === 'Quick win' ? '#10b981' : item.effort === 'Requires dev' ? '#dc2626' : '#f59e0b'
+          
+          return `
+          <li style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border-left: 3px solid ${severityColor}; position: relative;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <span style="color: #10b981; font-size: 1.3em; flex-shrink: 0; margin-top: 2px;" aria-label="Checkbox">☐</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 600; margin-bottom: 8px; color: #111827;">${escapeHtml(typeof item === 'string' ? item : item.title)}</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                  <span style="background: ${severityColor}15; color: ${severityColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">
+                    ${severityLabel}
+                  </span>
+                  <span style="background: ${effortColor}15; color: ${effortColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: 600;">
+                    ${typeof item === 'object' && item.effort ? item.effort : 'Medium effort'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </li>
-        `).join('')}
+          `
+        }).join('')}
       </ul>
-      <p style="margin-top: 15px; color: #6b7280; font-size: 14px;">Check off each item as you complete it!</p>
+      <p style="margin-top: 15px; color: #6b7280; font-size: 14px; font-weight: 500;">
+        Start with the top ${Math.min(3, data.quickFixChecklist.filter((item: any) => (typeof item === 'object' ? item.severity : 'high') === 'high').length)} "High impact" items; they will move your score the most.
+      </p>
     </div>
     ` : ''}
 
-    <h2>Start Here: Top Priority Actions</h2>
+    <h2 id="top-priority-actions">Start Here: Top Priority Actions</h2>
     ${data.topActions.length > 0 ? data.topActions.map((action, idx) => `
       <div class="action ${action.severity}">
         <h3>${idx + 1}. ${escapeHtml(action.title)}</h3>
@@ -434,6 +552,19 @@ function generateHTMLReport(data: {
         <p><strong>How to fix it:</strong> ${escapeHtml(action.how)}</p>
       </div>
     `).join('') : '<p>Review the detailed sections below for specific recommendations.</p>'}
+    
+    <!-- Table of Contents for Detailed Findings -->
+    <h2 id="detailed-findings">Detailed Findings</h2>
+    <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0ea5e9;">
+      <p style="margin: 0 0 15px 0; font-weight: 600; color: #374151;">Jump to section:</p>
+      <ul style="margin: 0; padding-left: 20px; color: #6b7280;">
+        ${data.modules.map((module: any) => {
+          const displayName = MODULE_DISPLAY_NAMES[module.moduleKey] || module.moduleKey
+          const moduleId = module.moduleKey.replace(/_/g, '-')
+          return `<li style="margin: 8px 0;"><a href="#${moduleId}" style="color: #0ea5e9; text-decoration: none;">${escapeHtml(displayName)}</a></li>`
+        }).join('')}
+      </ul>
+    </div>
 
     ${data.modules.map(module => {
       const displayName = MODULE_DISPLAY_NAMES[module.moduleKey] || module.moduleKey
@@ -441,7 +572,7 @@ function generateHTMLReport(data: {
       const scoreLabel = module.score >= 80 ? 'GOOD' : module.score >= 60 ? 'MEDIUM' : 'NEEDS IMPROVEMENT'
       
       return `
-      <div class="module-section">
+      <div class="module-section" id="${module.moduleKey.replace(/_/g, '-')}">
         <h2>${escapeHtml(displayName)}</h2>
         <div style="margin-bottom: 15px;">
           <span class="score-badge ${scoreClass}" style="margin-right: 10px;">${scoreLabel}</span>
@@ -490,6 +621,43 @@ function generateHTMLReport(data: {
             ? '<p style="margin-bottom: 15px; color: #6b7280; font-style: italic;">Several social sharing enhancements are available.</p>'
             : ''
           
+          // Use table format for multiple issues, card format for single issue
+          if (hasMultipleIssues) {
+            return multipleIssuesNote + `
+              <table class="evidence-table" style="margin-top: 20px;">
+                <thead>
+                  <tr>
+                    <th style="width: 25%;">Issue</th>
+                    <th style="width: 12%;">Impact</th>
+                    <th style="width: 28%;">Why this matters</th>
+                    <th style="width: 35%;">Suggested fix</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${module.issues.map((issue: any) => {
+                    const impactLabel = issue.severity === 'high' ? 'High' : issue.severity === 'medium' ? 'Medium' : 'Low'
+                    const impactColor = issue.severity === 'high' ? '#dc2626' : issue.severity === 'medium' ? '#f59e0b' : '#10b981'
+                    const impactBg = issue.severity === 'high' ? '#fee2e2' : issue.severity === 'medium' ? '#fef3c7' : '#d1fae5'
+                    
+                    return `
+                    <tr>
+                      <td style="font-weight: 600; color: #111827; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.title)}</td>
+                      <td style="vertical-align: top; padding-top: 15px;">
+                        <span style="background: ${impactBg}; color: ${impactColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: 600; display: inline-block;">
+                          ${impactLabel}
+                        </span>
+                      </td>
+                      <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.plainLanguageExplanation || '')}</td>
+                      <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.suggestedFix || '')}</td>
+                    </tr>
+                    `
+                  }).join('')}
+                </tbody>
+              </table>
+            `
+          }
+          
+          // Single issue - use detailed card format
           return multipleIssuesNote + module.issues.map((issue: any) => `
             <div class="issue ${issue.severity}">
               <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
@@ -599,9 +767,23 @@ function generateHTMLReport(data: {
       </div>
     </div>
 
-    <p style="color: #6b7280; font-size: 0.9em; text-align: center; margin-top: 30px;">
-      This report was generated by SEO CheckSite. For questions, email us at admin@seochecksite.net. We're here to help!
-    </p>
+    <!-- Footer with Branding -->
+    <hr style="margin: 50px 0 30px 0; border: none; border-top: 2px solid #e5e7eb;">
+    <div style="text-align: center; padding: 30px 0; border-top: 1px solid #e5e7eb;">
+      <div style="margin-bottom: 15px;">
+        <h3 style="color: #0369a1; margin: 0; font-size: 1.5em; font-weight: 700;">SEO CheckSite</h3>
+      </div>
+      <p style="color: #6b7280; font-size: 0.9em; margin: 8px 0;">
+        Generated on ${data.date}
+      </p>
+      <p style="color: #6b7280; font-size: 0.9em; margin: 8px 0;">
+        For questions or support, email us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a>
+      </p>
+      <p style="color: #9ca3af; font-size: 0.85em; margin-top: 15px;">
+        <a href="https://seochecksite.net" style="color: #9ca3af; text-decoration: none;">Visit SEO CheckSite</a> | 
+        <a href="https://seochecksite.net" style="color: #9ca3af; text-decoration: none;">Run Another Audit</a>
+      </p>
+    </div>
   </div>
 </body>
 </html>`
@@ -613,7 +795,7 @@ function generatePlaintextReport(data: {
   url: string
   pageAnalysis?: any
   executiveSummary: string[]
-  quickFixChecklist: string[]
+  quickFixChecklist: Array<string | { title: string; severity: string; effort: string }>
   topActions: any[]
   modules: any[]
   overallScore: number
@@ -650,7 +832,10 @@ function generatePlaintextReport(data: {
     text += `QUICK FIX CHECKLIST\n`
     text += `${'='.repeat(50)}\n`
     data.quickFixChecklist.forEach((item, idx) => {
-      text += `☐ ${item}\n`
+      const title = typeof item === 'string' ? item : item.title
+      const severity = typeof item === 'object' ? ` [${item.severity.toUpperCase()}]` : ''
+      const effort = typeof item === 'object' && item.effort ? ` [${item.effort}]` : ''
+      text += `☐ ${title}${severity}${effort}\n`
     })
     text += `\n`
   }

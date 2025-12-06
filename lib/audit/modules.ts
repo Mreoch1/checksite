@@ -227,15 +227,23 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   const totalStylesheets = siteData.$('link[rel="stylesheet"]').length
   const totalResources = totalImages + totalScripts + totalStylesheets
 
-  // Adjust summary based on whether there are issues
+  // Adjust summary based on whether there are issues and available resources
   const hasIssues = issues.length > 0
+  const hasImages = totalImages > 0
+  
   const summary = score >= 80
     ? hasIssues 
       ? 'Your site performance looks good. We found one small improvement opportunity.'
-      : 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
+      : hasImages
+        ? 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
+        : 'Your site performance looks good. Consider optimizing scripts and resources for even better speed.'
     : score >= 60
-    ? 'Your site performance needs improvement. Focus on enabling HTTPS and optimizing images.'
-    : 'Your site performance needs significant improvement. Start with HTTPS and image optimization.'
+    ? hasImages
+      ? 'Your site performance needs improvement. Focus on optimizing images and scripts.'
+      : 'Your site performance needs improvement. Focus on optimizing scripts and resources.'
+    : hasImages
+    ? 'Your site performance needs significant improvement. Start with image and script optimization.'
+    : 'Your site performance needs significant improvement. Start with script and resource optimization.'
 
   return {
     moduleKey: 'performance',
