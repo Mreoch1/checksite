@@ -422,12 +422,6 @@ function generateHTMLReport(data: {
 </head>
 <body>
   <div class="container">
-    <!-- Brand/Logo (not a heading) -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <div style="font-size: 1.5em; font-weight: 700; color: #0369a1;">SEO CheckSite</div>
-      <a href="/" style="color: #0ea5e9; text-decoration: none; font-weight: 600; font-size: 0.9em;">← Back to Home</a>
-    </div>
-    
     <!-- Hero Section - Score-Centric -->
     <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 40px; border-radius: 12px; margin: 30px 0; text-align: center; color: white;">
       <div style="font-size: 4em; font-weight: 700; margin-bottom: 10px; line-height: 1;">
