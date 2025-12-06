@@ -1422,24 +1422,61 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
     }
   })
 
+  // Detect site type to apply appropriate schema validation
+  const siteType = detectSiteType(siteData)
+  
   if (schemaCount === 0) {
     issues.push({
       title: 'No structured data found',
       severity: 'high',
       technicalExplanation: 'No JSON-LD schema markup detected',
       plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results.',
-      suggestedFix: 'Implementation tip: Add schema markup (structured data) with your business information. Research "Organization schema" or "LocalBusiness schema" for implementation details.',
+      suggestedFix: 'Add schema markup (structured data) appropriate for your site type.',
     })
     score -= 30
-  } else if (!hasOrganization && !hasLocalBusiness) {
-    issues.push({
-      title: 'Missing business organization schema',
-      severity: 'medium',
-      technicalExplanation: 'Schema found but not Organization or LocalBusiness type',
-      plainLanguageExplanation: 'Business schema helps Google show your business information in search results.',
-      suggestedFix: 'Add Organization or LocalBusiness schema with your business name, address, phone, and website.',
-    })
-    score -= 20
+  } else {
+    // Validate schema based on site type
+    if (siteType === 'publisher') {
+      // Publishers should have NewsArticle, Article, or Publisher schema
+      const hasNewsArticle = allSchemaTypes.some(type => 
+        type === 'NewsArticle' || type === 'Article' || type === 'BlogPosting' || type === 'Publisher'
+      )
+      if (!hasNewsArticle && !hasOrganization) {
+        issues.push({
+          title: 'Consider adding publisher-specific schema',
+          severity: 'low',
+          technicalExplanation: 'Publisher site detected but no NewsArticle/Article/Publisher schema found',
+          plainLanguageExplanation: 'News publishers benefit from NewsArticle or Publisher schema markup for better search visibility.',
+          suggestedFix: 'Add NewsArticle schema for individual articles and Publisher schema for your organization.',
+        })
+        score -= 5 // Low severity - not required but recommended
+      }
+    } else if (siteType === 'local_business') {
+      // Local businesses should have LocalBusiness schema
+      if (!hasLocalBusiness && !hasOrganization) {
+        issues.push({
+          title: 'Missing business organization schema',
+          severity: 'medium',
+          technicalExplanation: 'Local business detected but no LocalBusiness or Organization schema found',
+          plainLanguageExplanation: 'Local business schema helps Google show your business information in local search results.',
+          suggestedFix: 'Add LocalBusiness or Organization schema with your business name, address, phone, and website.',
+        })
+        score -= 20
+      }
+    } else {
+      // For other site types, Organization is recommended but not required
+      if (!hasOrganization && !hasLocalBusiness && schemaCount > 0) {
+        // Only flag if they have schema but wrong type
+        issues.push({
+          title: 'Consider adding Organization schema',
+          severity: 'low',
+          technicalExplanation: 'Schema found but not Organization or LocalBusiness type',
+          plainLanguageExplanation: 'Organization schema helps Google show your business information in search results.',
+          suggestedFix: 'Add Organization schema with your business name and website.',
+        })
+        score -= 5 // Low severity - informational
+      }
+    }
   }
 
   // Check if schema has required fields
