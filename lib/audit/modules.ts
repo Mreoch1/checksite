@@ -292,11 +292,11 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   const blockingScriptsCount = blockingScriptSources.length
   if (blockingScriptsCount > 3) {
     issues.push({
-      title: 'Too many scripts may slow page loading',
+      title: 'High script count detected in initial HTML',
       severity: 'medium',
       technicalExplanation: `Found ${blockingScriptsCount} scripts that block page rendering`,
-      plainLanguageExplanation: 'Scripts can prevent your page from showing quickly to visitors.',
-      suggestedFix: 'Implementation tip: Optimize scripts or move them to load after the page content.',
+      plainLanguageExplanation: 'High script count detected in initial HTML. Actual performance depends on bundling and execution strategy.',
+      suggestedFix: 'Implementation tip: Optimize scripts or move them to load after the page content. For live performance testing, verify in Google PageSpeed Insights or Chrome DevTools.',
       evidence: {
         found: `${blockingScriptsCount} blocking scripts`,
         actual: `${blockingScriptsCount} blocking, ${asyncScriptSources.length} async, ${deferScriptSources.length} deferred`,
