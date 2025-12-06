@@ -129,17 +129,6 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     }
   }
   
-  // Module performance summary
-  const excellentModules = auditResult.modules.filter(m => m.score >= 80).length
-  const needsWorkModules = auditResult.modules.filter(m => m.score < 60).length
-  
-  if (excellentModules > 0) {
-    executiveSummary.push(`${excellentModules} of ${auditResult.modules.length} checked areas are performing excellently.`)
-  }
-  if (needsWorkModules > 0) {
-    executiveSummary.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} significant improvement.`)
-  }
-  
   // Quick fix checklist - top 5 high priority issues with severity and effort info
   const quickFixChecklist: Array<{ title: string; severity: string; effort: string }> = []
   const allIssues = auditResult.modules.flatMap((m: any) => m.issues.map((i: any) => ({ ...i, module: m.moduleKey })))
@@ -213,11 +202,20 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     severity: issue.severity,
   }))
   
-  // Calculate score overview summary
+  // Calculate score overview summary and module performance summary
   const excellentModules = auditResult.modules.filter(m => m.score >= 90).length
   const goodModules = auditResult.modules.filter(m => m.score >= 75 && m.score < 90).length
   const needsWorkModules = auditResult.modules.filter(m => m.score < 75).length
   
+  // Add to executive summary
+  if (excellentModules > 0) {
+    executiveSummary.push(`${excellentModules} of ${auditResult.modules.length} checked areas are performing excellently.`)
+  }
+  if (needsWorkModules > 0) {
+    executiveSummary.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} significant improvement.`)
+  }
+  
+  // Calculate score overview summary text
   const scoreSummaryParts: string[] = []
   if (excellentModules > 0) {
     const moduleNames = auditResult.modules
