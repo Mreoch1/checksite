@@ -301,7 +301,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
       deferredScripts: deferScriptSources.length,
       totalStylesheets: totalStylesheets,
       totalResources: totalResources,
-      externalHttpResources: externalResources,
+      externalHttpResources: httpResources,
     },
   }
 }
