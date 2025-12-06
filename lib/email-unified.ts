@@ -397,6 +397,15 @@ export async function sendAuditReportEmail(
           </p>
         </div>
         
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <p style="color: #374151; font-size: 13px; margin: 0 0 8px 0; font-weight: 600;">How we handle your data</p>
+          <ul style="color: #6b7280; font-size: 12px; margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li>We only crawl publicly available pages, like a search engine.</li>
+            <li>We do not alter your website or require any kind of admin access.</li>
+            <li>We do not sell or share your audit data with third parties.</li>
+          </ul>
+        </div>
+        
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 14px; margin: 0; line-height: 1.5;">
             Questions? Email us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; text-decoration: none;">admin@seochecksite.net</a>. We're here to help!
