@@ -47,7 +47,7 @@ interface SimpleReportData {
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  performance: 'Performance Signals (Static Analysis)',
+  performance: 'Page Structure & Load Signals (no runtime metrics)',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',
@@ -57,6 +57,50 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   schema: 'Schema Markup',
   social: 'Social Metadata',
   competitor_overview: 'Competitor Overview',
+}
+
+/**
+ * Detect if site uses a dynamic JavaScript framework
+ * Checks pageAnalysis for HTML content or uses heuristics from modules
+ */
+function detectDynamicFramework(modules: any[], pageAnalysis?: any): { framework: string | null; detected: boolean } {
+  // Try to get HTML from pageAnalysis if available
+  let htmlContent = ''
+  if (pageAnalysis?.htmlContent) {
+    htmlContent = pageAnalysis.htmlContent
+  }
+  
+  // Also check performance module for script count
+  const performanceModule = modules.find(m => m.moduleKey === 'performance')
+  const scriptCount = performanceModule?.evidence?.totalScripts || 0
+  
+  if (htmlContent) {
+    const htmlLower = htmlContent.toLowerCase()
+    
+    // Check for React/Next.js
+    if (htmlLower.includes('react') || htmlLower.includes('__next') || htmlLower.includes('next.js') || htmlLower.includes('_next')) {
+      return { framework: 'React/Next.js', detected: true }
+    }
+    // Check for Vue
+    if (htmlLower.includes('vue') || htmlLower.includes('__vue__') || htmlLower.includes('vite')) {
+      return { framework: 'Vue.js', detected: true }
+    }
+    // Check for Angular
+    if (htmlLower.includes('angular') || htmlLower.includes('ng-') || htmlLower.includes('ngapp')) {
+      return { framework: 'Angular', detected: true }
+    }
+    // Check for Svelte
+    if (htmlLower.includes('svelte')) {
+      return { framework: 'Svelte', detected: true }
+    }
+  }
+  
+  // Heuristic: Many scripts often indicates JS framework
+  if (scriptCount > 10) {
+    return { framework: 'JavaScript Framework', detected: true }
+  }
+  
+  return { framework: null, detected: false }
 }
 
 function getModuleDescription(moduleKey: string): string {
@@ -236,6 +280,9 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     ? `Your site is in ${auditResult.overallScore >= 80 ? 'good' : auditResult.overallScore >= 60 ? 'fair' : 'poor'} overall shape${scoreSummaryParts.length > 0 ? `, with ${scoreSummaryParts.join(' and ')}.` : '.'}`
     : `Your site is performing well across all checked areas.`
 
+  // Detect dynamic framework
+  const frameworkInfo = detectDynamicFramework(auditResult.modules, auditResult.pageAnalysis)
+  
   // Generate HTML report
   const html = generateHTMLReport({
     domain,
@@ -249,6 +296,7 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
     overallScore: auditResult.overallScore,
     screenshots: auditResult.screenshots,
     scoreOverviewSummary,
+    frameworkInfo,
   })
   
   // Generate plaintext report
@@ -282,6 +330,7 @@ function generateHTMLReport(data: {
     mobile?: string
   }
   scoreOverviewSummary?: string
+  frameworkInfo?: { framework: string | null; detected: boolean }
 }): string {
   return `<!DOCTYPE html>
 <html>
@@ -462,6 +511,19 @@ function generateHTMLReport(data: {
       </div>
     </div>
 
+    <!-- Static Analysis Disclaimer -->
+    <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="color: #92400e; font-size: 0.9em; margin: 0; font-weight: 600; margin-bottom: 8px;">📋 Analysis Method</p>
+      <p style="color: #78350f; font-size: 0.85em; margin: 0; line-height: 1.5;">
+        This audit is based on server-rendered HTML and does not execute JavaScript. Dynamic page elements may not be included in this analysis.
+      </p>
+      ${data.frameworkInfo?.detected ? `
+        <p style="color: #78350f; font-size: 0.85em; margin: 8px 0 0 0; line-height: 1.5;">
+          <strong>JavaScript-rendered site detected (${data.frameworkInfo.framework})</strong> — some elements may not appear in static crawl.
+        </p>
+      ` : ''}
+    </div>
+
     ${data.pageAnalysis ? `
     <h2 id="page-breakdown">Page Breakdown</h2>
     <div class="summary">
@@ -472,7 +534,7 @@ function generateHTMLReport(data: {
         <tr><th>Page Description</th><td>${escapeHtml(data.pageAnalysis.metaDescription || 'Not found')}</td></tr>
         <tr><th>Main Heading (H1)</th><td>${escapeHtml(data.pageAnalysis.h1Text || 'Not found')}</td></tr>
         <tr><th>Word Count</th><td>${data.pageAnalysis.wordCount || 0} words</td></tr>
-        <tr><th>Images</th><td>${data.pageAnalysis.totalImages || 0} total${data.pageAnalysis.missingAltText ? `, ${data.pageAnalysis.missingAltText} missing descriptions` : ''}</td></tr>
+        <tr><th>Images</th><td>${data.pageAnalysis.totalImages || 0} total${data.pageAnalysis.missingAltText ? `, ${data.pageAnalysis.missingAltText} missing descriptions` : ''} <span style="color: #6b7280; font-size: 0.85em; font-style: italic;">(Images detected in static HTML only; JavaScript-rendered images are not included.)</span></td></tr>
         <tr><th>Links</th><td>${data.pageAnalysis.internalLinks || 0} internal, ${data.pageAnalysis.externalLinks || 0} external</td></tr>
         <tr><th>HTTPS</th><td>${data.pageAnalysis.isHttps ? 'Yes ✓' : 'No ✗'}</td></tr>
         ${data.pageAnalysis.hasRedirect ? `<tr><th>Redirect</th><td>Yes (redirected from ${escapeHtml(data.pageAnalysis.url)} to ${escapeHtml(data.pageAnalysis.finalUrl || data.pageAnalysis.url)})</td></tr>` : ''}
