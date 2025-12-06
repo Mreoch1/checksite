@@ -47,7 +47,7 @@ interface SimpleReportData {
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  performance: 'Page Load Diagnostics',
+  performance: 'Performance Signals (Static Analysis)',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',
@@ -61,7 +61,7 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
 
 function getModuleDescription(moduleKey: string): string {
   const descriptions: Record<string, string> = {
-    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks page load time, JavaScript/CSS weight, render-blocking resources, and Core Web Vitals.</p>',
+    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This evaluates HTML structure and surface-level performance indicators (not real user speed metrics). Checks image optimization, script loading patterns, and resource structure.</p>',
     crawl_health: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks HTTPS status, robots.txt, sitemap, internal links, and broken links.</p>',
     on_page: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your page title, description, headings, and content quality.</p>',
     mobile: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks how well your site works on phones and tablets.</p>',
@@ -208,8 +208,10 @@ export function generateSimpleReport(auditResult: SimpleReportData): { html: str
   const needsWorkModules = auditResult.modules.filter(m => m.score < 75).length
   
   // Add to executive summary
-  if (excellentModules > 0) {
-    executiveSummary.push(`${excellentModules} of ${auditResult.modules.length} checked areas are performing excellently.`)
+  if (excellentModules > 0 && auditResult.modules.length === excellentModules) {
+    executiveSummary.push(`No critical technical blockers detected in this scan.`)
+  } else if (excellentModules > 0) {
+    executiveSummary.push(`${excellentModules} of ${auditResult.modules.length} checked areas show no critical issues.`)
   }
   if (needsWorkModules > 0) {
     executiveSummary.push(`${needsWorkModules} area${needsWorkModules > 1 ? 's need' : ' needs'} significant improvement.`)

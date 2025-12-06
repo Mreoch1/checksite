@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { runAuditModules } from '@/lib/audit/modules'
+import { runAuditModules, detectSiteType, isEnterpriseSite } from '@/lib/audit/modules'
 import { generateSimpleReport } from '@/lib/generate-simple-report'
 // import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
 import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
@@ -148,14 +148,56 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       throw new Error(`Failed to run audit modules: ${moduleError instanceof Error ? moduleError.message : String(moduleError)}`)
     }
 
-    // Calculate overall score
+    // Calculate overall score with module weighting
     if (!results || results.length === 0) {
       throw new Error('No audit results returned from modules')
     }
-    const overallScore = Math.round(
-      results.reduce((sum, r) => sum + r.score, 0) / results.length
-    )
-    console.log(`Overall score calculated: ${overallScore}`)
+    
+    // Module weights: High=2, Medium=1.5, Low=1
+    const moduleWeights: Record<string, number> = {
+      crawl_health: 2,      // High
+      on_page: 2,           // High
+      performance: 1.5,     // Medium
+      schema: 1.5,          // Medium
+      accessibility: 1.5,   // Medium
+      mobile: 1.5,          // Medium
+      social: 1,            // Low
+      security: 1,          // Low
+      local: 1.5,           // Medium (if enabled)
+      competitor_overview: 1, // Low (if enabled)
+    }
+    
+    // Calculate weighted average
+    let totalWeightedScore = 0
+    let totalWeight = 0
+    results.forEach(r => {
+      const weight = moduleWeights[r.moduleKey] || 1
+      totalWeightedScore += r.score * weight
+      totalWeight += weight
+    })
+    
+    let overallScore = Math.round(totalWeightedScore / totalWeight)
+    
+    // Cap score for enterprise/JS-heavy sites
+    const siteType = detectSiteType(siteData)
+    const isEnterprise = isEnterpriseSite(siteData)
+    const isJSHeavy = siteData.$('script[src]').length > 10 || 
+                      siteData.html.includes('react') || 
+                      siteData.html.includes('vue') ||
+                      siteData.html.includes('angular')
+    
+    if (isJSHeavy || siteType === 'saas' || (isEnterprise && siteType !== 'local_business')) {
+      // Cap at 94 for JS-heavy/enterprise sites
+      overallScore = Math.min(94, overallScore)
+    } else if (siteType === 'publisher' || siteType === 'blog') {
+      // Cap at 95 for publishers/blogs
+      overallScore = Math.min(95, overallScore)
+    } else if (siteType === 'ecommerce') {
+      // Cap at 92 for ecommerce (complex sites)
+      overallScore = Math.min(92, overallScore)
+    }
+    
+    console.log(`Overall score calculated: ${overallScore} (weighted, with capping applied)`)
 
     // Collect detailed page-level analysis
     // Get H1 text - handle multiple H1s by joining with space
