@@ -21,42 +21,110 @@ interface SiteData {
 }
 
 /**
+ * Site type detection
+ * Determines the type of website to apply appropriate validation rules
+ */
+type SiteType = 'publisher' | 'blog' | 'saas' | 'local_business' | 'ecommerce' | 'enterprise' | 'unknown'
+
+function detectSiteType(siteData: SiteData): SiteType {
+  try {
+    const url = new URL(siteData.url)
+    const hostname = url.hostname.toLowerCase()
+    const title = (siteData.title || '').toLowerCase()
+    const bodyText = siteData.$('body').text().toLowerCase()
+    
+    // Check for known publisher/news sites
+    const publisherPatterns = [
+      /theverge\.com/i, /bbc\.com/i, /cnn\.com/i, /nytimes\.com/i,
+      /washingtonpost\.com/i, /guardian\.com/i, /reuters\.com/i,
+      /techcrunch\.com/i, /wired\.com/i, /forbes\.com/i
+    ]
+    if (publisherPatterns.some(pattern => pattern.test(hostname))) {
+      return 'publisher'
+    }
+    
+    // Check for news/article schema
+    const schemas = siteData.$('script[type="application/ld+json"]')
+    let hasNewsArticle = false
+    let hasPublisher = false
+    schemas.each((_, el) => {
+      try {
+        const jsonText = siteData.$(el).html() || '{}'
+        const json = JSON.parse(jsonText)
+        const checkSchema = (obj: any) => {
+          if (Array.isArray(obj)) {
+            obj.forEach(checkSchema)
+          } else if (obj['@graph']) {
+            checkSchema(obj['@graph'])
+          } else if (obj['@type']) {
+            if (obj['@type'] === 'NewsArticle' || obj['@type'] === 'Article' || obj['@type'] === 'BlogPosting') {
+              hasNewsArticle = true
+            }
+            if (obj['@type'] === 'Publisher' || (obj['@type'] === 'Organization' && obj.publisher)) {
+              hasPublisher = true
+            }
+          }
+        }
+        checkSchema(json)
+      } catch {}
+    })
+    if (hasNewsArticle || hasPublisher) {
+      return 'publisher'
+    }
+    
+    // Check for blog indicators
+    if (bodyText.includes('blog') || bodyText.includes('post') || 
+        siteData.$('article, .post, .blog-post').length > 0) {
+      return 'blog'
+    }
+    
+    // Check for ecommerce indicators
+    if (bodyText.includes('add to cart') || bodyText.includes('buy now') ||
+        siteData.$('[data-product], .product, .cart').length > 0) {
+      return 'ecommerce'
+    }
+    
+    // Check for SaaS indicators
+    if (bodyText.includes('sign up') || bodyText.includes('free trial') ||
+        bodyText.includes('pricing') || siteData.$('.pricing, .signup').length > 0) {
+      return 'saas'
+    }
+    
+    // Check for local business indicators
+    if (bodyText.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/) || // Phone number
+        bodyText.match(/\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|way|lane|ln)/i) || // Address
+        siteData.$('[itemtype*="LocalBusiness"]').length > 0) {
+      return 'local_business'
+    }
+    
+    // Check for enterprise/large organization
+    const enterprisePatterns = [
+      /\.gov$/, /\.edu$/, /\.org$/,
+      /nasa\.gov/i, /wikipedia\.org/i,
+      /microsoft\.com/i, /apple\.com/i, /google\.com/i
+    ]
+    if (enterprisePatterns.some(pattern => pattern.test(hostname))) {
+      return 'enterprise'
+    }
+    
+    // Check for large content size (enterprise sites often have more content)
+    const wordCount = bodyText.split(/\s+/).filter(w => w.length > 0).length
+    if (wordCount > 5000) {
+      return 'enterprise'
+    }
+    
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
  * Detect if a site is likely an enterprise/large organization
  * Based on domain patterns, content size, and other heuristics
  */
 function isEnterpriseSite(siteData: SiteData): boolean {
-  try {
-    const url = new URL(siteData.url)
-    const hostname = url.hostname.toLowerCase()
-    
-    // Check for known enterprise domains (government, major brands, etc.)
-    const enterprisePatterns = [
-      /\.gov$/, /\.edu$/, /\.org$/,
-      /nasa\.gov/i, /bbc\.com/i, /wikipedia\.org/i,
-      /microsoft\.com/i, /apple\.com/i, /google\.com/i,
-      /amazon\.com/i, /facebook\.com/i, /twitter\.com/i
-    ]
-    
-    if (enterprisePatterns.some(pattern => pattern.test(hostname))) {
-      return true
-    }
-    
-    // Check for large content size (enterprise sites often have more content)
-    const wordCount = siteData.$('body').text().split(/\s+/).filter(w => w.length > 0).length
-    if (wordCount > 5000) {
-      return true
-    }
-    
-    // Check for multiple schema types (enterprise sites often have complex structured data)
-    const schemaCount = siteData.$('script[type="application/ld+json"]').length
-    if (schemaCount > 3) {
-      return true
-    }
-    
-    return false
-  } catch {
-    return false
-  }
+  return detectSiteType(siteData) === 'enterprise' || detectSiteType(siteData) === 'publisher'
 }
 
 /**
@@ -329,28 +397,50 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     })
     score -= 25
   } else if (title.length < 30) {
+    const siteType = detectSiteType(siteData)
     const isEnterprise = isEnterpriseSite(siteData)
     const isBrandOnly = title.length < 10 && /^[A-Z\s]+$/.test(title) // Likely just brand name
+    const isPublisher = siteType === 'publisher'
     
-    issues.push({
-      title: isEnterprise && isBrandOnly
-        ? 'Homepage uses brand-only title'
-        : 'Page title is too short',
-      severity: isEnterprise && isBrandOnly ? 'low' : 'medium',
-      technicalExplanation: `Title is only ${title.length} characters`,
-      plainLanguageExplanation: isEnterprise && isBrandOnly
-        ? 'Enterprise websites often rely on brand recognition for homepage titles. If discoverability is a goal, consider adding a descriptive subtitle after the brand name.'
-        : 'Short titles don\'t give search engines enough information.',
-      suggestedFix: isEnterprise && isBrandOnly
-        ? 'If discoverability is a goal, consider adding a descriptive subtitle after the brand name. For example: "NASA - National Aeronautics and Space Administration" instead of just "NASA".'
-        : 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
-      evidence: {
-        found: title,
-        actual: `${title.length} characters`,
-        expected: '50-60 characters',
-      },
-    })
-    score -= isEnterprise && isBrandOnly ? 3 : 10 // Reduced penalty for enterprise brand-only titles
+    // Only flag title length if:
+    // - Title is very short (< 25 chars) AND not a high-authority publisher/enterprise
+    // - OR title lacks keywords (very generic)
+    const isVeryShort = title.length < 25
+    const hasKeywords = title.split(/\s+/).length > 1 // More than one word
+    
+    if (isVeryShort && !isPublisher && !isEnterprise) {
+      issues.push({
+        title: 'Page title is too short',
+        severity: 'medium',
+        technicalExplanation: `Title is only ${title.length} characters`,
+        plainLanguageExplanation: 'Short titles don\'t give search engines enough information.',
+        suggestedFix: 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
+        evidence: {
+          found: title,
+          actual: `${title.length} characters`,
+          expected: '50-60 characters',
+        },
+      })
+      score -= 10
+    } else if (isEnterprise && isBrandOnly) {
+      // Enterprise brand-only titles are acceptable
+      issues.push({
+        title: 'Homepage uses brand-only title',
+        severity: 'low',
+        technicalExplanation: `Title is only ${title.length} characters`,
+        plainLanguageExplanation: 'Enterprise websites often rely on brand recognition for homepage titles. If discoverability is a goal, consider adding a descriptive subtitle after the brand name.',
+        suggestedFix: 'If discoverability is a goal, consider adding a descriptive subtitle after the brand name. For example: "NASA - National Aeronautics and Space Administration" instead of just "NASA".',
+        evidence: {
+          found: title,
+          actual: `${title.length} characters`,
+          expected: '50-60 characters recommended for discoverability',
+        },
+      })
+      score -= 3 // Very minor penalty
+    } else if (isPublisher && title.length >= 25) {
+      // Publishers often use short, branded titles - this is acceptable
+      // Don't flag unless extremely short
+    }
   } else if (title.length > 65) {
     // More lenient: only flag if significantly over (65+)
     issues.push({
@@ -1636,10 +1726,11 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     } else {
       const robotsContent = await robotsResponse.text()
       // Parse robots.txt properly to check if it actually blocks search engines
-      // Only flag if there's a User-agent rule that blocks the root path
+      // Only flag if Googlebot or * is explicitly blocked from /
       const lines = robotsContent.split('\n').map(line => line.trim())
       let currentUserAgent: string | null = null
       let isBlocking = false
+      let hasAllowRoot = false
       
       for (const line of lines) {
         // Skip comments and empty lines
@@ -1649,6 +1740,17 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
         const userAgentMatch = line.match(/^user-agent:\s*(.+)$/i)
         if (userAgentMatch) {
           currentUserAgent = userAgentMatch[1].toLowerCase()
+          hasAllowRoot = false // Reset when new user-agent section starts
+          continue
+        }
+        
+        // Check for Allow directive (takes precedence over Disallow)
+        const allowMatch = line.match(/^allow:\s*(.+)$/i)
+        if (allowMatch && currentUserAgent) {
+          const allowPath = allowMatch[1].trim()
+          if (allowPath === '/' || allowPath === '') {
+            hasAllowRoot = true
+          }
           continue
         }
         
@@ -1656,16 +1758,16 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
         const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
         if (disallowMatch && currentUserAgent) {
           const disallowPath = disallowMatch[1].trim()
-          // Only flag if it blocks the root path (/) for * (all bots) or common search engines
-          if (disallowPath === '/' && (currentUserAgent === '*' || currentUserAgent.includes('google') || currentUserAgent.includes('bing'))) {
+          // Only flag if:
+          // 1. It blocks the root path (/)
+          // 2. For Googlebot or * (all bots)
+          // 3. AND there's no Allow: / that overrides it
+          if (disallowPath === '/' && 
+              (currentUserAgent === '*' || currentUserAgent.includes('googlebot')) &&
+              !hasAllowRoot) {
             isBlocking = true
             break
           }
-        }
-        
-        // Reset user agent if we hit a new section without a disallow
-        if (line.match(/^(allow|sitemap|crawl-delay):/i)) {
-          // Continue with same user agent
         }
       }
       
