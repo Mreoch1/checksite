@@ -495,17 +495,6 @@ function generateHTMLReport(data: {
         }).join('')}
       </div>
     </div>
-    
-    <!-- Call to Action -->
-    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #0ea5e9; text-align: center;">
-      <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.3em;">Need Help Implementing These Fixes?</h3>
-      <p style="color: #374151; margin-bottom: 15px; font-size: 1em;">
-        Reply to this email or contact us at <a href="mailto:admin@seochecksite.net" style="color: #0ea5e9; font-weight: 600; text-decoration: none;">admin@seochecksite.net</a> for implementation assistance.
-      </p>
-      <p style="color: #6b7280; font-size: 0.9em; margin: 0;">
-        We can help you prioritize fixes and connect you with developers if needed.
-      </p>
-    </div>
 
     ${data.quickFixChecklist.length > 0 ? `
     <h2 id="quick-fix-checklist">Quick Fix Checklist</h2>
