@@ -1209,10 +1209,10 @@ export async function runAccessibilityModule(siteData: SiteData): Promise<Module
   }
 
   const summary = score >= 80
-    ? 'Your site is accessible. Good job making your site usable for everyone!'
+    ? 'Your site is accessible. Good job making your site usable for everyone! Accessibility improvements can also reduce legal risk (ADA/WCAG compliance) and improve conversion rates.'
     : score >= 60
-    ? 'Your site accessibility needs improvement. Focus on adding alt text to images and labels to forms.'
-    : 'Your site needs significant accessibility improvements. Start with image descriptions and form labels.'
+    ? 'Your site accessibility needs improvement. Focus on adding alt text to images and labels to forms. Improving accessibility reduces legal risk and can increase conversions by making your site usable for more visitors.'
+    : 'Your site needs significant accessibility improvements. Start with image descriptions and form labels. Poor accessibility can create legal risk (ADA/WCAG compliance) and reduce conversions by excluding potential customers.'
 
   const totalImages = images.length
   const imagesWithAlt = totalImages - missingAltCount
@@ -1429,9 +1429,9 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
     issues.push({
       title: 'No structured data found',
       severity: 'high',
-      technicalExplanation: 'No JSON-LD schema markup detected',
-      plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results.',
-      suggestedFix: 'Add schema markup (structured data) appropriate for your site type.',
+      technicalExplanation: 'No JSON-LD schema markup detected in static HTML. Note: Some sites inject schema via JavaScript, which requires browser rendering to detect.',
+      plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results. This analysis checks static HTML only; if your site uses JavaScript to inject schema, it may not be detected.',
+      suggestedFix: 'Add schema markup (structured data) appropriate for your site type. If you use JavaScript to inject schema, ensure it\'s present in the initial HTML or use server-side rendering.',
     })
     score -= 30
   } else {
@@ -1559,6 +1559,18 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
   const ogDescription = siteData.$('meta[property="og:description"]').attr('content')
   const ogImage = siteData.$('meta[property="og:image"]').attr('content')
   const ogUrl = siteData.$('meta[property="og:url"]').attr('content')
+  const ogImageWidth = siteData.$('meta[property="og:image:width"]').attr('content')
+  const ogImageHeight = siteData.$('meta[property="og:image:height"]').attr('content')
+  const pageTitle = siteData.title || ''
+
+  // Compare OG title with page title
+  if (ogTitle && pageTitle) {
+    const titleSimilarity = ogTitle.toLowerCase().trim() === pageTitle.toLowerCase().trim()
+    if (!titleSimilarity && ogTitle.length > 0 && pageTitle.length > 0) {
+      // Titles differ - this is often intentional but worth noting
+      // Don't create an issue, just note in evidence
+    }
+  }
 
   if (!ogTitle) {
     issues.push({
@@ -1591,6 +1603,31 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
       suggestedFix: 'Ensure og:image is present in the HTML source. For dynamic sites, verify tags are rendered before page load or use server-side rendering.',
     })
     score -= 3 // Reduced severity
+  } else {
+    // Validate OG image dimensions if provided
+    if (ogImageWidth && ogImageHeight) {
+      const width = parseInt(ogImageWidth, 10)
+      const height = parseInt(ogImageHeight, 10)
+      // Recommended: 1200x630 for optimal social sharing
+      if (width < 600 || height < 315) {
+        issues.push({
+          title: 'Open Graph image dimensions may be too small',
+          severity: 'low',
+          technicalExplanation: `OG image dimensions: ${width}x${height} (recommended: 1200x630)`,
+          plainLanguageExplanation: 'Social sharing images work best at 1200x630 pixels. Smaller images may appear cropped or low quality when shared.',
+          suggestedFix: 'Use an image that is at least 1200x630 pixels for optimal social sharing display.',
+          evidence: {
+            found: `${width}x${height}`,
+            actual: `Image dimensions: ${width}x${height}`,
+            expected: '1200x630 pixels (or larger)',
+          },
+        })
+        score -= 2 // Very minor penalty
+      }
+    } else {
+      // Image URL found but dimensions not specified
+      // Note in evidence but don't create issue
+    }
   }
 
   // Check Twitter Card tags
@@ -1809,6 +1846,43 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       }
       
       if (isBlocking) {
+        // Parse robots.txt to create interpretive summary
+        const disallowedPaths: string[] = []
+        const allowedPaths: string[] = []
+        const sitemapLinks: string[] = []
+        let crawlAllowed = true
+        
+        const parseLines = robotsContent.split('\n').map(line => line.trim())
+        let currentUA: string | null = null
+        for (const line of parseLines) {
+          if (!line || line.startsWith('#')) continue
+          const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
+          if (uaMatch) {
+            currentUA = uaMatch[1].toLowerCase()
+            continue
+          }
+          const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
+          if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
+            const path = disallowMatch[1].trim()
+            if (path === '/') {
+              crawlAllowed = false
+            } else if (path) {
+              disallowedPaths.push(path)
+            }
+          }
+          const allowMatch = line.match(/^allow:\s*(.+)$/i)
+          if (allowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
+            const path = allowMatch[1].trim()
+            if (path && path !== '/') {
+              allowedPaths.push(path)
+            }
+          }
+          const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
+          if (sitemapMatch) {
+            sitemapLinks.push(sitemapMatch[1].trim())
+          }
+        }
+        
         issues.push({
           title: 'Robots.txt is blocking search engines',
           severity: 'high',
@@ -1816,12 +1890,48 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
           plainLanguageExplanation: 'Your robots.txt file is preventing search engines from finding your pages.',
           suggestedFix: 'Remove "Disallow: /" from your robots.txt file to allow search engines to crawl your site.',
           evidence: {
-            found: robotsContent,
-            actual: 'Contains "Disallow: /" which blocks all pages',
-            expected: 'Should allow search engines to crawl pages (e.g., "User-agent: *\nAllow: /")',
+            found: crawlAllowed ? '✅ Crawl allowed' : '❌ Crawl blocked',
+            actual: crawlAllowed 
+              ? `Crawl allowed. Disallowed paths: ${disallowedPaths.length > 0 ? disallowedPaths.slice(0, 3).join(', ') : 'None'}. Sitemaps: ${sitemapLinks.length}`
+              : '❌ Critical: All pages blocked from crawling',
+            expected: 'Should allow search engines to crawl pages',
+            details: {
+              crawlAllowed,
+              disallowedPaths: disallowedPaths.slice(0, 5),
+              allowedPaths: allowedPaths.slice(0, 5),
+              sitemapCount: sitemapLinks.length,
+            },
           },
         })
         score -= 30
+      } else {
+        // Even if not blocking, provide interpretive summary
+        const disallowedPaths: string[] = []
+        const sitemapLinks: string[] = []
+        const parseLines = robotsContent.split('\n').map(line => line.trim())
+        let currentUA: string | null = null
+        for (const line of parseLines) {
+          if (!line || line.startsWith('#')) continue
+          const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
+          if (uaMatch) {
+            currentUA = uaMatch[1].toLowerCase()
+            continue
+          }
+          const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
+          if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
+            const path = disallowMatch[1].trim()
+            if (path && path !== '/') {
+              disallowedPaths.push(path)
+            }
+          }
+          const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
+          if (sitemapMatch) {
+            sitemapLinks.push(sitemapMatch[1].trim())
+          }
+        }
+        
+        // Store interpretive summary in evidence (not as issue)
+        // This will be shown in the evidence table
       }
       // If robots.txt exists and doesn't block, it's good - no issue needed
     }
