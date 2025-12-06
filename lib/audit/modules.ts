@@ -24,9 +24,9 @@ interface SiteData {
  * Site type detection
  * Determines the type of website to apply appropriate validation rules
  */
-type SiteType = 'publisher' | 'blog' | 'saas' | 'local_business' | 'ecommerce' | 'enterprise' | 'unknown'
+export type SiteType = 'publisher' | 'blog' | 'saas' | 'local_business' | 'ecommerce' | 'enterprise' | 'unknown'
 
-function detectSiteType(siteData: SiteData): SiteType {
+export function detectSiteType(siteData: SiteData): SiteType {
   try {
     const url = new URL(siteData.url)
     const hostname = url.hostname.toLowerCase()
@@ -123,7 +123,7 @@ function detectSiteType(siteData: SiteData): SiteType {
  * Detect if a site is likely an enterprise/large organization
  * Based on domain patterns, content size, and other heuristics
  */
-function isEnterpriseSite(siteData: SiteData): boolean {
+export function isEnterpriseSite(siteData: SiteData): boolean {
   return detectSiteType(siteData) === 'enterprise' || detectSiteType(siteData) === 'publisher'
 }
 
@@ -523,8 +523,10 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
       return
     }
     
-    // Skip if aria-hidden
-    if ($el.attr('aria-hidden') === 'true') {
+    // Skip if aria-hidden or role="presentation" or role="none"
+    if ($el.attr('aria-hidden') === 'true' || 
+        $el.attr('role') === 'presentation' || 
+        $el.attr('role') === 'none') {
       return
     }
     
@@ -1553,6 +1555,7 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
       schemaCount: schemas.length,
       schemaTypes: allSchemaTypes.length > 0 ? allSchemaTypes.join(', ') : 'None detected',
       schemaPreview: schemaSnippets.length > 0 ? schemaSnippets[0] + '...' : 'No schema markup found',
+      detectionNote: 'This score reflects static HTML analysis only. JavaScript-injected schema may not be detected.',
     },
   }
 }
