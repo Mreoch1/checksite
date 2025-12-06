@@ -1426,14 +1426,25 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
   const siteType = detectSiteType(siteData)
   
   if (schemaCount === 0) {
+    // Check if this is clearly a local/business site that should have schema
+    const hasBusinessIndicators = siteType === 'local_business' || 
+      (siteData.$('body').text().match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/) && // Phone
+       siteData.$('body').text().match(/\d+\s+[\w\s]+(?:street|st|avenue|ave|road|rd)/i)) // Address
+    
+    // Cap the deduction and use softer wording when we can't detect JS-injected schema
+    const severity = hasBusinessIndicators ? 'medium' : 'low'
+    const deduction = hasBusinessIndicators ? 20 : 10 // Reduced from 30
+    
     issues.push({
-      title: 'No structured data found',
-      severity: 'high',
-      technicalExplanation: 'No JSON-LD schema markup detected in static HTML. Note: Some sites inject schema via JavaScript, which requires browser rendering to detect.',
-      plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results. This analysis checks static HTML only; if your site uses JavaScript to inject schema, it may not be detected.',
-      suggestedFix: 'Add schema markup (structured data) appropriate for your site type. If you use JavaScript to inject schema, ensure it\'s present in the initial HTML or use server-side rendering.',
+      title: 'No structured data detected in HTML',
+      severity,
+      technicalExplanation: 'No JSON-LD schema markup detected in static HTML. Important: This analysis checks the HTML source only. If your site injects structured data via JavaScript, it may not appear here.',
+      plainLanguageExplanation: hasBusinessIndicators
+        ? 'No structured data (schema.org) was detected in the HTML we analyzed. Search engines may have fewer explicit signals for rich results and enhanced snippets.'
+        : 'No structured data (schema.org) was detected in the HTML we analyzed. This may be because your site uses JavaScript to inject schema, which requires browser rendering to detect.',
+      suggestedFix: 'Add JSON-LD schema for your main content type (e.g., Organization, Product, Article) directly in the HTML using <script type="application/ld+json">, not only via JavaScript. For most sites, we recommend adding schema directly in the HTML.',
     })
-    score -= 30
+    score = Math.max(70, score - deduction) // Cap at 70 minimum
   } else {
     // Validate schema based on site type
     if (siteType === 'publisher') {
@@ -1594,40 +1605,53 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
     score -= 5 // Reduced severity
   }
 
+  // Check for multiple OG images
+  const ogImages = siteData.$('meta[property="og:image"]')
+  const ogImageCount = ogImages.length
+  
   if (!ogImage) {
     issues.push({
       title: 'Open Graph image not detected in static HTML',
-      severity: 'low',
+      severity: 'medium', // Upgraded from low - missing OG image is high impact
       technicalExplanation: 'No og:image meta tag found in static HTML (may be injected via JavaScript)',
-      plainLanguageExplanation: 'Open Graph tags were not detected in the static HTML. If your site uses JavaScript to inject these tags, they may still be present but not detected by this analysis.',
-      suggestedFix: 'Ensure og:image is present in the HTML source. For dynamic sites, verify tags are rendered before page load or use server-side rendering.',
+      plainLanguageExplanation: 'An Open Graph image makes your shared links stand out on social platforms. Without one, your links will appear plain and less engaging.',
+      suggestedFix: 'Add an og:image meta tag with a high-quality image (at least 1200x630 pixels). Ensure it\'s present in the HTML source, not only injected via JavaScript.',
     })
-    score -= 3 // Reduced severity
+    score -= 10 // Increased from 3 - missing OG image is more important
+  } else if (ogImageCount > 1) {
+    issues.push({
+      title: 'Multiple Open Graph images detected',
+      severity: 'low',
+      technicalExplanation: `Found ${ogImageCount} og:image tags`,
+      plainLanguageExplanation: 'Multiple social images were found. Most platforms use the first one, so make sure the primary image appears first and is high quality.',
+      suggestedFix: 'Ensure your primary, highest-quality image is the first og:image tag. Remove or consolidate duplicate image tags.',
+    })
+    score -= 2
   } else {
-    // Validate OG image dimensions if provided
-    if (ogImageWidth && ogImageHeight) {
-      const width = parseInt(ogImageWidth, 10)
-      const height = parseInt(ogImageHeight, 10)
-      // Recommended: 1200x630 for optimal social sharing
-      if (width < 600 || height < 315) {
-        issues.push({
-          title: 'Open Graph image dimensions may be too small',
-          severity: 'low',
-          technicalExplanation: `OG image dimensions: ${width}x${height} (recommended: 1200x630)`,
-          plainLanguageExplanation: 'Social sharing images work best at 1200x630 pixels. Smaller images may appear cropped or low quality when shared.',
-          suggestedFix: 'Use an image that is at least 1200x630 pixels for optimal social sharing display.',
-          evidence: {
-            found: `${width}x${height}`,
-            actual: `Image dimensions: ${width}x${height}`,
-            expected: '1200x630 pixels (or larger)',
-          },
-        })
-        score -= 2 // Very minor penalty
+      // Validate OG image dimensions if provided
+      if (ogImageWidth && ogImageHeight) {
+        const width = parseInt(ogImageWidth, 10)
+        const height = parseInt(ogImageHeight, 10)
+        // Recommended: 1200x630 for optimal social sharing
+        if (width < 600 || height < 315) {
+          issues.push({
+            title: 'Open Graph image dimensions are too small',
+            severity: 'medium', // Upgraded from low
+            technicalExplanation: `OG image dimensions: ${width}x${height} (recommended: 1200x630)`,
+            plainLanguageExplanation: 'Your social image may appear low-quality or cropped on modern platforms. Aim for at least 1200×630 pixels and under 5 MB.',
+            suggestedFix: 'Use an image that is at least 1200x630 pixels (and under 5 MB) for optimal social sharing display.',
+            evidence: {
+              found: `${width}x${height}`,
+              actual: `Image dimensions: ${width}x${height}`,
+              expected: '1200x630 pixels (or larger, under 5 MB)',
+            },
+          })
+          score -= 5 // Increased from 2
+        }
+      } else {
+        // Image URL found but dimensions not specified
+        // Note in evidence but don't create issue
       }
-    } else {
-      // Image URL found but dimensions not specified
-      // Note in evidence but don't create issue
-    }
   }
 
   // Check Twitter Card tags
@@ -2076,18 +2100,81 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     ? 'Your crawl health needs improvement. Create a sitemap.xml file to help search engines find all your pages.'
     : 'Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.'
   
-  // Collect module-level evidence
-  let robotsContent: string | null = null
+  // Collect module-level evidence with interpretive robots.txt summary
+  let robotsSummary: any = { found: false, crawlAllowed: null, disallowedPaths: [], sitemapCount: 0, sitemapUrls: [], hasNormalBlocking: false }
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
     const robotsResponse = await fetch(robotsUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
     })
     if (robotsResponse.ok) {
-      robotsContent = await robotsResponse.text()
+      const robotsContent = await robotsResponse.text()
+      robotsSummary.found = true
+      
+      // Parse for summary
+      const disallowedPaths: string[] = []
+      const sitemapLinks: string[] = []
+      let crawlBlocked = false
+      const parseLines = robotsContent.split('\n').map(line => line.trim())
+      let currentUA: string | null = null
+      
+      for (const line of parseLines) {
+        if (!line || line.startsWith('#')) continue
+        const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
+        if (uaMatch) {
+          currentUA = uaMatch[1].toLowerCase()
+          continue
+        }
+        const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
+        if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
+          const path = disallowMatch[1].trim()
+          if (path === '/') {
+            crawlBlocked = true
+          } else if (path) {
+            disallowedPaths.push(path)
+          }
+        }
+        const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
+        if (sitemapMatch) {
+          sitemapLinks.push(sitemapMatch[1].trim())
+        }
+      }
+      
+      robotsSummary.crawlAllowed = !crawlBlocked
+      robotsSummary.disallowedPaths = disallowedPaths.slice(0, 5)
+      robotsSummary.sitemapCount = sitemapLinks.length
+      robotsSummary.sitemapUrls = sitemapLinks.slice(0, 3)
+      
+      // Check if disallowed paths are normal utility paths
+      const normalPaths = ['/wp-admin', '/cart', '/checkout', '/search', '/admin', '/login', '/private', '/api']
+      robotsSummary.hasNormalBlocking = disallowedPaths.some(path => 
+        normalPaths.some(normal => path.toLowerCase().includes(normal.toLowerCase()))
+      )
     }
   } catch {
     // robots.txt not accessible
+  }
+  
+  // Build sitemap summary
+  let sitemapSummary = ''
+  if (robotsSummary.found && robotsSummary.sitemapCount > 0) {
+    sitemapSummary = `Sitemaps detected: ${robotsSummary.sitemapUrls?.join(', ') || `${robotsSummary.sitemapCount} found`}`
+  }
+  
+  // Build robots interpretation
+  let robotsInterpretation = ''
+  if (robotsSummary.found) {
+    if (!robotsSummary.crawlAllowed) {
+      robotsInterpretation = '❌ Critical: Your robots.txt blocks all crawling for all search engines (Disallow: / for User-agent: *). This will prevent your site from being indexed normally.'
+    } else if (robotsSummary.disallowedPaths.length > 0) {
+      if (robotsSummary.hasNormalBlocking) {
+        robotsInterpretation = `✅ Normal: Common utility paths are disallowed from crawling (${robotsSummary.disallowedPaths.slice(0, 3).join(', ')}). This is typical and not a problem.`
+      } else {
+        robotsInterpretation = `⚠️ ${robotsSummary.disallowedPaths.length} disallowed paths detected. Review to ensure important pages aren't blocked.`
+      }
+    } else {
+      robotsInterpretation = '✅ Crawl allowed - no restrictions detected'
+    }
   }
   
   return {
@@ -2096,7 +2183,12 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     issues,
     summary,
     evidence: {
-      robotsTxtContent: robotsContent,
+      robotsTxtFound: robotsSummary.found,
+      robotsTxtSummary: robotsSummary.found 
+        ? `${robotsSummary.crawlAllowed ? '✅ Crawl allowed' : '❌ Crawl blocked'}${robotsSummary.disallowedPaths.length > 0 ? ` | ${robotsSummary.disallowedPaths.length} disallowed paths` : ''}${robotsSummary.sitemapCount > 0 ? ` | ✅ ${robotsSummary.sitemapCount} sitemap(s)` : ''}`
+        : 'Not accessible',
+      robotsTxtInterpretation: robotsInterpretation,
+      sitemapSummary: sitemapSummary,
       internalLinksCount: internalLinks,
       totalLinksChecked: linkUrls.length > 0 ? Math.min(10, linkUrls.length) : 0,
       brokenLinksCount: brokenLinks.length,

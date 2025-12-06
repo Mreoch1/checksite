@@ -616,16 +616,29 @@ function generateHTMLReport(data: {
         ` : ''}
         
         ${module.issues && module.issues.length > 0 ? (() => {
+          // Add "Why accessibility matters" block for accessibility module with multiple issues
+          const isAccessibilityModule = module.moduleKey === 'accessibility'
+          const hasMultipleIssues = module.issues.length > 1
+          const accessibilityWhyBlock = isAccessibilityModule && hasMultipleIssues
+            ? `<div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <h4 style="color: #0369a1; margin-top: 0; margin-bottom: 10px;">Why accessibility matters:</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #374151;">
+                  <li style="margin-bottom: 8px;"><strong>Users:</strong> Accessibility issues make your site harder to use for people with visual, motor, or cognitive impairments.</li>
+                  <li style="margin-bottom: 8px;"><strong>Business:</strong> Fixing them typically improves overall UX and conversion rates for all users.</li>
+                  <li style="margin-bottom: 0;"><strong>Risk:</strong> In some regions, sites that ignore basic accessibility can face legal complaints or demand letters.</li>
+                </ul>
+              </div>`
+            : ''
+          
           // For social module, add note if there are multiple issues
           const isSocialModule = module.moduleKey === 'social'
-          const hasMultipleIssues = module.issues.length > 1
           const multipleIssuesNote = isSocialModule && hasMultipleIssues 
             ? '<p style="margin-bottom: 15px; color: #6b7280; font-style: italic;">Several social sharing enhancements are available.</p>'
             : ''
           
           // Use table format for multiple issues, card format for single issue
           if (hasMultipleIssues) {
-            return multipleIssuesNote + `
+            return accessibilityWhyBlock + multipleIssuesNote + `
               <table class="evidence-table" style="margin-top: 20px;">
                 <thead>
                   <tr>
@@ -660,7 +673,7 @@ function generateHTMLReport(data: {
           }
           
           // Single issue - use detailed card format
-          return multipleIssuesNote + module.issues.map((issue: any) => `
+          return accessibilityWhyBlock + multipleIssuesNote + module.issues.map((issue: any) => `
             <div class="issue ${issue.severity}">
               <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
               <h3 style="margin-top: 10px;">${escapeHtml(issue.title)}</h3>
