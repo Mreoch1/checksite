@@ -1574,12 +1574,30 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
   const ogImageHeight = siteData.$('meta[property="og:image:height"]').attr('content')
   const pageTitle = siteData.title || ''
 
-  // Compare OG title with page title
+  // Compare OG title with page title - check for similarity
+  let titleComparison: string | null = null
   if (ogTitle && pageTitle) {
-    const titleSimilarity = ogTitle.toLowerCase().trim() === pageTitle.toLowerCase().trim()
-    if (!titleSimilarity && ogTitle.length > 0 && pageTitle.length > 0) {
-      // Titles differ - this is often intentional but worth noting
-      // Don't create an issue, just note in evidence
+    const ogWords = ogTitle.toLowerCase().split(/\s+/).filter(w => w.length > 2) // Filter out short words
+    const pageWords = pageTitle.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+    const sharedWords = ogWords.filter(word => pageWords.includes(word))
+    const similarity = sharedWords.length / Math.max(ogWords.length, pageWords.length)
+    
+    if (similarity === 1) {
+      titleComparison = 'Matches page title exactly'
+    } else if (similarity >= 0.3) {
+      // At least 30% word overlap
+      titleComparison = 'Your social title is more marketing-oriented than your page title. This is okay, as long as it still matches the actual page content.'
+    } else {
+      // Less than 30% overlap
+      titleComparison = 'Your social title appears unrelated to the page title. This can confuse users and reduce trust when they click from social platforms.'
+      issues.push({
+        title: 'Social title differs significantly from page title',
+        severity: 'low',
+        technicalExplanation: 'OG title and page title have minimal word overlap',
+        plainLanguageExplanation: 'Your social title appears unrelated to the page title. This can confuse users and reduce trust when they click from social platforms.',
+        suggestedFix: 'Ensure your Open Graph title is related to your page title, even if it\'s more marketing-focused. They should share key terms.',
+      })
+      score -= 3
     }
   }
 
@@ -1693,12 +1711,15 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
       ogTitle: ogTitle || 'Not found',
       ogDescription: ogDescription || 'Not found',
       ogImage: ogImage || 'Not found',
+      ogImageDimensions: ogImageWidth && ogImageHeight ? `${ogImageWidth}x${ogImageHeight}` : 'Not specified',
+      ogImageCount: ogImageCount || 1,
       ogType: ogType || 'Not found',
       ogUrl: ogUrl || 'Not found',
       twitterCard: twitterCard || 'Not found',
       twitterTitle: twitterTitle || 'Not found',
       twitterDescription: twitterDescription || 'Not found',
       twitterImage: twitterImage || 'Not found',
+      titleComparison: titleComparison || 'N/A',
       note: 'Note: Dynamic sites that inject meta tags via JavaScript may not be fully detected by static analysis.',
     },
   }
