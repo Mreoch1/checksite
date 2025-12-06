@@ -365,12 +365,54 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     score -= 10
   }
 
-  // Check H1 tag
-  const h1Count = siteData.$('h1').length
+  // Check H1 tag - filter out hidden, navigation, and boilerplate H1s
+  const allH1s = siteData.$('h1')
+  const visibleH1s: cheerio.Element[] = []
   const h1Texts: string[] = []
-  siteData.$('h1').each((_, el) => {
-    h1Texts.push(siteData.$(el).text().trim())
+  
+  allH1s.each((_, el) => {
+    const $el = siteData.$(el)
+    const text = $el.text().trim()
+    
+    // Skip if empty
+    if (!text) return
+    
+    // Skip if hidden via inline styles
+    const style = $el.attr('style') || ''
+    if (style.includes('display:none') || style.includes('display: none') || 
+        style.includes('visibility:hidden') || style.includes('visibility: hidden')) {
+      return
+    }
+    
+    // Skip if aria-hidden
+    if ($el.attr('aria-hidden') === 'true') {
+      return
+    }
+    
+    // Skip if inside navigation (common boilerplate)
+    const parent = $el.parent()
+    if (parent.is('nav') || parent.closest('nav').length > 0 ||
+        parent.is('header') && parent.closest('header').length > 0) {
+      // Only skip if it's clearly navigation (has links nearby or is in a nav structure)
+      const hasNavLinks = $el.siblings('a').length > 0 || parent.find('a').length > 3
+      if (hasNavLinks) {
+        return
+      }
+    }
+    
+    // Skip screen-reader-only classes (common patterns)
+    const classes = $el.attr('class') || ''
+    if (classes.includes('sr-only') || classes.includes('visually-hidden') || 
+        classes.includes('screen-reader') || classes.includes('sr-only-text')) {
+      return
+    }
+    
+    // This is a visible, primary H1
+    visibleH1s.push(el)
+    h1Texts.push(text)
   })
+  
+  const h1Count = visibleH1s.length
   
   if (h1Count === 0) {
     issues.push({
@@ -903,12 +945,32 @@ export async function runAccessibilityModule(siteData: SiteData): Promise<Module
   let score = 100
 
   // Check image alt text
+  // Ignore decorative images (alt="") and images with role="presentation"
   const images = siteData.$('img')
   let missingAltCount = 0
   images.each((_, el) => {
-    const alt = siteData.$(el).attr('alt')
-    const src = siteData.$(el).attr('src')
-    if (src && !src.startsWith('data:') && alt === undefined) {
+    const $el = siteData.$(el)
+    const alt = $el.attr('alt')
+    const src = $el.attr('src')
+    const role = $el.attr('role')
+    
+    // Skip data URIs and images without src
+    if (!src || src.startsWith('data:')) {
+      return
+    }
+    
+    // Skip decorative images (alt="" is intentional for decorative images)
+    if (alt === '') {
+      return
+    }
+    
+    // Skip images with role="presentation" (decorative)
+    if (role === 'presentation' || role === 'none') {
+      return
+    }
+    
+    // Only count as missing if alt is completely undefined (not present)
+    if (alt === undefined) {
       missingAltCount++
     }
   })
@@ -1322,6 +1384,10 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
 
   // Collect social metadata evidence (variables already defined above)
   const ogType = siteData.$('meta[property="og:type"]').attr('content')
+  
+  // Note: For sites that inject OG tags via JavaScript (React, Vue, etc.),
+  // static HTML parsing may not detect them. This is a known limitation
+  // of static analysis. Browser rendering would be required for full detection.
 
   return {
     moduleKey: 'social',
@@ -1338,6 +1404,7 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
       twitterTitle: twitterTitle || 'Not found',
       twitterDescription: twitterDescription || 'Not found',
       twitterImage: twitterImage || 'Not found',
+      note: 'Note: Dynamic sites that inject meta tags via JavaScript may not be fully detected by static analysis.',
     },
   }
 }
@@ -1461,10 +1528,41 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       score -= 10
     } else {
       const robotsContent = await robotsResponse.text()
-      // Check for "Disallow: /" as a standalone directive (not "Disallow: /api/" or similar)
-      // Use regex to match "Disallow: /" followed by whitespace or end of line
-      const blockingPattern = /disallow:\s*\/\s*$/mi
-      if (blockingPattern.test(robotsContent)) {
+      // Parse robots.txt properly to check if it actually blocks search engines
+      // Only flag if there's a User-agent rule that blocks the root path
+      const lines = robotsContent.split('\n').map(line => line.trim())
+      let currentUserAgent: string | null = null
+      let isBlocking = false
+      
+      for (const line of lines) {
+        // Skip comments and empty lines
+        if (!line || line.startsWith('#')) continue
+        
+        // Check for User-agent directive
+        const userAgentMatch = line.match(/^user-agent:\s*(.+)$/i)
+        if (userAgentMatch) {
+          currentUserAgent = userAgentMatch[1].toLowerCase()
+          continue
+        }
+        
+        // Check for Disallow directive
+        const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
+        if (disallowMatch && currentUserAgent) {
+          const disallowPath = disallowMatch[1].trim()
+          // Only flag if it blocks the root path (/) for * (all bots) or common search engines
+          if (disallowPath === '/' && (currentUserAgent === '*' || currentUserAgent.includes('google') || currentUserAgent.includes('bing'))) {
+            isBlocking = true
+            break
+          }
+        }
+        
+        // Reset user agent if we hit a new section without a disallow
+        if (line.match(/^(allow|sitemap|crawl-delay):/i)) {
+          // Continue with same user agent
+        }
+      }
+      
+      if (isBlocking) {
         issues.push({
           title: 'Robots.txt may be blocking search engines',
           severity: 'high',
