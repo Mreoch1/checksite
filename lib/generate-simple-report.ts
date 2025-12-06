@@ -430,8 +430,22 @@ function generateHTMLReport(data: {
       </div>
       <div style="margin-bottom: 15px;">
         <div style="font-size: 2.5em; font-weight: 700; margin-bottom: 5px; opacity: 0.95;">
-          ${data.overallScore >= 90 ? 'A' : data.overallScore >= 80 ? 'B' : data.overallScore >= 70 ? 'C' : data.overallScore >= 60 ? 'D' : 'F'}
-          <span style="font-size: 0.4em; opacity: 0.8;">${data.overallScore >= 90 ? '+' : data.overallScore >= 80 && data.overallScore < 85 ? '-' : data.overallScore >= 85 && data.overallScore < 90 ? '' : data.overallScore >= 70 && data.overallScore < 75 ? '-' : data.overallScore >= 75 && data.overallScore < 80 ? '' : data.overallScore >= 60 && data.overallScore < 65 ? '-' : data.overallScore >= 65 && data.overallScore < 70 ? '' : ''}</span>
+          ${(() => {
+            const score = data.overallScore
+            if (score >= 97) return 'A+'
+            if (score >= 93) return 'A'
+            if (score >= 90) return 'A-'
+            if (score >= 87) return 'B+'
+            if (score >= 83) return 'B'
+            if (score >= 80) return 'B-'
+            if (score >= 77) return 'C+'
+            if (score >= 73) return 'C'
+            if (score >= 70) return 'C-'
+            if (score >= 67) return 'D+'
+            if (score >= 63) return 'D'
+            if (score >= 60) return 'D-'
+            return 'F'
+          })()}
         </div>
         <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">SEO Health Grade</div>
       </div>
