@@ -156,7 +156,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
       plainLanguageExplanation: imagesWithoutLazy > 5
         ? 'Large images can make your site slow to load, especially on mobile devices.'
         : 'Adding lazy loading to images can help your pages load faster.',
-      suggestedFix: 'Ask your web designer to add loading="lazy" to your images. This makes images load only when visitors scroll to them.',
+      suggestedFix: 'Implementation tip: Add loading="lazy" to your images. This makes images load only when visitors scroll to them.',
       evidence: {
         found: `${imagesWithoutLazy} images without lazy loading`,
         actual: `${imagesWithLazy} with lazy loading, ${imagesWithoutLazy} without`,
@@ -189,7 +189,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
       severity: 'medium',
       technicalExplanation: `Found ${blockingScriptsCount} scripts that block page rendering`,
       plainLanguageExplanation: 'Scripts can prevent your page from showing quickly to visitors.',
-      suggestedFix: 'Ask your web designer to optimize scripts or move them to load after the page content.',
+      suggestedFix: 'Implementation tip: Optimize scripts or move them to load after the page content.',
       evidence: {
         found: `${blockingScriptsCount} blocking scripts`,
         actual: `${blockingScriptsCount} blocking, ${asyncScriptSources.length} async, ${deferScriptSources.length} deferred`,
@@ -367,7 +367,7 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
 
   // Check H1 tag - filter out hidden, navigation, and boilerplate H1s
   const allH1s = siteData.$('h1')
-  const visibleH1s: cheerio.Element[] = []
+  const visibleH1s: any[] = []
   const h1Texts: string[] = []
   
   allH1s.each((_, el) => {
@@ -428,20 +428,22 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     })
     score -= 20
   } else if (h1Count > 1) {
+    // Multiple H1s are acceptable for modern layouts (React components, etc.)
+    // Only provide informational note, not a warning
     issues.push({
-      title: 'Multiple main headings found',
-      severity: 'medium',
-      technicalExplanation: `Found ${h1Count} H1 tags (should be 1)`,
-      plainLanguageExplanation: 'Having multiple main headings confuses search engines about your page focus.',
-      suggestedFix: 'Keep only one H1 tag and use H2, H3 for other headings.',
+      title: 'Multiple H1 headings found',
+      severity: 'low',
+      technicalExplanation: `Found ${h1Count} H1 tags`,
+      plainLanguageExplanation: 'Page uses multiple H1s (acceptable for modern layouts). Consider consolidating if targeting SEO landing pages.',
+      suggestedFix: 'For SEO-focused pages, use one primary H1 and use H2, H3 for other headings. Multiple H1s are fine for component-based layouts.',
       evidence: {
         found: h1Texts,
         actual: `${h1Count} H1 tags found`,
-        expected: '1 H1 tag',
+        expected: '1 H1 tag recommended for SEO landing pages',
         details: { h1Texts },
       },
     })
-    score -= 10
+    score -= 5 // Reduced penalty since multiple H1s are acceptable
   }
 
   // Check content length
@@ -573,7 +575,7 @@ export async function runMobileModule(siteData: SiteData): Promise<ModuleResult>
       severity: 'medium',
       technicalExplanation: 'Body element may have fixed width styling',
       plainLanguageExplanation: 'Fixed widths can make your site hard to use on small screens.',
-      suggestedFix: 'Ask your web designer to use responsive (flexible) widths instead of fixed pixel widths.',
+      suggestedFix: 'Implementation tip: Use responsive (flexible) widths instead of fixed pixel widths.',
     })
     score -= 10
   }
@@ -879,7 +881,7 @@ export async function runLocalModule(siteData: SiteData): Promise<ModuleResult> 
       severity: 'medium',
       technicalExplanation: 'No LocalBusiness or Organization schema found',
       plainLanguageExplanation: 'Structured data helps Google show your business in local search results.',
-      suggestedFix: 'Add structured data (schema markup) with your business name, address, phone, and hours. Ask your web designer about "LocalBusiness schema".',
+      suggestedFix: 'Implementation tip: Add structured data (schema markup) with your business name, address, phone, and hours. Research "LocalBusiness schema" for implementation details.',
     })
     score -= 20
   }
@@ -1199,21 +1201,59 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
   const issues: AuditIssue[] = []
   let score = 100
 
-  // Check for JSON-LD schema
+  // Check for JSON-LD schema - scan ALL blocks, handle arrays and @graph
   const schemas = siteData.$('script[type="application/ld+json"]')
   let schemaCount = 0
   let hasOrganization = false
   let hasLocalBusiness = false
+  const allSchemaTypes: string[] = []
 
   schemas.each((_, el) => {
     try {
-      const json = JSON.parse(siteData.$(el).html() || '{}')
-      schemaCount++
+      const jsonText = siteData.$(el).html() || '{}'
+      let json = JSON.parse(jsonText)
       
-      if (json['@type'] === 'Organization' || json['@type'] === 'LocalBusiness') {
-        hasOrganization = true
-        if (json['@type'] === 'LocalBusiness') {
-          hasLocalBusiness = true
+      // Handle arrays of schemas
+      if (Array.isArray(json)) {
+        json.forEach((item: any) => {
+          schemaCount++
+          if (item['@type']) {
+            allSchemaTypes.push(item['@type'])
+            if (item['@type'] === 'Organization' || item['@type'] === 'LocalBusiness') {
+              hasOrganization = true
+              if (item['@type'] === 'LocalBusiness') {
+                hasLocalBusiness = true
+              }
+            }
+          }
+        })
+      } 
+      // Handle @graph (schema.org pattern)
+      else if (json['@graph'] && Array.isArray(json['@graph'])) {
+        json['@graph'].forEach((item: any) => {
+          schemaCount++
+          if (item['@type']) {
+            allSchemaTypes.push(item['@type'])
+            if (item['@type'] === 'Organization' || item['@type'] === 'LocalBusiness') {
+              hasOrganization = true
+              if (item['@type'] === 'LocalBusiness') {
+                hasLocalBusiness = true
+              }
+            }
+          }
+        })
+      }
+      // Handle single schema object
+      else {
+        schemaCount++
+        if (json['@type']) {
+          allSchemaTypes.push(json['@type'])
+          if (json['@type'] === 'Organization' || json['@type'] === 'LocalBusiness') {
+            hasOrganization = true
+            if (json['@type'] === 'LocalBusiness') {
+              hasLocalBusiness = true
+            }
+          }
         }
       }
     } catch (e) {
@@ -1227,7 +1267,7 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
       severity: 'high',
       technicalExplanation: 'No JSON-LD schema markup detected',
       plainLanguageExplanation: 'Structured data helps search engines understand your business and show rich results.',
-      suggestedFix: 'Add schema markup (structured data) with your business information. Ask your web designer about "Organization schema" or "LocalBusiness schema".',
+      suggestedFix: 'Implementation tip: Add schema markup (structured data) with your business information. Research "Organization schema" or "LocalBusiness schema" for implementation details.',
     })
     score -= 30
   } else if (!hasOrganization && !hasLocalBusiness) {
@@ -1280,18 +1320,13 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
     ? 'Your structured data needs improvement. Add Organization or LocalBusiness schema with complete business information.'
     : 'Your site needs structured data. Add schema markup to help search engines understand your business.'
 
-  // Collect schema evidence
-  const schemaTypes: string[] = []
+  // Collect schema evidence - use allSchemaTypes we already collected
   const schemaSnippets: string[] = []
   
   schemas.each((_, el) => {
     try {
       const jsonText = siteData.$(el).html()
       if (jsonText) {
-        const schema = JSON.parse(jsonText)
-        if (schema['@type']) {
-          schemaTypes.push(schema['@type'])
-        }
         schemaSnippets.push(jsonText.substring(0, 200))
       }
     } catch {
@@ -1307,7 +1342,7 @@ export async function runSchemaModule(siteData: SiteData): Promise<ModuleResult>
     evidence: {
       schemaFound: schemas.length > 0,
       schemaCount: schemas.length,
-      schemaTypes: schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None detected',
+      schemaTypes: allSchemaTypes.length > 0 ? allSchemaTypes.join(', ') : 'None detected',
       schemaPreview: schemaSnippets.length > 0 ? schemaSnippets[0] + '...' : 'No schema markup found',
     },
   }
@@ -1321,6 +1356,7 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
   let score = 100
 
   // Check Open Graph tags
+  // Note: Static HTML parsing may not detect tags injected via JavaScript
   const ogTitle = siteData.$('meta[property="og:title"]').attr('content')
   const ogDescription = siteData.$('meta[property="og:description"]').attr('content')
   const ogImage = siteData.$('meta[property="og:image"]').attr('content')
@@ -1328,35 +1364,35 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
 
   if (!ogTitle) {
     issues.push({
-      title: 'Missing Facebook sharing title',
-      severity: 'medium',
-      technicalExplanation: 'No og:title meta tag found',
-      plainLanguageExplanation: 'When someone shares your site on Facebook, it needs a title to display.',
-      suggestedFix: 'Add: <meta property="og:title" content="Your Page Title">',
+      title: 'Open Graph title not detected in static HTML',
+      severity: 'low',
+      technicalExplanation: 'No og:title meta tag found in static HTML (may be injected via JavaScript)',
+      plainLanguageExplanation: 'Open Graph tags were not detected in the static HTML. If your site uses JavaScript to inject these tags, they may still be present but not detected by this analysis.',
+      suggestedFix: 'Ensure og:title is present in the HTML source. For dynamic sites, verify tags are rendered before page load or use server-side rendering.',
     })
-    score -= 10
+    score -= 5 // Reduced severity since it may be dynamically injected
   }
 
   if (!ogDescription) {
     issues.push({
-      title: 'Missing Facebook sharing description',
-      severity: 'medium',
-      technicalExplanation: 'No og:description meta tag found',
-      plainLanguageExplanation: 'A description makes your shared link more appealing on Facebook.',
-      suggestedFix: 'Add: <meta property="og:description" content="Your page description">',
+      title: 'Open Graph description not detected in static HTML',
+      severity: 'low',
+      technicalExplanation: 'No og:description meta tag found in static HTML (may be injected via JavaScript)',
+      plainLanguageExplanation: 'Open Graph tags were not detected in the static HTML. If your site uses JavaScript to inject these tags, they may still be present but not detected by this analysis.',
+      suggestedFix: 'Ensure og:description is present in the HTML source. For dynamic sites, verify tags are rendered before page load or use server-side rendering.',
     })
-    score -= 10
+    score -= 5 // Reduced severity
   }
 
   if (!ogImage) {
     issues.push({
-      title: 'Missing Facebook sharing image',
+      title: 'Open Graph image not detected in static HTML',
       severity: 'low',
-      technicalExplanation: 'No og:image meta tag found',
-      plainLanguageExplanation: 'An image makes your shared link stand out on Facebook.',
-      suggestedFix: 'Add: <meta property="og:image" content="https://yoursite.com/image.jpg">',
+      technicalExplanation: 'No og:image meta tag found in static HTML (may be injected via JavaScript)',
+      plainLanguageExplanation: 'Open Graph tags were not detected in the static HTML. If your site uses JavaScript to inject these tags, they may still be present but not detected by this analysis.',
+      suggestedFix: 'Ensure og:image is present in the HTML source. For dynamic sites, verify tags are rendered before page load or use server-side rendering.',
     })
-    score -= 5
+    score -= 3 // Reduced severity
   }
 
   // Check Twitter Card tags
@@ -1564,11 +1600,11 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       
       if (isBlocking) {
         issues.push({
-          title: 'Robots.txt may be blocking search engines',
+          title: 'Robots.txt is blocking search engines',
           severity: 'high',
           technicalExplanation: 'robots.txt contains "Disallow: /" which blocks all pages',
-          plainLanguageExplanation: 'Your robots.txt file might be preventing search engines from finding your pages.',
-          suggestedFix: 'Check your robots.txt file and make sure it\'s not blocking all pages. Remove "Disallow: /" unless you want to block search engines.',
+          plainLanguageExplanation: 'Your robots.txt file is preventing search engines from finding your pages.',
+          suggestedFix: 'Remove "Disallow: /" from your robots.txt file to allow search engines to crawl your site.',
           evidence: {
             found: robotsContent,
             actual: 'Contains "Disallow: /" which blocks all pages',
@@ -1577,6 +1613,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
         })
         score -= 30
       }
+      // If robots.txt exists and doesn't block, it's good - no issue needed
     }
   } catch (error) {
     issues.push({

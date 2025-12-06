@@ -80,21 +80,24 @@ This document is the authoritative source for all project state, decisions, TODO
 - `lib/screenshot.ts` - Screenshot capture utility using htmlcsstoimage.com API
 
 **Screenshot Implementation**:
-- Uses **Playwright** (free, reliable, full control)
-- Better than Puppeteer: auto wait for network, better mobile emulation, more robust
-- Captures both desktop (1280x720) and mobile (375x667) screenshots
-- Returns base64 data URLs embedded directly in report HTML
-- Graceful degradation: if screenshots fail, report still works
+- ⚠️ **CRITICAL**: Playwright **cannot run in Netlify Functions**
+  - Browser binaries are not available in Netlify Functions runtime
+  - Playwright + Chromium bundle is too large (~160MB) for serverless limits
+  - Current implementation gracefully degrades (screenshots disabled by default)
+- **Recommended Architecture**: Separate screenshot service
+  - Deploy Playwright service to Render, Railway, Fly.io, or VPS
+  - Netlify Functions call screenshot service API
+  - Screenshot service captures images and uploads to storage
+  - See `services/screenshot-service/` for example implementation
+- **Alternative**: Use third-party screenshot API (urlbox.io, ScreenshotAPI, Cloudflare Browser Rendering API)
+- Screenshots are optional - reports work perfectly without them
 
 **Configuration**:
-- `ENABLE_SCREENSHOTS` - Set to `false` to disable screenshots (default: enabled)
-- Playwright browser binaries installed via `npx playwright install chromium`
-- **Note**: Playwright may be heavy for serverless (Netlify Functions). If deployment fails:
-  - Consider using Cloudflare Browser Rendering API as alternative
-  - Or run screenshots in separate Docker container/microservice
-  - Screenshots are optional - reports work without them
+- `ENABLE_SCREENSHOTS` - Set to `false` to disable screenshots (default: disabled in Netlify)
+- `SCREENSHOT_SERVICE_URL` - URL of external screenshot service (if deployed)
+- Reports work perfectly without screenshots - they're optional
 
-**Status**: ✅ Implemented and ready for testing
+**Status**: ✅ Gracefully disabled in Netlify, ready for separate service deployment
 
 ### 2025-12-04 12:12 PM: ✅ RESOLVED - Automatic Processing Now Working!
 

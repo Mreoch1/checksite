@@ -47,7 +47,7 @@ interface SimpleReportData {
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  performance: 'Performance',
+  performance: 'Page Load Diagnostics',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',
@@ -428,6 +428,13 @@ function generateHTMLReport(data: {
         ${data.overallScore}
         <span style="font-size: 0.5em; opacity: 0.9;">/100</span>
       </div>
+      <div style="margin-bottom: 15px;">
+        <div style="font-size: 2.5em; font-weight: 700; margin-bottom: 5px; opacity: 0.95;">
+          ${data.overallScore >= 90 ? 'A' : data.overallScore >= 80 ? 'B' : data.overallScore >= 70 ? 'C' : data.overallScore >= 60 ? 'D' : 'F'}
+          <span style="font-size: 0.4em; opacity: 0.8;">${data.overallScore >= 90 ? '+' : data.overallScore >= 80 && data.overallScore < 85 ? '-' : data.overallScore >= 85 && data.overallScore < 90 ? '' : data.overallScore >= 70 && data.overallScore < 75 ? '-' : data.overallScore >= 75 && data.overallScore < 80 ? '' : data.overallScore >= 60 && data.overallScore < 65 ? '-' : data.overallScore >= 65 && data.overallScore < 70 ? '' : ''}</span>
+        </div>
+        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 10px;">SEO Health Grade</div>
+      </div>
       <div style="margin-bottom: 20px;">
         <span class="score-badge ${data.overallScore >= 80 ? 'score-high' : data.overallScore >= 60 ? 'score-medium' : 'score-low'}" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid white; font-size: 1.2em; padding: 10px 24px;">
           ${data.overallScore >= 80 ? 'GOOD' : data.overallScore >= 60 ? 'NEEDS IMPROVEMENT' : 'NEEDS WORK'}
@@ -457,7 +464,7 @@ function generateHTMLReport(data: {
     </div>
     ` : ''}
 
-    <h2 id="executive-summary">Overall SEO Health Summary</h2>
+    <h2 id="executive-summary">Technical Summary</h2>
     <div class="summary">
       ${data.executiveSummary.map(point => `<p style="margin: 8px 0;">${escapeHtml(point)}</p>`).join('')}
     </div>
@@ -491,7 +498,7 @@ function generateHTMLReport(data: {
     </div>
 
     ${data.quickFixChecklist.length > 0 ? `
-    <h2 id="quick-fix-checklist">Quick Fix Checklist</h2>
+    <h2 id="quick-fix-checklist">Priority Actions</h2>
     <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
       <ul style="list-style: none; padding-left: 0;">
         ${data.quickFixChecklist.map((item: any) => {
@@ -702,7 +709,7 @@ function generateHTMLReport(data: {
 
     <hr style="margin: 50px 0 30px 0; border: none; border-top: 2px solid #e5e7eb;">
     <div style="background: #f9fafb; padding: 30px; border-radius: 8px; margin: 30px 0;">
-      <h2 style="color: #0284c7; margin-top: 0; margin-bottom: 25px; font-size: 1.5em;">Understanding Your Report</h2>
+      <h2 style="color: #0284c7; margin-top: 0; margin-bottom: 25px; font-size: 1.5em;">SEO Overview</h2>
       
       <div style="margin-bottom: 30px;">
         <h3 style="color: #0369a1; margin-top: 0; margin-bottom: 12px; font-size: 1.2em;">What is SEO?</h3>
