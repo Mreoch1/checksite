@@ -1,25 +1,40 @@
 # Screenshot Deployment Guide
 
-## Playwright Screenshot Implementation
+## ⚠️ CRITICAL: Playwright Cannot Run in Netlify Functions
 
-We use **Playwright** for free, reliable screenshot generation. It's better than Puppeteer because:
-- Auto wait for network
-- Better mobile emulation  
-- More robust error handling
-- Supports multiple browsers
+**Netlify Functions cannot reliably run Playwright** because:
+- The environment does not ship with full browser binaries
+- Playwright + Chromium bundle is too large (~160MB) for serverless limits
+- Browser binaries are not available in the Netlify Functions runtime
 
-## Netlify Deployment Considerations
+**Current Status**: Screenshots are gracefully disabled by default. The system works perfectly without screenshots.
 
-⚠️ **Important**: Playwright browser binaries (~160MB) may be too large for Netlify Functions.
+## Recommended Architecture: Separate Screenshot Service
 
-### Option 1: Try Netlify (Current Implementation)
+**Do NOT try to run Playwright directly inside Netlify Functions.** Instead, use a separate screenshot service.
 
-The current code embeds screenshots as base64 data URLs directly in the HTML. This works but:
-- Browser binaries must be included in deployment
-- May hit Netlify function size limits
-- Cold starts may be slower
+### Flow
 
-**If deployment fails due to size**, use one of the alternatives below.
+1. User starts an audit on Netlify
+2. Netlify Function sends a request to a separate Screenshot Service with:
+   - Target URL
+   - Mode: desktop, mobile
+   - Audit identifier
+3. Screenshot Service (Node + Playwright) does:
+   - Launches Chromium
+   - Takes desktop and mobile screenshots
+   - Uploads images to storage (S3, R2, Supabase storage, etc.)
+   - Returns public URLs to Netlify or writes them into database
+4. Report renderer uses those image URLs in the HTML
+
+### Hosting Options for Screenshot Service
+
+- **Render** (free or low cost)
+- **Railway** (simple deployment)
+- **Fly.io** (good performance)
+- **Small VPS** (~$5/month)
+
+This keeps Netlify fast and light, and gives you full control over screenshots.
 
 ### Option 2: Cloudflare Browser Rendering API (Recommended Alternative)
 
