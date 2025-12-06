@@ -21,6 +21,45 @@ interface SiteData {
 }
 
 /**
+ * Detect if a site is likely an enterprise/large organization
+ * Based on domain patterns, content size, and other heuristics
+ */
+function isEnterpriseSite(siteData: SiteData): boolean {
+  try {
+    const url = new URL(siteData.url)
+    const hostname = url.hostname.toLowerCase()
+    
+    // Check for known enterprise domains (government, major brands, etc.)
+    const enterprisePatterns = [
+      /\.gov$/, /\.edu$/, /\.org$/,
+      /nasa\.gov/i, /bbc\.com/i, /wikipedia\.org/i,
+      /microsoft\.com/i, /apple\.com/i, /google\.com/i,
+      /amazon\.com/i, /facebook\.com/i, /twitter\.com/i
+    ]
+    
+    if (enterprisePatterns.some(pattern => pattern.test(hostname))) {
+      return true
+    }
+    
+    // Check for large content size (enterprise sites often have more content)
+    const wordCount = siteData.$('body').text().split(/\s+/).filter(w => w.length > 0).length
+    if (wordCount > 5000) {
+      return true
+    }
+    
+    // Check for multiple schema types (enterprise sites often have complex structured data)
+    const schemaCount = siteData.$('script[type="application/ld+json"]').length
+    if (schemaCount > 3) {
+      return true
+    }
+    
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
  * Fetch and parse a website
  */
 export async function fetchSite(url: string): Promise<SiteData> {
@@ -204,22 +243,23 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   }
 
   // Check for external resources that might slow loading
-  const externalResources = siteData.$('[src^="http://"], [href^="http://"]').length
-  if (externalResources > 0 && isHttps) {
+  // Only check actual resources (src), not links (href)
+  const httpResources = siteData.$('[src^="http://"]').length
+  if (httpResources > 0 && isHttps) {
     issues.push({
-      title: 'Site may load some content over insecure connection',
-      severity: 'medium',
-      technicalExplanation: `Found ${externalResources} resources loaded over HTTP`,
-      plainLanguageExplanation: 'Loading some content over HTTP can make your site less secure.',
-      suggestedFix: 'Update all links and resources to use HTTPS instead of HTTP.',
+      title: 'Some external resources are referenced over HTTP',
+      severity: 'low',
+      technicalExplanation: `Found ${httpResources} resources with HTTP sources on HTTPS page`,
+      plainLanguageExplanation: 'While your page loads securely, some external resources are referenced over HTTP. It is best practice to update all assets to HTTPS where possible.',
+      suggestedFix: 'Update all resource URLs (images, scripts, stylesheets) to use HTTPS instead of HTTP where possible.',
       evidence: {
-        found: `${externalResources} HTTP resources`,
-        actual: `${externalResources} resources using HTTP`,
+        found: `${httpResources} HTTP resources`,
+        actual: `${httpResources} resources using HTTP`,
         expected: 'All resources should use HTTPS',
-        count: externalResources,
+        count: httpResources,
       },
     })
-    score -= 5
+    score -= 3 // Reduced severity - not a vulnerability if page loads securely
   }
 
   // Calculate resource counts
@@ -289,19 +329,28 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     })
     score -= 25
   } else if (title.length < 30) {
+    const isEnterprise = isEnterpriseSite(siteData)
+    const isBrandOnly = title.length < 10 && /^[A-Z\s]+$/.test(title) // Likely just brand name
+    
     issues.push({
-      title: 'Page title is too short',
-      severity: 'medium',
+      title: isEnterprise && isBrandOnly
+        ? 'Homepage uses brand-only title'
+        : 'Page title is too short',
+      severity: isEnterprise && isBrandOnly ? 'low' : 'medium',
       technicalExplanation: `Title is only ${title.length} characters`,
-      plainLanguageExplanation: 'Short titles don\'t give search engines enough information.',
-      suggestedFix: 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
+      plainLanguageExplanation: isEnterprise && isBrandOnly
+        ? 'Enterprise websites often rely on brand recognition for homepage titles. If discoverability is a goal, consider adding a descriptive subtitle after the brand name.'
+        : 'Short titles don\'t give search engines enough information.',
+      suggestedFix: isEnterprise && isBrandOnly
+        ? 'If discoverability is a goal, consider adding a descriptive subtitle after the brand name. For example: "NASA - National Aeronautics and Space Administration" instead of just "NASA".'
+        : 'Make your title longer (aim for 50-60 characters) and include your main keywords.',
       evidence: {
         found: title,
         actual: `${title.length} characters`,
         expected: '50-60 characters',
       },
     })
-    score -= 10
+    score -= isEnterprise && isBrandOnly ? 3 : 10 // Reduced penalty for enterprise brand-only titles
   } else if (title.length > 65) {
     // More lenient: only flag if significantly over (65+)
     issues.push({
@@ -415,18 +464,25 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
   const h1Count = visibleH1s.length
   
   if (h1Count === 0) {
+    const isEnterprise = isEnterpriseSite(siteData)
     issues.push({
-      title: 'Missing main heading (H1)',
-      severity: 'high',
+      title: isEnterprise 
+        ? 'No standard H1 tag detected'
+        : 'Missing main heading (H1)',
+      severity: isEnterprise ? 'low' : 'high',
       technicalExplanation: 'No H1 tag found',
-      plainLanguageExplanation: 'The main heading helps search engines and visitors understand your page topic.',
-      suggestedFix: 'Add one H1 heading at the top of your main content that describes what the page is about.',
+      plainLanguageExplanation: isEnterprise
+        ? 'This page does not appear to use a standard H1 tag. Some large sites use alternative heading strategies (CSS-styled divs, JavaScript-rendered headings, or component-based layouts). If organic traffic is underperforming, consider testing an explicit H1 on important pages.'
+        : 'The main heading helps search engines and visitors understand your page topic.',
+      suggestedFix: isEnterprise
+        ? 'If organic traffic is underperforming, consider testing an explicit H1 on important pages. For enterprise sites, this may be intentional based on your design system.'
+        : 'Add one H1 heading at the top of your main content that describes what the page is about.',
       evidence: {
         found: null,
         expected: 'One H1 tag with the main page heading',
       },
     })
-    score -= 20
+    score -= isEnterprise ? 5 : 20 // Reduced penalty for enterprise sites
   } else if (h1Count > 1) {
     // Multiple H1s are acceptable for modern layouts (React components, etc.)
     // Only provide informational note, not a warning
@@ -1115,17 +1171,32 @@ export async function runSecurityModule(siteData: SiteData): Promise<ModuleResul
   }
 
   // Check for mixed content (HTTP resources on HTTPS page)
+  // Only flag if resources would actually load over HTTP (not just links)
   if (siteData.url.startsWith('https://')) {
-    const httpResources = siteData.$('[src^="http://"], [href^="http://"]').length
+    // Check for actual mixed content (resources that would load, not just links)
+    const httpResources = siteData.$('[src^="http://"]').length // Only src attributes, not href
+    const httpLinks = siteData.$('[href^="http://"]').length // Separate count for links
+    
+    // Only flag if there are actual resources (src) that would load over HTTP
+    // Links (href) to HTTP sites are less critical
     if (httpResources > 0) {
       issues.push({
-        title: 'Site may load some content over insecure connection',
-        severity: 'medium',
-        technicalExplanation: `Found ${httpResources} resources loaded over HTTP`,
-        plainLanguageExplanation: 'Loading some content over HTTP can make your site less secure.',
-        suggestedFix: 'Update all links and resources to use HTTPS instead of HTTP.',
+        title: 'Some external resources are referenced over HTTP',
+        severity: 'low',
+        technicalExplanation: `Found ${httpResources} resources with HTTP sources on HTTPS page`,
+        plainLanguageExplanation: 'While your page loads securely, some external resources are referenced over HTTP. It is best practice to update all assets to HTTPS where possible.',
+        suggestedFix: 'Update all resource URLs (images, scripts, stylesheets) to use HTTPS instead of HTTP where possible.',
+        evidence: {
+          found: `${httpResources} HTTP resources`,
+          actual: `${httpResources} resources using HTTP, ${httpLinks} HTTP links`,
+          expected: 'All resources should use HTTPS',
+          count: httpResources,
+        },
       })
-      score -= 15
+      score -= 5 // Reduced severity - not a vulnerability if page loads securely
+    } else if (httpLinks > 0) {
+      // Only mention HTTP links as informational, not a security issue
+      // Don't create an issue for just links
     }
   }
 
