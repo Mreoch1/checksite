@@ -20,6 +20,21 @@
 # [functions."process-queue"]
 #   schedule = "*/2 * * * *"  # Every 2 minutes
 
+# CRITICAL: Force 301 redirect from Netlify subdomain to custom domain
+# This ensures Google treats seochecksite.net as the canonical, not seochecksite.netlify.app
+[[redirects]]
+  from = "https://seochecksite.netlify.app/*"
+  to = "https://seochecksite.net/:splat"
+  status = 301
+  force = true
+
+# Also redirect HTTP to HTTPS for Netlify subdomain
+[[redirects]]
+  from = "http://seochecksite.netlify.app/*"
+  to = "https://seochecksite.net/:splat"
+  status = 301
+  force = true
+
 # CRITICAL: Disable caching for queue processor endpoint
 [[headers]]
   for = "/api/process-queue"
