@@ -22,18 +22,15 @@
 
 # CRITICAL: Force 301 redirect from Netlify subdomain to custom domain
 # This ensures Google treats seochecksite.net as the canonical, not seochecksite.netlify.app
+# NOTE: You MUST also configure this in Netlify Dashboard:
+# Site settings → Domain management → Add domain redirect
+# Redirect: seochecksite.netlify.app → seochecksite.net (301)
 [[redirects]]
-  from = "https://seochecksite.netlify.app/*"
+  from = "/*"
   to = "https://seochecksite.net/:splat"
   status = 301
   force = true
-
-# Also redirect HTTP to HTTPS for Netlify subdomain
-[[redirects]]
-  from = "http://seochecksite.netlify.app/*"
-  to = "https://seochecksite.net/:splat"
-  status = 301
-  force = true
+  conditions = {Host = ["seochecksite.netlify.app"]}
 
 # CRITICAL: Disable caching for queue processor endpoint
 [[headers]]
