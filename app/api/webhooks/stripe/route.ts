@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { sendAuditFailureEmail } from '@/lib/email-unified'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 
@@ -55,8 +55,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    const db = getSupabaseServiceClient()
     // Update audit status to running
-    await supabase
+    await db
       .from('audits')
       .update({ status: 'running' })
       .eq('id', auditId)
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Use upsert to prevent duplicates if audit was already queued
     // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
     console.log(`Adding audit ${auditId} to processing queue`)
-    const { error: queueError } = await supabase
+    const { error: queueError } = await db
       .from('audit_queue')
       .upsert({
         audit_id: auditId,

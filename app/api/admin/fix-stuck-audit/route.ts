@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get audit details
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('*')
       .eq('id', auditId)
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fix: Update status to completed
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseServiceClient()
       .from('audits')
       .update({
         status: 'completed',
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       // Try to send email if report exists but email wasn't sent
       try {
         const { sendAuditReportEmail } = await import('@/lib/email-unified')
-        const { data: auditWithCustomer } = await supabase
+        const { data: auditWithCustomer } = await getSupabaseServiceClient()
           .from('audits')
           .select('*, customers(*)')
           .eq('id', auditId)
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
             )
             
             // Update email_sent_at
-            await supabase
+            await getSupabaseServiceClient()
               .from('audits')
               .update({ email_sent_at: new Date().toISOString() })
               .eq('id', auditId)

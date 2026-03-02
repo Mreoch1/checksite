@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 import { rateLimit, getClientId } from '@/lib/rate-limit'
 import { requireAdminAuth } from '@/lib/middleware/auth'
@@ -25,18 +25,19 @@ export async function POST(request: NextRequest) {
       { status: 429 }
     )
   }
+  const db = getSupabaseServiceClient()
   try {
     const { url = 'https://seochecksite.net', email = 'Mreoch82@hotmail.com', modules } = await request.json()
 
     // Get or create customer
-    let { data: customer, error: customerError } = await supabase
+    let { data: customer, error: customerError } = await db
       .from('customers')
       .select('*')
       .eq('email', email)
       .single()
 
     if (customerError || !customer) {
-      const { data: newCustomer, error: createError } = await supabase
+      const { data: newCustomer, error: createError } = await db
         .from('customers')
         .insert({ email, name: 'Test User' })
         .select()
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Check for recent duplicate audit (same URL + customer within last 30 minutes)
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    const { data: recentAudit } = await supabase
+    const { data: recentAudit } = await db
       .from('audits')
       .select('id, created_at, status')
       .eq('customer_id', customer.id)
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create audit
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await db
       .from('audits')
       .insert({
         customer_id: customer.id,
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
       enabled: true,
     }))
 
-    const { error: modulesError } = await supabase
+    const { error: modulesError } = await db
       .from('audit_modules')
       .insert(moduleRecords)
 
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status to running
-    await supabase
+    await db
       .from('audits')
       .update({ status: 'running' })
       .eq('id', audit.id)
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
     // Use upsert to prevent duplicates if audit was already queued
     // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
     console.log(`Adding audit ${audit.id} to processing queue`)
-    const { error: queueError } = await supabase
+    const { error: queueError } = await db
       .from('audit_queue')
       .upsert({
         audit_id: audit.id,

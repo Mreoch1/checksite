@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get audit
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update to completed
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseServiceClient()
       .from('audits')
       .update({
         status: 'completed',
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             audit.formatted_report_html
           )
           
-          await supabase
+          await getSupabaseServiceClient()
             .from('audits')
             .update({ email_sent_at: new Date().toISOString() })
             .eq('id', auditId)

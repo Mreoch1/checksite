@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { runAuditModules, detectSiteType, isEnterpriseSite } from '@/lib/audit/modules'
 import { generateSimpleReport } from '@/lib/generate-simple-report'
 // import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
@@ -18,9 +18,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  *                        If not provided, uses anon client (may have replication lag)
  */
 export async function processAudit(auditId: string, serviceClient?: SupabaseClient) {
-  // Use service client if provided, otherwise fall back to anon client
+  // Use service client if provided, otherwise use server service client (required for RLS)
   // CRITICAL: Service client reads from primary DB, avoiding replication lag
-  const db = serviceClient || supabase
+  const db = serviceClient || getSupabaseServiceClient()
   // Store audit data at function scope for error handling
   let audit: any = null
   let auditResult: any = null

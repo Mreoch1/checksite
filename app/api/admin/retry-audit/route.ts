@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { normalizeUrl } from '@/lib/normalize-url'
@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   // Require admin authentication
   const authError = requireAdminAuth(request)
   if (authError) return authError
+  const db = getSupabaseServiceClient()
   try {
     const { auditId } = await request.json()
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     console.log(`Retrying audit ${auditId}`)
 
     // Get audit details
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await db
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status to running and URL if needed
-    await supabase
+    await db
       .from('audits')
       .update({ 
         status: 'running',
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Add to queue instead of processing directly (avoids Netlify timeout)
     // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
     console.log(`Adding audit ${auditId} to processing queue for retry`)
-    const { error: queueError } = await supabase
+    const { error: queueError } = await db
       .from('audit_queue')
       .upsert({
         audit_id: auditId,

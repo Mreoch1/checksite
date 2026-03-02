@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get full audit details (including error_log if column exists)
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get audit modules
-    const { data: modules, error: modulesError } = await supabase
+    const { data: modules, error: modulesError } = await getSupabaseServiceClient()
       .from('audit_modules')
       .select('*')
       .eq('audit_id', auditId)

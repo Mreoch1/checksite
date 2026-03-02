@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -11,9 +11,10 @@ export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 
+  const db = getSupabaseServiceClient()
   try {
     // Check for audits for seochecksite.net
-    const { data: seoauditAudits, error: seoauditError } = await supabase
+    const { data: seoauditAudits, error: seoauditError } = await db
       .from('audits')
       .select('id, url, status, created_at, email_sent_at, customer_id, customers(email)')
       .ilike('url', '%seochecksite.net%')
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     let queueItems: any[] = []
     if (seoauditAudits && seoauditAudits.length > 0) {
       const auditIds = seoauditAudits.map(a => a.id)
-      const { data: queueData, error: queueError } = await supabase
+      const { data: queueData, error: queueError } = await db
         .from('audit_queue')
         .select('id, audit_id, status, created_at, retry_count, last_error')
         .in('audit_id', auditIds)
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Check for recent duplicate audits (same URL + customer, last hour)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { data: recentAudits, error: recentError } = await supabase
+    const { data: recentAudits, error: recentError } = await db
       .from('audits')
       .select('id, url, status, created_at, email_sent_at, customer_id, customers(email)')
       .gte('created_at', oneHourAgo)
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check for all pending/processing queue items
-    const { data: allPending, error: pendingError } = await supabase
+    const { data: allPending, error: pendingError } = await db
       .from('audit_queue')
       .select('id, audit_id, status, created_at, retry_count, audits(url, status, email_sent_at, customers(email))')
       .in('status', ['pending', 'processing'])

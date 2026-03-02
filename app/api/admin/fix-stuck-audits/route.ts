@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
@@ -9,11 +9,12 @@ export async function POST(request: NextRequest) {
   // Require admin authentication
   const authError = requireAdminAuth(request)
   if (authError) return authError
+  const db = getSupabaseServiceClient()
   try {
     // Get all stuck audits (running for more than 5 minutes)
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
-    const { data: stuckAudits, error } = await supabase
+    const { data: stuckAudits, error } = await db
       .from('audits')
       .select('id, url, status, created_at, customers(email)')
       .in('status', ['running', 'pending'])
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Mark them as failed
     const auditIds = stuckAudits.map(a => a.id)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('audits')
       .update({ status: 'failed' })
       .in('id', auditIds)

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const db = getSupabaseServiceClient()
   try {
     // Get recent audits with customer info
-    const { data: audits, error } = await supabase
+    const { data: audits, error } = await db
       .from('audits')
       .select(`
         id,

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 
+  const db = getSupabaseServiceClient()
   try {
     const results: any = {
       id,
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try as audit ID
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await db
       .from('audits')
       .select('*, customers(*)')
       .eq('id', id)
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Check if there's a queue item for this audit
-      const { data: queueItem } = await supabase
+      const { data: queueItem } = await db
         .from('audit_queue')
         .select('*')
         .eq('audit_id', id)
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try as queue ID
-    const { data: queueItem, error: queueError } = await supabase
+    const { data: queueItem, error: queueError } = await db
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('id', id)
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Try as customer ID
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await db
       .from('customers')
       .select('*')
       .eq('id', id)
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Get audits for this customer
-      const { data: audits } = await supabase
+      const { data: audits } = await db
         .from('audits')
         .select('id, url, status, created_at, completed_at, email_sent_at, formatted_report_html')
         .eq('customer_id', id)

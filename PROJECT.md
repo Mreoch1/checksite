@@ -1,6 +1,6 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2025-12-04 7:00 PM  
+**Last Updated**: 2025-12-04 (RLS Security Fix)  
 **Status**: ✅ FULLY OPERATIONAL - 100% Automated Processing Verified  
 **Version**: 2.1  
 **Last Deploy**: Enhanced reports with educational sections and website screenshots
@@ -41,6 +41,7 @@ This document is the authoritative source for all project state, decisions, TODO
 - ✅ **Health Check**: All systems operational (verified 2025-12-04)
 - ✅ **Automatic Processing**: Working consistently - 8 consecutive audits processed (verified 2025-12-04 12:12 PM)
 - ✅ **Cache-Busting**: Standalone function with timestamp-based cache-busting prevents stale responses
+- ✅ **Database Security**: Row Level Security (RLS) enabled on all public tables with restrictive policies
 
 ### Pricing Model (Current)
 - **Base Package**: $24.99 - "Website Audit"
@@ -56,6 +57,30 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2025-12-04: ✅ Security Fix - Enabled Row Level Security (RLS) on All Tables
+
+**Issue**: Supabase database linter detected that RLS was not enabled on public tables, creating a security vulnerability.
+
+**Changes Made**:
+1. Created migration `005_enable_rls.sql` to enable RLS on all public tables:
+   - `public.customers`
+   - `public.audits`
+   - `public.audit_modules`
+   - `public.audit_queue`
+2. Created restrictive policies that deny all access for `anon` role
+3. Service role operations continue to work normally (service_role bypasses RLS by default)
+
+**Files Created**:
+- `supabase/migrations/005_enable_rls.sql` - Migration to enable RLS and create security policies
+
+**Impact**:
+- ✅ Addresses all 4 security linter warnings
+- ✅ Prevents accidental exposure via public API endpoints
+- ✅ No breaking changes - all existing server-side operations using `SUPABASE_SERVICE_ROLE_KEY` continue to work
+- ✅ Migration applied to production database
+
+**Status**: ✅ Migration applied successfully - All RLS security warnings resolved
 
 ### 2025-12-04 7:00 PM: ✅ Enhanced Reports with Educational Sections and Website Screenshots
 

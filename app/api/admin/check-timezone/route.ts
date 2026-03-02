@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
   try {
     // Get database timezone and current time
     // Try to get a sample audit to see database time
-    const { data: timeData, error: timeError } = await supabase
+    const { data: timeData, error: timeError } = await getSupabaseServiceClient()
       .from('audits')
       .select('created_at')
       .limit(1)
       .single()
 
     // Get current time from database
-    const { data: currentTimeData, error: currentTimeError } = await supabase
+    const { data: currentTimeData, error: currentTimeError } = await getSupabaseServiceClient()
       .from('audits')
       .select('created_at')
       .order('created_at', { ascending: false })
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const serverTimeLocal = serverTime.toString()
 
     // Get a sample audit to see what timezone it's stored in
-    const { data: sampleAudit } = await supabase
+    const { data: sampleAudit } = await getSupabaseServiceClient()
       .from('audits')
       .select('id, created_at, completed_at')
       .order('created_at', { ascending: false })
