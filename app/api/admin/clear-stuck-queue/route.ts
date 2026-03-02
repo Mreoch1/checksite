@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 
+  const db = getSupabaseServiceClient()
   try {
     // Find all pending/processing items older than 1 hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     
-    const { data: stuckItems, error: findError } = await supabase
+    const { data: stuckItems, error: findError } = await db
       .from('audit_queue')
       .select('*, audits(*)')
       .in('status', ['pending', 'processing'])
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     
     // Mark all stuck items as failed
     const stuckIds = stuckItems.map(item => item.id)
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('audit_queue')
       .update({
         status: 'failed',

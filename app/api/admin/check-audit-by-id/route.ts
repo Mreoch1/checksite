@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get audit details
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -32,14 +32,14 @@ export async function GET(request: NextRequest) {
     const customer = Array.isArray(audit.customers) ? audit.customers[0] : audit.customers
 
     // Check queue entry
-    const { data: queueItem, error: queueError } = await supabase
+    const { data: queueItem, error: queueError } = await getSupabaseServiceClient()
       .from('audit_queue')
       .select('*')
       .eq('audit_id', auditId)
       .maybeSingle()
 
     // Check audit modules
-    const { data: modules } = await supabase
+    const { data: modules } = await getSupabaseServiceClient()
       .from('audit_modules')
       .select('*')
       .eq('audit_id', auditId)
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (action === 'add_to_queue') {
       // Add audit to queue
       // CRITICAL: Reset created_at when upserting to ensure proper 5-minute delay
-      const { data: queueResult, error: queueError } = await supabase
+      const { data: queueResult, error: queueError } = await getSupabaseServiceClient()
         .from('audit_queue')
         .upsert({
           audit_id: auditId,
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'fix_status') {
       // Fix audit status if it has a report but wrong status
-      const { data: audit, error: auditError } = await supabase
+      const { data: audit, error: auditError } = await getSupabaseServiceClient()
         .from('audits')
         .select('status, formatted_report_html, completed_at')
         .eq('id', auditId)
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Fix: Update status to completed
-      const { error: updateError } = await supabase
+      const { error: updateError } = await getSupabaseServiceClient()
         .from('audits')
         .update({
           status: 'completed',

@@ -2,14 +2,29 @@
  * Supabase client initialization
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
 
-// Create client - will work with placeholder values at build time
-// Real values required at runtime
+// Client using anon key - for client-side or when RLS policies allow access
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Server-side client using service role key - bypasses RLS. Use only in API routes/server code.
+let serviceClient: SupabaseClient | null = null
+
+export function getSupabaseServiceClient(): SupabaseClient {
+  if (serviceClient) return serviceClient
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL must be set for server-side database operations')
+  }
+  serviceClient = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  return serviceClient
+}
 
 // Database types (inferred from schema)
 export interface Customer {

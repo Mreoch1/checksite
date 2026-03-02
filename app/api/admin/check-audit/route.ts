@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 
+  const db = getSupabaseServiceClient()
   try {
     // Get audit with customer info
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await db
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -42,13 +43,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get audit modules
-    const { data: modules } = await supabase
+    const { data: modules } = await db
       .from('audit_modules')
       .select('*')
       .eq('audit_id', auditId)
 
     // Get queue status
-    const { data: queueItem } = await supabase
+    const { data: queueItem } = await db
       .from('audit_queue')
       .select('*')
       .eq('audit_id', auditId)

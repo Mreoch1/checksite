@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createCheckoutSession } from '@/lib/stripe'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
 import { createAuditSchema } from '@/lib/validate-input'
 import { rateLimit, getClientId } from '@/lib/rate-limit'
@@ -75,35 +75,40 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Create or get customer
-    let { data: customer, error: customerError } = await supabase
+    let db
+    try {
+      db = getSupabaseServiceClient()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('create-checkout: Supabase service client init failed:', msg)
+      return NextResponse.json(
+        { error: 'Server configuration error', message: 'Database is not configured. Set SUPABASE_SERVICE_ROLE_KEY.' },
+        { status: 503 }
+      )
+    }
+
+    // Create or get customer (upsert on email so we always get a row, no duplicate errors)
+    const { data: customer, error: customerError } = await db
       .from('customers')
-      .select('*')
-      .eq('email', email)
+      .upsert(
+        { email, name: name || null },
+        { onConflict: 'email', ignoreDuplicates: false }
+      )
+      .select()
       .single()
 
     if (customerError || !customer) {
-      const { data: newCustomer, error: createError } = await supabase
-        .from('customers')
-        .insert({
-          email,
-          name: name || null,
-        })
-        .select()
-        .single()
-
-      if (createError || !newCustomer) {
-        return NextResponse.json(
-          { error: 'Failed to create customer' },
-          { status: 500 }
-        )
-      }
-      customer = newCustomer
+      console.error('create-checkout: Failed to create/get customer:', customerError?.message, customerError?.code)
+      const detail = process.env.NODE_ENV === 'development' ? customerError?.message : undefined
+      return NextResponse.json(
+        { error: 'Failed to create customer', ...(detail && { details: detail }) },
+        { status: 500 }
+      )
     }
 
     // Check for recent duplicate audit (same URL + customer within last 30 minutes)
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    const { data: recentAudit } = await supabase
+    const { data: recentAudit } = await db
       .from('audits')
       .select('id, created_at, status')
       .eq('customer_id', customer.id)
@@ -129,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Store competitor URL in raw_result_json as metadata for now
     const auditMetadata = normalizedCompetitorUrl ? { competitorUrl: normalizedCompetitorUrl } : {}
     
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await db
       .from('audits')
       .insert({
         customer_id: customer.id,
@@ -155,7 +160,7 @@ export async function POST(request: NextRequest) {
       enabled: true,
     }))
 
-    const { error: modulesError } = await supabase
+    const { error: modulesError } = await db
       .from('audit_modules')
       .insert(moduleRecords)
 
@@ -172,7 +177,7 @@ export async function POST(request: NextRequest) {
       console.log(`🧪 TEST MODE: Bypassing payment for ${email}`)
       
       // Update audit status to running
-      await supabase
+      await db
         .from('audits')
         .update({ status: 'running' })
         .eq('id', audit.id)
@@ -180,7 +185,7 @@ export async function POST(request: NextRequest) {
       // Add to queue instead of processing directly (avoids Netlify timeout)
       // CRITICAL: When upserting, we need to reset created_at if the entry already existed
       // Otherwise, old entries will be reused with old timestamps
-      const { data: queueResult, error: queueError } = await supabase
+      const { data: queueResult, error: queueError } = await db
         .from('audit_queue')
         .upsert({
           audit_id: audit.id,
@@ -203,7 +208,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Verify the queue entry was actually created
-        const { data: verifyQueue, error: verifyError } = await supabase
+        const { data: verifyQueue, error: verifyError } = await db
           .from('audit_queue')
           .select('id, status, created_at')
           .eq('audit_id', audit.id)
@@ -240,14 +245,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ checkoutUrl: session.url })
   } catch (error) {
-    console.error('Error in create-checkout:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
-    console.error('Error details:', { errorMessage, errorStack })
+    console.error('create-checkout: Error', errorMessage, errorStack)
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to create checkout session',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        ...(process.env.NODE_ENV === 'development' && { details: errorMessage }),
       },
       { status: 500 }
     )

@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get audit with only URL and selected_modules (public info)
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('url, selected_modules')
       .eq('id', auditId)

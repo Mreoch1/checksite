@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { data: audit, error } = await supabase
+    const { data: audit, error } = await getSupabaseServiceClient()
       .from('audits')
       .select('status, created_at')
       .eq('id', auditId)

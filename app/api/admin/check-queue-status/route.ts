@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 import { getRequestId } from '@/lib/request-id'
 
@@ -18,9 +18,10 @@ export async function GET(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 
+  const db = getSupabaseServiceClient()
   try {
     // Get all queue items with their audit details
-    const { data: queueItems, error: queueError } = await supabase
+    const { data: queueItems, error: queueError } = await db
       .from('audit_queue')
       .select('*, audits(*)')
       .order('created_at', { ascending: false })
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get all audits without reports
-    const { data: auditsWithoutReports, error: auditsError } = await supabase
+    const { data: auditsWithoutReports, error: auditsError } = await db
       .from('audits')
       .select('id, url, status, completed_at, email_sent_at, formatted_report_html')
       .or('formatted_report_html.is.null,formatted_report_html.eq.')
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get all audits with email_sent_at but no report
-    const { data: auditsWithEmailNoReport, error: emailError } = await supabase
+    const { data: auditsWithEmailNoReport, error: emailError } = await db
       .from('audits')
       .select('id, url, status, completed_at, email_sent_at, formatted_report_html')
       .not('email_sent_at', 'is', null)

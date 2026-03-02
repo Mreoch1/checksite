@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const runtime = 'nodejs'
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get all pending queue items
-    const { data: pendingItems, error: pendingError } = await supabase
+    const { data: pendingItems, error: pendingError } = await getSupabaseServiceClient()
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'pending')
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all processing queue items
-    const { data: processingItems, error: processingError } = await supabase
+    const { data: processingItems, error: processingError } = await getSupabaseServiceClient()
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'processing')
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       for (const action of cleanupActions) {
         try {
           if (action.action === 'mark_completed') {
-            await supabase
+            await getSupabaseServiceClient()
               .from('audit_queue')
               .update({
                 status: 'completed',
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
 
             // Also fix audit status if needed
             if (action.status !== 'completed' && action.has_report) {
-              await supabase
+              await getSupabaseServiceClient()
                 .from('audits')
                 .update({
                   status: 'completed',
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
               success: true,
             })
           } else if (action.action === 'reset_to_pending') {
-            await supabase
+            await getSupabaseServiceClient()
               .from('audit_queue')
               .update({
                 status: 'pending',

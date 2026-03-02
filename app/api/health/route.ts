@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,7 +16,7 @@ export async function GET() {
   // Check database connection
   try {
     const dbStart = Date.now()
-    const { error } = await supabase.from('audits').select('id').limit(1)
+    const { error } = await getSupabaseServiceClient().from('audits').select('id').limit(1)
     const dbDuration = Date.now() - dbStart
     checks.database = {
       status: error ? 'error' : 'ok',
@@ -34,6 +34,7 @@ export async function GET() {
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
     'STRIPE_SECRET_KEY',
   ]
   const missingEnvVars = requiredEnvVars.filter(key => !process.env[key])

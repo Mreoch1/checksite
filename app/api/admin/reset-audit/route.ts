@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
   // Require admin authentication
   const authError = requireAdminAuth(request)
   if (authError) return authError
+  const db = getSupabaseServiceClient()
   try {
     const { auditId } = await request.json()
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Reset audit to pending so it can be retried
-    const { error } = await supabase
+    const { error } = await db
       .from('audits')
       .update({ 
         status: 'pending',

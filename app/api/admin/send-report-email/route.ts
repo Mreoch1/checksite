@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { sendAuditReportEmail } from '@/lib/email-unified'
 import { requireAdminAuth } from '@/lib/middleware/auth'
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get audit details
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await getSupabaseServiceClient()
       .from('audits')
       .select('*, customers(*)')
       .eq('id', auditId)
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       )
 
       // Mark email as sent
-      await supabase
+      await getSupabaseServiceClient()
         .from('audits')
         .update({ email_sent_at: new Date().toISOString() })
         .eq('id', auditId)

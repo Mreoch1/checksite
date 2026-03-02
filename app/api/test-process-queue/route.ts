@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
 import { isEmailSent, isEmailSending } from '@/lib/email-status'
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Find the oldest pending audit in the queue
-    const { data: queueItems, error: findError } = await supabase
+    const { data: queueItems, error: findError } = await getSupabaseServiceClient()
       .from('audit_queue')
       .select('*, audits(*)')
       .eq('status', 'pending')
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     console.log(`[${requestId}] Processing audit ${auditId}`)
 
     // Mark as processing
-    await supabase
+    await getSupabaseServiceClient()
       .from('audit_queue')
       .update({
         status: 'processing',
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       console.error(`[${requestId}] Error processing audit:`, processError)
 
       // Update queue with error
-      await supabase
+      await getSupabaseServiceClient()
         .from('audit_queue')
         .update({
           status: 'pending',
