@@ -72,6 +72,6 @@ export async function checkUrlReachable(normalizedUrl: string): Promise<Reachabi
   return {
     ok: false,
     message:
-      "We couldn't reach this URL from our servers. Please check that the site is up and the address is correct (try with or without www). Some sites block automated checks.",
+      "We couldn't reach this website from our servers. Common causes: the site may be down, the address might be wrong (try adding or removing www), your host or a security plugin may be blocking our check, or there could be an SSL or network issue. Please verify the URL works in your browser and try again.",
   }
 }
