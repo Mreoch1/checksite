@@ -2,11 +2,12 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServiceClient } from '@/lib/supabase'
 import PrintButton from './PrintButton'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { data: audit } = await supabase
+  const db = getSupabaseServiceClient()
+  const { data: audit } = await db
     .from('audits')
     .select('url, status, completed_at')
     .eq('id', params.id)
@@ -86,8 +87,9 @@ export default async function ReportPage({ params }: { params: { id: string } })
     )
   }
 
-  // Fetch audit from database
-  const { data: audit, error } = await supabase
+  // Fetch audit from database (service client required for RLS)
+  const db = getSupabaseServiceClient()
+  const { data: audit, error } = await db
     .from('audits')
     .select('*')
     .eq('id', id)
