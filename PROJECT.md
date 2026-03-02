@@ -44,9 +44,9 @@ This document is the authoritative source for all project state, decisions, TODO
 - ✅ **Database Security**: Row Level Security (RLS) enabled on all public tables with restrictive policies
 
 ### Pricing Model (Current)
-- **Base Package**: $24.99 - "Website Audit"
+- **First report free** per email; subsequent reports: **$9.99** base - "Website Audit"
   - Always includes: Performance, Crawl Health, On-Page SEO, Mobile Optimization, Accessibility, Security, Schema Markup, Social Metadata
-- **Add-ons**:
+- **Add-ons** (when not first report):
   - Local SEO: +$10.00
   - Competitor Overview: +$10.00 (only charged when competitor URL provided)
 
@@ -57,6 +57,15 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2026-03-02: ✅ Pricing – $9.99 base, one free report per email
+
+**Changes:**
+- Base price reduced from $24.99 to **$9.99** (`lib/types.ts` PRICING_CONFIG.basePrice: 999).
+- **First report free** per email: create-checkout counts prior audits for the customer; if 0, total is $0 and flow bypasses Stripe (audit added to queue, user sent to success URL).
+- Marketing copy and docs updated to $9.99 and first-free messaging.
+
+**Files:** `lib/types.ts`, `app/api/create-checkout/route.ts`, `app/page.tsx`, `app/api/test-audit/route.ts`, scripts, README, PROJECT.md.
 
 ### 2025-12-04: ✅ Security Fix - Enabled Row Level Security (RLS) on All Tables
 

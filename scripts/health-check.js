@@ -359,8 +359,8 @@ async function checkPricingAndUI() {
   if (fs.existsSync(typesPath)) {
     const typesContent = fs.readFileSync(typesPath, 'utf8');
     
-    if (typesContent.includes('basePrice: 2499')) {
-      log('  ✓ Base price is $24.99 (2499 cents)', 'green');
+    if (typesContent.includes('basePrice: 999')) {
+      log('  ✓ Base price is $9.99 (999 cents)', 'green');
     } else {
       log('  ⚠️  Base price may not be correct', 'yellow');
     }

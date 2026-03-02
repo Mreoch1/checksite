@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         customer_id: customer.id,
         url,
         status: 'pending',
-        total_price_cents: 2499, // $24.99 base package
+        total_price_cents: 999, // $9.99 base package
       })
       .select()
       .single()
