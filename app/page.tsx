@@ -135,10 +135,13 @@ export default function Home() {
           </p>
           <div className="mb-4">
             <p className="text-2xl font-bold text-blue-600 mb-2">
-              Website Audit starting at $9.99
+              Your first report is free
             </p>
-            <p className="text-lg text-gray-500">
+            <p className="text-lg text-gray-500 mb-1">
               No jargon. No technical knowledge needed. Just clear, actionable insights.
+            </p>
+            <p className="text-base text-gray-600">
+              One free audit per email. Additional reports $9.99 each.
             </p>
           </div>
         </div>
@@ -239,10 +242,10 @@ export default function Home() {
             {/* Pricing Clarity */}
             <div className="text-center pt-2">
               <p className="text-base font-semibold text-gray-900 mb-1">
-                Starting at $9.99
+                First report free. Then $9.99 per audit.
               </p>
               <p className="text-sm text-gray-600">
-                <strong>One-time audit.</strong> Flat price. <strong>No subscription.</strong>
+                <strong>One-time audit.</strong> One free per email. <strong>No subscription.</strong>
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 Delivered to your inbox in 5-10 minutes.
@@ -505,7 +508,7 @@ export default function Home() {
             Get your complete audit report in minutes
           </p>
           <p className="text-lg font-semibold text-white mb-8">
-            Starting at just $9.99
+            First report free. Then $9.99 per audit.
           </p>
           <a
             href="#main-content"
