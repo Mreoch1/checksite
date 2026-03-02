@@ -58,6 +58,14 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2026-03-02: ✅ Failure email guarantee + URL reachability check
+
+**Failure email:** When the queue processor marks an audit as failed, it now sends a failure notification email to the customer if one was not already sent (e.g. processAudit threw before sending). So users always get an email explaining why they did not receive a report.
+
+**URL reachability:** Before creating an audit at checkout, we now verify that the site is reachable from our server. We try the normalized URL and, if the host has no `www`, also try the `www` variant (and vice versa). If neither works, checkout returns 400 with a clear message so the user can fix the URL or try again later. The URL that succeeds is used for the audit.
+
+**Files:** `app/api/process-queue/route.ts` (send failure email when marking failed), `lib/check-url-reachable.ts` (new), `app/api/create-checkout/route.ts` (call reachability check, use resolved URL).
+
 ### 2026-03-02: ✅ Pricing – $9.99 base, one free report per email
 
 **Changes:**
