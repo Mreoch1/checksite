@@ -430,6 +430,39 @@ Comprehensive admin endpoints (all require `ADMIN_SECRET` header):
 
 All admin endpoints require `Authorization: Bearer YOUR_ADMIN_SECRET` header.
 
+### Failed report: diagnose and retry
+When an audit shows `status: failed` in Supabase (Table Editor → `audits`):
+
+1. **See why it failed**  
+   The `audits` row has an `error_log` column (text/JSON) with the error. You can also call the diagnose endpoint:
+   ```bash
+   curl -s -H "Authorization: Bearer YOUR_ADMIN_SECRET" \
+     "https://seochecksite.net/api/admin/diagnose-audit?id=YOUR_AUDIT_ID" | jq
+   ```
+   The response includes `errorLog` and `diagnostics.recommendations`.
+
+2. **Retry the audit**  
+   Puts the audit back in the queue (status → running, queue entry → pending) so the worker processes it again:
+   ```bash
+   curl -X POST -H "Authorization: Bearer YOUR_ADMIN_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"auditId":"YOUR_AUDIT_ID"}' \
+     https://seochecksite.net/api/admin/retry-audit
+   ```
+   Example for a specific failed audit:
+   ```bash
+   curl -X POST -H "Authorization: Bearer $ADMIN_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"auditId":"7cc1ec61-0b24-4f2f-b12a-0770b49f7f33"}' \
+     https://seochecksite.net/api/admin/retry-audit
+   ```
+
+3. **Optional: check from repo**  
+   With `.env.local` (or env) set: `node scripts/check-specific-audit.js YOUR_AUDIT_ID`  
+   Prints status, `error_log` snippet, queue entry, and suggests adding to queue if missing.
+
+**Common error:** `Failed to fetch https://.../ : TypeError: fetch failed` means our server could not reach the site (down, firewall/security blocking the request, or SSL/network issues). The failure email now explains this; the customer can retry later or fix their server/host.
+
 ## Recent Fixes
 
 - **Local SEO Address Detection**: Fixed issue where addresses in footers (especially with `<br>` tags) were not being detected. Now searches multiple content areas and raw HTML for reliable detection.

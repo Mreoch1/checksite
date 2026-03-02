@@ -469,6 +469,8 @@ export async function sendAuditFailureEmail(
       canRetry = false
     } else if (errorMessage.includes('SSL') || errorMessage.includes('certificate')) {
       errorExplanation = `${domain} has SSL certificate issues that prevented our analysis.`
+    } else if (errorMessage.includes("Could not reach") || errorMessage.includes("couldn't reach") || errorMessage.includes('fetch failed')) {
+      errorExplanation = `We couldn't reach ${domain} from our servers. This can happen if the site is down, a firewall or security plugin blocks our request, or there are SSL/network issues. Try again later or check that the URL works in your browser.`
     }
   }
   
