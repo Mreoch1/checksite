@@ -82,8 +82,8 @@ async function createAudit() {
     customer = newCustomer
   }
 
-  // Calculate price (new pricing model: $24.99 base + add-ons)
-  const basePrice = 2499 // $24.99 - includes all base modules
+  // Calculate price (new pricing model: $9.99 base + add-ons)
+  const basePrice = 999 // $9.99 - includes all base modules
   const modulePrices = {
     // Base package modules (included)
     performance: 0,

@@ -60,21 +60,6 @@ export async function POST(request: NextRequest) {
       normalizedCompetitorUrl = normalizeUrl(competitorUrl)
     }
 
-    // Calculate total price
-    // Base price: $24.99
-    let totalCents = PRICING_CONFIG.basePrice
-    modules.forEach((module: ModuleKey) => {
-      // Only charge for competitor_overview if competitor URL is provided
-      if (module === 'competitor_overview') {
-        if (normalizedCompetitorUrl && normalizedCompetitorUrl.trim()) {
-          totalCents += PRICING_CONFIG.modules[module] || 0
-        }
-        // If competitor_overview is selected but no URL provided, don't charge for it
-      } else {
-        totalCents += PRICING_CONFIG.modules[module] || 0
-      }
-    })
-
     let db
     try {
       db = getSupabaseServiceClient()
@@ -104,6 +89,28 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create customer', ...(detail && { details: detail }) },
         { status: 500 }
       )
+    }
+
+    // One free report per email: first audit for this customer is free
+    const { count: priorAuditCount } = await db
+      .from('audits')
+      .select('*', { count: 'exact', head: true })
+      .eq('customer_id', customer.id)
+
+    const isFirstReport = (priorAuditCount ?? 0) === 0
+
+    // Calculate total price: $0 for first report, else $9.99 base + add-ons
+    let totalCents = isFirstReport ? 0 : PRICING_CONFIG.basePrice
+    if (!isFirstReport) {
+      modules.forEach((module: ModuleKey) => {
+        if (module === 'competitor_overview') {
+          if (normalizedCompetitorUrl && normalizedCompetitorUrl.trim()) {
+            totalCents += PRICING_CONFIG.modules[module] || 0
+          }
+        } else {
+          totalCents += PRICING_CONFIG.modules[module] || 0
+        }
+      })
     }
 
     // Check for recent duplicate audit (same URL + customer within last 30 minutes)
@@ -169,12 +176,14 @@ export async function POST(request: NextRequest) {
       // Continue anyway - modules can be added later
     }
 
-    // TEST MODE: Bypass payment for test email
+    // Bypass payment: first free report per email, or test email
     const TEST_EMAILS = ['mreoch82@hotmail.com']
     const isTestEmail = TEST_EMAILS.includes(email.toLowerCase())
-    
-    if (isTestEmail) {
-      console.log(`🧪 TEST MODE: Bypassing payment for ${email}`)
+    const isFreeFirstReport = totalCents === 0
+
+    if (isTestEmail || isFreeFirstReport) {
+      if (isFreeFirstReport) console.log(`First free report for ${email} – adding to queue`)
+      else console.log(`TEST MODE: Bypassing payment for ${email}`)
       
       // Update audit status to running
       await db
@@ -223,9 +232,9 @@ export async function POST(request: NextRequest) {
       
       // Return success URL directly (bypassing Stripe)
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-      return NextResponse.json({ 
+      return NextResponse.json({
         checkoutUrl: `${siteUrl}/success?audit_id=${audit.id}`,
-        testMode: true,
+        ...(isTestEmail && { testMode: true }),
       })
     }
 

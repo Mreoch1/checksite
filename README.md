@@ -266,9 +266,9 @@ Pricing is configured in `lib/types.ts`:
 
 ```typescript
 export const PRICING_CONFIG: PricingConfig = {
-  basePrice: 2499, // $24.99 - "Website Audit" package
+  basePrice: 999, // $9.99 - "Website Audit" package (first report per email is free)
   modules: {
-    // Base package modules (included in $24.99)
+    // Base package modules (included in $9.99)
     performance: 0,
     crawl_health: 0,
     on_page: 0,
@@ -285,14 +285,13 @@ export const PRICING_CONFIG: PricingConfig = {
 ```
 
 **Pricing Model:**
-- **Base Package ($24.99)**: "Website Audit" - Always includes Performance, Crawl Health, On-Page SEO, Mobile Optimization, Accessibility, Security, Schema Markup, and Social Metadata
-- **Add-ons**:
-  - Local SEO: +$10.00
-  - Competitor Overview: +$10.00 (only charged when a competitor URL is provided)
+- **First report**: Free per email address
+- **Subsequent reports**: Base $9.99 - "Website Audit" (Performance, Crawl Health, On-Page SEO, Mobile Optimization, Accessibility, Security, Schema Markup, Social Metadata)
+- **Add-ons** (when not first report): Local SEO +$10.00, Competitor Overview +$10.00 (only when competitor URL provided)
 
-**Total Calculation:**
+**Total Calculation (when not first report):**
 ```
-total = 24.99 + (localSeo ? 10 : 0) + (competitorProvided ? 10 : 0)
+total = 9.99 + (localSeo ? 10 : 0) + (competitorProvided ? 10 : 0)
 ```
 
 To adjust pricing, modify the `PRICING_CONFIG` object.
