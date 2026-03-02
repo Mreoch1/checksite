@@ -230,7 +230,9 @@ export default function RecommendPage() {
             existingAuditLink
           )
         }
-        throw new Error(errorData.error || errorData.message || 'Failed to create checkout')
+        // Prefer detailed message when present (e.g. URL not reachable explanation)
+        const displayMessage = errorData.message || errorData.error || 'Failed to create checkout'
+        throw new Error(displayMessage)
       }
 
       const { checkoutUrl } = await response.json()
