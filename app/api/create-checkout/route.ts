@@ -5,6 +5,7 @@ import { PRICING_CONFIG, ModuleKey } from '@/lib/types'
 import { createAuditSchema } from '@/lib/validate-input'
 import { rateLimit, getClientId } from '@/lib/rate-limit'
 import { normalizeUrl } from '@/lib/normalize-url'
+import { checkUrlReachable } from '@/lib/check-url-reachable'
 
 // Force dynamic rendering - this route cannot be statically analyzed
 export const dynamic = 'force-dynamic'
@@ -59,6 +60,17 @@ export async function POST(request: NextRequest) {
     if (competitorUrl && competitorUrl.trim()) {
       normalizedCompetitorUrl = normalizeUrl(competitorUrl)
     }
+
+    // Check that we can reach the site (try normalized URL and www / non-www variant)
+    const reachable = await checkUrlReachable(normalizedUrl)
+    if (!reachable.ok) {
+      return NextResponse.json(
+        { error: 'URL not reachable', message: reachable.message },
+        { status: 400 }
+      )
+    }
+    // Use the URL that worked (e.g. www vs non-www) for the audit
+    const urlForAudit = reachable.url
 
     let db
     try {
@@ -119,7 +131,7 @@ export async function POST(request: NextRequest) {
       .from('audits')
       .select('id, created_at, status')
       .eq('customer_id', customer.id)
-      .eq('url', normalizedUrl)
+      .eq('url', urlForAudit)
       .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -145,7 +157,7 @@ export async function POST(request: NextRequest) {
       .from('audits')
       .insert({
         customer_id: customer.id,
-        url: normalizedUrl,
+        url: urlForAudit,
         status: 'pending',
         total_price_cents: totalCents,
         raw_result_json: Object.keys(auditMetadata).length > 0 ? auditMetadata : null,
@@ -243,7 +255,7 @@ export async function POST(request: NextRequest) {
     const session = await createCheckoutSession(
       {
         auditId: audit.id,
-        url: normalizedUrl,
+        url: urlForAudit,
         email,
         selectedModules: modules,
         totalPriceCents: totalCents,

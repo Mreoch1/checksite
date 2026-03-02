@@ -52,6 +52,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
 import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-status'
+import { sendAuditFailureEmail } from '@/lib/email-unified'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -1709,6 +1710,31 @@ export async function GET(request: NextRequest) {
             .eq('id', auditId)
         } else {
           console.log(`[${requestId}] ✅ Updated audit ${auditId} status to failed`)
+        }
+
+        // Ensure user gets a failure email (processAudit may have failed before sending)
+        const emailNotSent = !currentAudit?.email_sent_at || currentAudit.email_sent_at.length <= 10
+        if (emailNotSent) {
+          try {
+            const { data: auditForEmail } = await supabasePrimary
+              .from('audits')
+              .select('url, customers(email)')
+              .eq('id', auditId)
+              .single()
+            const customer = auditForEmail?.customers as { email?: string } | null
+            const customerEmail = customer?.email
+            if (customerEmail && auditForEmail?.url) {
+              console.log(`[${requestId}] 📧 Sending failure email to ${customerEmail} for failed audit ${auditId}`)
+              await sendAuditFailureEmail(customerEmail, auditForEmail.url, errorMessage)
+              const failureSentAt = new Date().toISOString()
+              await supabasePrimary.from('audits').update({ email_sent_at: failureSentAt }).eq('id', auditId)
+              console.log(`[${requestId}] ✅ Failure email sent and email_sent_at set`)
+            } else {
+              console.warn(`[${requestId}] ⚠️  Could not send failure email: no customer email or URL for audit ${auditId}`)
+            }
+          } catch (failureEmailErr) {
+            console.error(`[${requestId}] ❌ Error sending failure email:`, failureEmailErr)
+          }
         }
       }
       
