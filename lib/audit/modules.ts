@@ -194,6 +194,12 @@ export async function fetchSite(url: string): Promise<SiteData> {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Request timeout: ${url} took longer than 30 seconds to respond`)
     }
+    const rawMessage = error instanceof Error ? error.message : String(error)
+    if (/fetch failed|TypeError: fetch failed/i.test(rawMessage)) {
+      throw new Error(
+        `Could not reach ${url} from our servers. Common causes: site is down, firewall or security plugin blocking our request, or SSL/certificate issues. Original: ${rawMessage}`
+      )
+    }
     throw new Error(`Failed to fetch ${url}: ${error}`)
   }
 }
