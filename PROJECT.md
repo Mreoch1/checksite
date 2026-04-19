@@ -58,6 +58,12 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2026-04-20: ✅ ARIA / Edge Tools diagnostics (home + recommend)
+
+- Replaced FAQ accordion `button` + `aria-expanded` with native `<details>` / `<summary>` (no `aria-expanded` expression for static analyzers).
+- Removed `aria-busy` from submit buttons (loading state remains `disabled` + `sr-only` text).
+- Competitor URL field: `aria-required` replaced with HTML `required={isSelected}`.
+
 ### 2026-04-19: ✅ Free report follow-up questionnaire email (2 to 3 days) + consent
 
 **Behavior**
