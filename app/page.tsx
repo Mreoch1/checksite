@@ -104,6 +104,11 @@ export default function Home() {
       question: 'What happens after I get my report?',
       answer: 'Your report includes clear, actionable steps to improve your SEO. You can work through the recommendations at your own pace, or share the report with your web designer.',
     },
+    {
+      question: 'Will you email me after the free report?',
+      answer:
+        'If you use your one free report per email, we ask you to agree before checkout to one follow-up email a few days later with a short survey about your experience, and to optional marketing email from SEO CheckSite. You can opt out of marketing using the instructions in those emails. Paid audits do not require that same consent.',
+    },
   ]
 
   return (
@@ -142,6 +147,9 @@ export default function Home() {
             </p>
             <p className="text-base text-gray-600">
               One free audit per email. Additional reports $9.99 each.
+            </p>
+            <p className="text-sm text-gray-600 mt-3 max-w-xl mx-auto leading-relaxed">
+              For your <strong>first free report</strong>, we ask you to agree on the next step to a short follow-up email a few days later (quick feedback survey) and optional marketing email from us. Paid-only checkouts do not require that consent.
             </p>
           </div>
         </div>
@@ -249,6 +257,9 @@ export default function Home() {
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 Delivered to your inbox in 5-10 minutes.
+              </p>
+              <p className="text-xs text-gray-500 mt-2 max-w-md mx-auto leading-relaxed">
+                Free first report: after you receive the report, you may get one branded follow-up email (usually within a few days) with a link to a brief survey. You opt in on the module selection step before checkout.
               </p>
             </div>
           </form>

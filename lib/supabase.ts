@@ -32,6 +32,7 @@ export interface Customer {
   email: string
   name: string | null
   created_at: string
+  marketing_consent_at?: string | null
 }
 
 export interface Audit {
@@ -45,6 +46,7 @@ export interface Audit {
   raw_result_json: any | null
   formatted_report_html: string | null
   formatted_report_plaintext: string | null
+  free_report_follow_up_sent_at?: string | null
 }
 
 export interface AuditModule {
