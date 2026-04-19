@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
 
   const { data: audit, error: auditError } = await db
     .from('audits')
-    .select('id, total_price_cents, customers!inner ( marketing_consent_at )')
+    .select(
+      'id, total_price_cents, free_report_follow_up_sent_at, free_report_survey_invited_at, customers!inner ( marketing_consent_at )'
+    )
     .eq('id', auditId)
     .maybeSingle()
 
@@ -57,15 +59,25 @@ export async function POST(request: NextRequest) {
 
   const row = audit as {
     total_price_cents: number
+    free_report_follow_up_sent_at: string | null
+    free_report_survey_invited_at: string | null
     customers: { marketing_consent_at: string | null } | { marketing_consent_at: string | null }[]
   }
   const cust = Array.isArray(row.customers) ? row.customers[0] : row.customers
 
-  if (row.total_price_cents !== 0) {
-    return NextResponse.json({ error: 'This questionnaire is only for free reports.' }, { status: 403 })
-  }
-  if (!cust?.marketing_consent_at) {
-    return NextResponse.json({ error: 'This survey is not available for this audit.' }, { status: 403 })
+  const freeReportWithConsent =
+    row.total_price_cents === 0 && !!cust?.marketing_consent_at
+  const invitedViaFollowUpEmail =
+    !!row.free_report_follow_up_sent_at || !!row.free_report_survey_invited_at
+
+  if (!freeReportWithConsent && !invitedViaFollowUpEmail) {
+    return NextResponse.json(
+      {
+        error:
+          'This survey is only available for complimentary first reports (with consent) or for reports where we emailed you the feedback link.',
+      },
+      { status: 403 }
+    )
   }
 
   const { error: insertError } = await db.from('free_report_survey_responses').insert({

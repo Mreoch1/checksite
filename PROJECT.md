@@ -58,6 +58,12 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2026-04-20: ✅ Survey accepts follow-up link audits (paid or test)
+
+**Issue:** Survey API required `total_price_cents === 0` and `marketing_consent_at`. Admin test follow-ups used a paid audit ID, so submit showed “only for free reports.”
+
+**Fix:** `audits.free_report_survey_invited_at` (migration `007`). Production follow-up batch sets it together with `free_report_follow_up_sent_at`. Admin test follow-up sets `free_report_survey_invited_at` after a successful send (still does not set `free_report_follow_up_sent_at`). Survey POST allows **either** free report + consent **or** invited via `free_report_follow_up_sent_at` / `free_report_survey_invited_at`.
+
 ### 2026-04-20: ✅ ARIA / Edge Tools diagnostics (home + recommend)
 
 - Replaced FAQ accordion `button` + `aria-expanded` with native `<details>` / `<summary>` (no `aria-expanded` expression for static analyzers).

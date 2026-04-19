@@ -184,9 +184,13 @@ export async function processFreeReportFollowUpBatch(
 
     try {
       await sendFreeReportFollowUpEmail(email, row.id, row.url)
+      const now = new Date().toISOString()
       const { error: upErr } = await db
         .from('audits')
-        .update({ free_report_follow_up_sent_at: new Date().toISOString() })
+        .update({
+          free_report_follow_up_sent_at: now,
+          free_report_survey_invited_at: now,
+        })
         .eq('id', row.id)
         .is('free_report_follow_up_sent_at', null)
 

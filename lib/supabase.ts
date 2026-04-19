@@ -47,6 +47,7 @@ export interface Audit {
   formatted_report_html: string | null
   formatted_report_plaintext: string | null
   free_report_follow_up_sent_at?: string | null
+  free_report_survey_invited_at?: string | null
 }
 
 export interface AuditModule {
