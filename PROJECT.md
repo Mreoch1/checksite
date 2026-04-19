@@ -58,6 +58,10 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2026-04-20: ✅ Admin API to list free-report survey responses
+
+- **`GET /api/admin/free-report-survey-responses`** (`?limit=` optional, max 200): JSON export of `free_report_survey_responses` with audit URL and customer email. Same **`ADMIN_SECRET`** auth as other admin routes.
+
 ### 2026-04-20: ✅ SSOT: domain registrar + clarify automated follow-up scope
 
 - Documented **Network Solutions** as where `seochecksite.net` was purchased; **Netlify** for current DNS (see [Configuration Status](#configuration-status)).
@@ -82,6 +86,11 @@ This document is the authoritative source for all project state, decisions, TODO
 - `customers.marketing_consent_at` stores when they agreed.
 - After the report email is sent, a **branded** follow-up runs on the same schedule as the queue worker (`GET /api/process-queue`). **Only free reports** enter this batch: `lib/free-report-follow-up.ts` queries **`total_price_cents = 0`**. **Paid audits never receive the automated follow-up email.** (The admin-only test endpoint can send a template to any audit ID for debugging.)
 - Follow-up links to **`/survey/free-report?audit=<uuid>`** (web form). Responses go to **`free_report_survey_responses`** (one row per audit).
+
+**Viewing questionnaire results (site owner)**
+
+1. **Supabase**: Table Editor → `public.free_report_survey_responses` (columns: ratings, text, `audit_id`, timestamps). Join to `audits` / `customers` in SQL Editor if needed.
+2. **Admin API**: `GET /api/admin/free-report-survey-responses?limit=50` with header `Authorization: Bearer <ADMIN_SECRET>`. Returns JSON with `audit_url` and `customer_email` per row (newest first).
 
 **Configuration (environment)**
 - `FREE_REPORT_FOLLOW_UP_DELAY_DAYS` (optional, default `3`). Use `2` for a 2-day delay.
