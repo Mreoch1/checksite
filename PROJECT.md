@@ -720,7 +720,7 @@ Created standalone Netlify function `direct-process.js` that:
 ## TODOs
 
 ### High Priority
-- [ ] **Apply DB migration 006**: Run `006_marketing_consent_followup_survey.sql` on production (marketing consent, follow-up tracking, survey table + RLS) before relying on follow-up or survey in production.
+- [x] **Apply DB migration 006**: Applied to linked production via `supabase migration repair 005 --status applied` (remote had RLS from 005 but missing history row) then `supabase db push` for `006_marketing_consent_followup_survey.sql` (2026-04-19).
 - [ ] **Verify Scheduled Function After Deploy**: Check Netlify dashboard → Functions → Scheduled functions to confirm `process-queue` appears and has recent executions
 - [ ] **Run Health Check Script**: Execute `node scripts/health-check.js` after deploy to verify system health
 - [ ] **Test End-to-End Flow**: Create a test audit and verify:
