@@ -12,8 +12,6 @@ export default function Home() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
-
   const validateUrl = (urlString: string): boolean => {
     try {
       // Normalize URL - add https:// if no protocol is provided
@@ -77,10 +75,6 @@ export default function Home() {
       setError('Something went wrong. Please try again.')
       setLoading(false)
     }
-  }
-
-  const toggleFaq = (index: number) => {
-    setExpandedFaq(expandedFaq === index ? null : index)
   }
 
   const faqs = [
@@ -235,7 +229,6 @@ export default function Home() {
               type="submit"
               disabled={loading}
               className="w-full bg-blue-600 text-white py-4 px-8 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-300 focus:ring-offset-2 shadow-lg"
-              aria-busy={loading}
             >
               {loading ? (
                 <>
@@ -480,30 +473,21 @@ export default function Home() {
 
           <div className="space-y-4">
             {faqs.map((faq, index) => (
-              <div
+              <details
                 key={index}
-                className="border border-gray-200 rounded-lg overflow-hidden"
+                className="group border border-gray-200 rounded-lg overflow-hidden"
               >
-                <button
-                  onClick={() => toggleFaq(index)}
-                  className="w-full px-6 py-4 text-left flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  aria-expanded={expandedFaq === index}
-                  aria-controls={`faq-answer-${index}`}
-                >
-                  <span className="font-semibold text-gray-900">{faq.question}</span>
-                  <span className="text-gray-500 text-xl">
-                    {expandedFaq === index ? '−' : '+'}
+                <summary className="w-full px-6 py-4 text-left flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer list-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 [&::-webkit-details-marker]:hidden">
+                  <span className="font-semibold text-gray-900 pr-4">{faq.question}</span>
+                  <span className="text-gray-500 text-xl shrink-0" aria-hidden>
+                    <span className="group-open:hidden">+</span>
+                    <span className="hidden group-open:inline">−</span>
                   </span>
-                </button>
-                {expandedFaq === index && (
-                  <div
-                    id={`faq-answer-${index}`}
-                    className="px-6 py-4 bg-white text-gray-700"
-                  >
-                    {faq.answer}
-                  </div>
-                )}
-              </div>
+                </summary>
+                <div className="px-6 py-4 bg-white text-gray-700 border-t border-gray-100">
+                  {faq.answer}
+                </div>
+              </details>
             ))}
           </div>
         </div>
