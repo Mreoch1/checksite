@@ -1,6 +1,6 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2026-04-19 (Free report follow-up email + marketing consent)  
+**Last Updated**: 2026-04-20 (Domain registrar note, follow-up scope)  
 **Status**: ✅ FULLY OPERATIONAL - 100% Automated Processing Verified  
 **Version**: 2.2  
 **Last Deploy**: Enhanced reports with educational sections and website screenshots
@@ -58,6 +58,11 @@ This document is the authoritative source for all project state, decisions, TODO
 
 ## Recent Changes
 
+### 2026-04-20: ✅ SSOT: domain registrar + clarify automated follow-up scope
+
+- Documented **Network Solutions** as where `seochecksite.net` was purchased; **Netlify** for current DNS (see [Configuration Status](#configuration-status)).
+- Clarified: **automated** follow-up batch only includes audits with **`total_price_cents = 0`**; **paid reports do not** get that scheduled follow-up.
+
 ### 2026-04-20: ✅ Survey accepts follow-up link audits (paid or test)
 
 **Issue:** Survey API required `total_price_cents === 0` and `marketing_consent_at`. Admin test follow-ups used a paid audit ID, so submit showed “only for free reports.”
@@ -75,7 +80,7 @@ This document is the authoritative source for all project state, decisions, TODO
 **Behavior**
 - First-time (free) checkout **requires** explicit consent: follow-up email about the free report plus optional marketing email from SEO CheckSite. Without `marketingConsent: true`, `POST /api/create-checkout` returns **400**.
 - `customers.marketing_consent_at` stores when they agreed.
-- After the report email is sent, a **branded** follow-up runs on the same schedule as the queue worker (`GET /api/process-queue`): eligible audits are `total_price_cents = 0`, completed, real `email_sent_at`, customer has `marketing_consent_at`, `free_report_follow_up_sent_at` is null, and report email is older than the configured delay (default **3 days**).
+- After the report email is sent, a **branded** follow-up runs on the same schedule as the queue worker (`GET /api/process-queue`). **Only free reports** enter this batch: `lib/free-report-follow-up.ts` queries **`total_price_cents = 0`**. **Paid audits never receive the automated follow-up email.** (The admin-only test endpoint can send a template to any audit ID for debugging.)
 - Follow-up links to **`/survey/free-report?audit=<uuid>`** (web form). Responses go to **`free_report_survey_responses`** (one row per audit).
 
 **Configuration (environment)**
@@ -913,6 +918,11 @@ Created standalone Netlify function `direct-process.js` that:
 ---
 
 ## Configuration Status
+
+### Domain registrar
+
+- **Where `seochecksite.net` was purchased**: **Network Solutions** (account dashboard shows the domain, site, and optional **Professional Email** for `admin@seochecksite.net`).
+- **DNS today**: **Netlify** hosts DNS for production (apex, `www`, SendGrid CNAMEs, DMARC). Keep **Network Solutions** login for domain renewal, transfers, and registrar-level products.
 
 ### Environment Variables (Required in Netlify)
 
