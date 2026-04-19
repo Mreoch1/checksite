@@ -77,11 +77,22 @@ export async function POST(request: NextRequest) {
 
   try {
     await sendFreeReportFollowUpEmail(to, auditId, url)
+    const invitedAt = new Date().toISOString()
+    const { error: inviteErr } = await db
+      .from('audits')
+      .update({ free_report_survey_invited_at: invitedAt })
+      .eq('id', auditId)
+
+    if (inviteErr) {
+      console.error('test-free-report-follow-up: survey invite stamp failed:', inviteErr)
+    }
+
     return NextResponse.json({
       success: true,
       to,
       auditId,
-      note: 'This route does not set free_report_follow_up_sent_at so production follow-up can still run later.',
+      note:
+        'free_report_follow_up_sent_at is unchanged so the scheduled follow-up can still run for free audits. free_report_survey_invited_at was set so the survey accepts this audit.',
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
