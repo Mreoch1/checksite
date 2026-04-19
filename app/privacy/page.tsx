@@ -47,6 +47,9 @@ export default function PrivacyPage() {
             <li>Generate and deliver website audit reports</li>
             <li>Process payments and manage your account</li>
             <li>Send you email notifications about your audit status</li>
+            <li>
+              <strong>Free first report:</strong> If you opt in at checkout, send one follow-up email (typically a few days after your report) with a link to an optional feedback survey, and occasional marketing email about our products and tips. Consent is recorded with a timestamp. Paid-only purchases do not use this same consent path.
+            </li>
             <li>Improve our services and customer support</li>
             <li>Comply with legal obligations</li>
           </ul>
@@ -98,6 +101,7 @@ export default function PrivacyPage() {
             <li>Customer account information: Retained while your account is active and for 2 years after last activity</li>
             <li>Payment records: Retained as required by law (typically 7 years for tax purposes)</li>
             <li>Email communications: Retained for 1 year unless you request deletion</li>
+            <li>Free-report survey responses: Retained with the associated audit as long as we retain audit data, unless you request deletion</li>
           </ul>
           <p className="text-gray-700 mb-4">
             You may request deletion of your data at any time, subject to legal retention requirements.

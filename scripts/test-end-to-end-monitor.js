@@ -105,6 +105,7 @@ async function createAudit() {
         email: TEST_EMAIL,
         name: 'Test User',
         modules: ['performance', 'crawl_health', 'on_page', 'mobile'],
+        marketingConsent: true,
       },
     })
 

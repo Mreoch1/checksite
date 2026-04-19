@@ -53,6 +53,7 @@ import { processAudit } from '@/lib/process-audit'
 import { getRequestId } from '@/lib/request-id'
 import { isEmailSent, isEmailSending, getEmailSentAtAge } from '@/lib/email-status'
 import { sendAuditFailureEmail } from '@/lib/email-unified'
+import { processFreeReportFollowUpBatch } from '@/lib/free-report-follow-up'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -389,6 +390,20 @@ export async function GET(request: NextRequest) {
           { status: 401 }
         )
       }
+    }
+
+    try {
+      const followUp = await processFreeReportFollowUpBatch(supabasePrimary, requestId)
+      if (followUp.sent > 0 || followUp.errors.length > 0) {
+        console.log(
+          `[${requestId}] [follow-up] batch checked=${followUp.checked} sent=${followUp.sent} errors=${followUp.errors.length}`
+        )
+        if (followUp.errors.length > 0) {
+          console.log(`[${requestId}] [follow-up] error detail:`, followUp.errors.slice(0, 5))
+        }
+      }
+    } catch (followUpErr) {
+      console.error(`[${requestId}] [follow-up] batch failed (non-fatal):`, followUpErr)
     }
 
     // DIAGNOSTIC: Check queue state before claiming

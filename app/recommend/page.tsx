@@ -22,6 +22,8 @@ export default function RecommendPage() {
   const [competitorUrl, setCompetitorUrl] = useState('')
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
+  const [requiresMarketingConsent, setRequiresMarketingConsent] = useState(false)
+  const [marketingConsentAccepted, setMarketingConsentAccepted] = useState(false)
 
   useEffect(() => {
     // Reset processing state when component mounts or reloads
@@ -39,6 +41,24 @@ export default function RecommendPage() {
 
     setUrl(auditUrl)
     setEmail(auditEmail)
+
+    void (async () => {
+      try {
+        const res = await fetch('/api/checkout-eligibility', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: auditEmail }),
+        })
+        if (res.ok) {
+          const data = (await res.json()) as { requiresMarketingConsent?: boolean }
+          setRequiresMarketingConsent(data.requiresMarketingConsent === true)
+        } else {
+          setRequiresMarketingConsent(false)
+        }
+      } catch {
+        setRequiresMarketingConsent(false)
+      }
+    })()
 
     // Fetch recommendations
     fetchRecommendations(auditUrl)
@@ -148,6 +168,14 @@ export default function RecommendPage() {
     setProcessing(true)
     setError('')
 
+    if (requiresMarketingConsent && !marketingConsentAccepted) {
+      setError(
+        'Please check the box to agree to the follow-up email and optional marketing email so we can send your free report.'
+      )
+      setProcessing(false)
+      return
+    }
+
     // Normalize main URL - ensure it has https:// and lowercase domain
     let normalizedUrl = url.trim()
     if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
@@ -215,6 +243,7 @@ export default function RecommendPage() {
           email,
           modules: Array.from(selectedModules),
           competitorUrl: normalizedCompetitorUrl,
+          marketingConsent: requiresMarketingConsent ? marketingConsentAccepted : undefined,
         }),
       })
 
@@ -434,6 +463,31 @@ export default function RecommendPage() {
               aria-live="polite"
             >
               {error}
+            </div>
+          )}
+
+          {requiresMarketingConsent && (
+            <div className="mb-6 p-4 border-2 border-blue-200 rounded-lg bg-blue-50/80">
+              <div className="flex items-start gap-3">
+                <input
+                  id="marketing-consent"
+                  type="checkbox"
+                  checked={marketingConsentAccepted}
+                  onChange={(e) => setMarketingConsentAccepted(e.target.checked)}
+                  className="mt-1 h-5 w-5 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 border-gray-300 rounded shrink-0"
+                  aria-describedby="marketing-consent-desc"
+                />
+                <div>
+                  <label htmlFor="marketing-consent" className="text-sm font-medium text-gray-900 cursor-pointer">
+                    Email follow-up and marketing
+                  </label>
+                  <p id="marketing-consent-desc" className="text-sm text-gray-700 mt-1 leading-relaxed">
+                    I agree to receive a short follow-up email a few days after my free report (to share feedback),
+                    and occasional marketing email from SEO CheckSite about products and tips. I understand I can opt
+                    out later using the instructions in those emails.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

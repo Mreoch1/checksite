@@ -17,6 +17,7 @@ Emails are being delivered but going to junk/spam folders. This is common for ne
 - [x] Email content includes note about marking as "Not Junk"
 - [x] Subject line updated to reduce spam triggers
 - [x] DNS records configured (SPF, DMARC, DKIM)
+- [x] Free-report follow-up: one branded email after the report (delayed), only for opted-in first free reports; links to on-site survey (`/survey/free-report`)
 
 ### 🔍 Verify in SendGrid Dashboard
 

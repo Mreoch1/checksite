@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { url, email, name, modules, competitorUrl } = validationResult.data
+    const { url, email, name, modules, competitorUrl, marketingConsent } = validationResult.data
 
     // Normalize main URL - add https:// and lowercase domain
     const normalizedUrl = normalizeUrl(url)
@@ -84,13 +84,46 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create or get customer (upsert on email so we always get a row, no duplicate errors)
+    // Resolve customer and whether this checkout is the first (free) report for this email
+    const { data: existingCustomer } = await db
+      .from('customers')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    let priorAuditCount = 0
+    if (existingCustomer?.id) {
+      const { count } = await db
+        .from('audits')
+        .select('*', { count: 'exact', head: true })
+        .eq('customer_id', existingCustomer.id)
+      priorAuditCount = count ?? 0
+    }
+
+    const isFirstReport = priorAuditCount === 0
+
+    if (isFirstReport && marketingConsent !== true) {
+      return NextResponse.json(
+        {
+          error: 'Marketing consent required',
+          message:
+            'To receive your free report you must agree to receive a short follow-up email about your report and optional marketing email from SEO CheckSite.',
+        },
+        { status: 400 }
+      )
+    }
+
+    const customerUpsert: Record<string, unknown> = {
+      email,
+      name: name || null,
+    }
+    if (isFirstReport && marketingConsent === true) {
+      customerUpsert.marketing_consent_at = new Date().toISOString()
+    }
+
     const { data: customer, error: customerError } = await db
       .from('customers')
-      .upsert(
-        { email, name: name || null },
-        { onConflict: 'email', ignoreDuplicates: false }
-      )
+      .upsert(customerUpsert, { onConflict: 'email', ignoreDuplicates: false })
       .select()
       .single()
 
@@ -102,14 +135,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-
-    // One free report per email: first audit for this customer is free
-    const { count: priorAuditCount } = await db
-      .from('audits')
-      .select('*', { count: 'exact', head: true })
-      .eq('customer_id', customer.id)
-
-    const isFirstReport = (priorAuditCount ?? 0) === 0
 
     // Calculate total price: $0 for first report, else $9.99 base + add-ons
     let totalCents = isFirstReport ? 0 : PRICING_CONFIG.basePrice

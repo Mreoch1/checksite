@@ -54,6 +54,8 @@ export const createAuditSchema = z.object({
       { message: 'Invalid competitor URL format' }
     )
   ),
+  /** Required server-side when this email is eligible for the first free report */
+  marketingConsent: z.boolean().optional(),
 }).refine(
   (data) => {
     // If competitor_overview is selected, competitorUrl must be provided

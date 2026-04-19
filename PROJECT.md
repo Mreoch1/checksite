@@ -1,8 +1,8 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2025-12-04 (RLS Security Fix)  
+**Last Updated**: 2026-04-19 (Free report follow-up email + marketing consent)  
 **Status**: ✅ FULLY OPERATIONAL - 100% Automated Processing Verified  
-**Version**: 2.1  
+**Version**: 2.2  
 **Last Deploy**: Enhanced reports with educational sections and website screenshots
 
 This document is the authoritative source for all project state, decisions, TODOs, and issues. All changes to scope, behavior, or structure must be documented here immediately.
@@ -57,6 +57,29 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2026-04-19: ✅ Free report follow-up questionnaire email (2 to 3 days) + consent
+
+**Behavior**
+- First-time (free) checkout **requires** explicit consent: follow-up email about the free report plus optional marketing email from SEO CheckSite. Without `marketingConsent: true`, `POST /api/create-checkout` returns **400**.
+- `customers.marketing_consent_at` stores when they agreed.
+- After the report email is sent, a **branded** follow-up runs on the same schedule as the queue worker (`GET /api/process-queue`): eligible audits are `total_price_cents = 0`, completed, real `email_sent_at`, customer has `marketing_consent_at`, `free_report_follow_up_sent_at` is null, and report email is older than the configured delay (default **3 days**).
+- Follow-up links to **`/survey/free-report?audit=<uuid>`** (web form). Responses go to **`free_report_survey_responses`** (one row per audit).
+
+**Configuration (environment)**
+- `FREE_REPORT_FOLLOW_UP_DELAY_DAYS` (optional, default `3`). Use `2` for a 2-day delay.
+- `FREE_REPORT_FOLLOW_UP_DELAY_MINUTES` (optional): if set to a non-negative integer, it **overrides** the day-based delay (useful for local or staging tests).
+
+**Database**
+- Apply migration: `supabase/migrations/006_marketing_consent_followup_survey.sql` (columns on `customers` and `audits`, new table + RLS).
+
+**Testing the follow-up template**
+- `POST /api/admin/test-free-report-follow-up` with `Authorization: Bearer <ADMIN_SECRET>`.
+- Optional body: `{ "to": "Mreoch82@hotmail.com", "auditId": "<uuid>" }`. If `auditId` is omitted, the latest completed free audit with a sent report email is used. This route sends the email but **does not** set `free_report_follow_up_sent_at` so production logic can still send the real follow-up later.
+
+**Public copy**: Home (`app/page.tsx`), Privacy (`app/privacy/page.tsx`), and Terms (`app/terms/page.tsx`) describe the free-report follow-up survey email and consent.
+
+**Files**: `lib/free-report-follow-up.ts`, `app/api/create-checkout/route.ts`, `app/api/checkout-eligibility/route.ts`, `app/recommend/page.tsx`, `lib/validate-input.ts`, `app/api/process-queue/route.ts`, `app/api/survey/free-report/route.ts`, `app/survey/free-report/page.tsx`, `app/api/admin/test-free-report-follow-up/route.ts`, `scripts/test-end-to-end-monitor.js`, `lib/supabase.ts` (types), migration `006_*.sql`, `app/page.tsx`, `app/privacy/page.tsx`, `app/terms/page.tsx`.
 
 ### 2026-03-02: ✅ Failure email guarantee + URL reachability check
 
@@ -697,6 +720,7 @@ Created standalone Netlify function `direct-process.js` that:
 ## TODOs
 
 ### High Priority
+- [ ] **Apply DB migration 006**: Run `006_marketing_consent_followup_survey.sql` on production (marketing consent, follow-up tracking, survey table + RLS) before relying on follow-up or survey in production.
 - [ ] **Verify Scheduled Function After Deploy**: Check Netlify dashboard → Functions → Scheduled functions to confirm `process-queue` appears and has recent executions
 - [ ] **Run Health Check Script**: Execute `node scripts/health-check.js` after deploy to verify system health
 - [ ] **Test End-to-End Flow**: Create a test audit and verify:
