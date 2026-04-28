@@ -8,10 +8,10 @@ export const runtime = 'nodejs'
 
 const surveySchema = z.object({
   auditId: z.string().uuid(),
-  overallRating: z.enum(['loved', 'mostly_yes', 'mixed', 'no']),
-  metExpectations: z.enum(['yes', 'somewhat', 'no']),
-  wouldPurchaseFull: z.enum(['likely', 'maybe', 'unlikely']),
-  additionalComments: z.string().max(5000).optional().nullable(),
+  previewHelpful: z.enum(['yes', 'somewhat', 'no']),
+  didUpgrade: z.enum(['yes', 'no_interested', 'no_not_useful', 'no_too_expensive', 'no_didnt_see']),
+  upgradeWorth: z.enum(['yes', 'partially', 'no']).optional().nullable(),
+  improvementSuggestions: z.string().max(5000).optional().nullable(),
 })
 
 export async function POST(request: NextRequest) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { auditId, overallRating, metExpectations, wouldPurchaseFull, additionalComments } = parsed.data
+  const { auditId, previewHelpful, didUpgrade, upgradeWorth, improvementSuggestions } = parsed.data
 
   let db
   try {
@@ -82,10 +82,10 @@ export async function POST(request: NextRequest) {
 
   const { error: insertError } = await db.from('free_report_survey_responses').insert({
     audit_id: auditId,
-    overall_rating: overallRating,
-    met_expectations: metExpectations,
-    would_purchase_full: wouldPurchaseFull,
-    additional_comments: additionalComments?.trim() || null,
+    preview_helpful: previewHelpful,
+    did_upgrade: didUpgrade,
+    upgrade_worth: upgradeWorth?.trim() || null,
+    improvement_suggestions: improvementSuggestions?.trim() || null,
   })
 
   if (insertError) {

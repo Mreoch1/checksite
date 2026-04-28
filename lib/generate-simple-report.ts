@@ -586,6 +586,20 @@ function generateHTMLReport(data: {
 </head>
 <body>
   <div class="container">
+    <!-- Premium Brand Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; margin-bottom: 5px; border-bottom: 2px solid #0ea5e9;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #0ea5e9, #0284c7); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4em; font-weight: 800; color: white;">S</div>
+        <div>
+          <div style="font-size: 1.2em; font-weight: 700; color: #0369a1; line-height: 1.2;">SEO CheckSite</div>
+          <div style="font-size: 0.8em; color: #6b7280;">Website Audit Report</div>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.75em; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Report Date</div>
+        <div style="font-size: 0.95em; color: #0369a1; font-weight: 600;">${data.date}</div>
+      </div>
+    </div>
     <!-- Hero Section - Score-Centric -->
     <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 40px; border-radius: 12px; margin: 30px 0; text-align: center; color: white;">
       <div style="font-size: 4em; font-weight: 700; margin-bottom: 10px; line-height: 1;">
@@ -689,7 +703,7 @@ function generateHTMLReport(data: {
     </div>
 
     ${data.quickFixChecklist.length > 0 ? `
-    <h2 id="quick-fix-checklist">Priority Actions</h2>
+    <h2 id="quick-fix-checklist">Quick Fix Checklist</h2>
     <div class="summary" style="background: #f0fdf4; border-left-color: #10b981;">
       <ul style="list-style: none; padding-left: 0;">
         ${data.quickFixChecklist.map((item: any) => {
@@ -718,7 +732,10 @@ function generateHTMLReport(data: {
         }).join('')}
       </ul>
       <p style="margin-top: 15px; color: #6b7280; font-size: 14px; font-weight: 500;">
-        Start with the top ${Math.min(3, data.quickFixChecklist.filter((item: any) => (typeof item === 'object' ? item.severity : 'high') === 'high').length)} "High impact" items; they will move your score the most.
+        Start with the top ${Math.min(3, data.quickFixChecklist.filter((item: any) => (typeof item === 'object' ? item.severity : 'high') === 'high').length)} "High impact" items — they will move your score the most.
+      </p>
+      <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 13px;">
+        💡 <strong>Tip:</strong> Print this checklist and tick off items as you complete them.
       </p>
     </div>
     ` : ''}
@@ -827,16 +844,17 @@ function generateHTMLReport(data: {
                 </thead>
                 <tbody>
                   ${module.issues.map((issue: any) => {
-                    const impactLabel = issue.severity === 'high' ? 'High' : issue.severity === 'medium' ? 'Medium' : 'Low'
+                    const impactLabel = issue.severity === 'high' ? 'HIGH IMPACT' : issue.severity === 'medium' ? 'Medium' : 'Low'
                     const impactColor = issue.severity === 'high' ? '#dc2626' : issue.severity === 'medium' ? '#f59e0b' : '#10b981'
                     const impactBg = issue.severity === 'high' ? '#fee2e2' : issue.severity === 'medium' ? '#fef3c7' : '#d1fae5'
+                    const impactIcon = issue.severity === 'high' ? '🔴 ' : issue.severity === 'medium' ? '🟡 ' : '🟢 '
                     
                     return `
-                    <tr>
-                      <td style="font-weight: 600; color: #111827; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.title)}</td>
+                    <tr${issue.severity === 'high' ? ' style="background: #fef2f2;"' : ''}>
+                      <td style="font-weight: 600; color: ${issue.severity === 'high' ? '#991b1b' : '#111827'}; vertical-align: top; padding-top: 15px;">${issue.severity === 'high' ? '⚠️ ' : ''}${escapeHtml(issue.title)}</td>
                       <td style="vertical-align: top; padding-top: 15px;">
-                        <span style="background: ${impactBg}; color: ${impactColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: 600; display: inline-block;">
-                          ${impactLabel}
+                        <span style="background: ${impactBg}; color: ${impactColor}; padding: ${issue.severity === 'high' ? '6px 14px' : '4px 10px'}; border-radius: 4px; font-size: ${issue.severity === 'high' ? '0.9em' : '0.85em'}; font-weight: 600; display: inline-block;${issue.severity === 'high' ? ' border: 1px solid #dc2626;' : ''}">
+                          ${impactIcon}${impactLabel}
                         </span>
                       </td>
                       <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.plainLanguageExplanation || '')}</td>
@@ -851,9 +869,9 @@ function generateHTMLReport(data: {
           
           // Single issue - use detailed card format
           return accessibilityWhyBlock + multipleIssuesNote + module.issues.map((issue: any) => `
-            <div class="issue ${issue.severity}">
-              <span class="severity ${issue.severity}">${issue.severity.toUpperCase()}</span>
-              <h3 style="margin-top: 10px;">${escapeHtml(issue.title)}</h3>
+            <div class="issue ${issue.severity}"${issue.severity === 'high' ? ' style="border-left-width: 5px; background: #fef2f2;"' : ''}>
+              <span class="severity ${issue.severity}" style="${issue.severity === 'high' ? 'font-size: 0.95em; padding: 5px 14px;' : ''}">${issue.severity === 'high' ? '🔴 ' : issue.severity === 'medium' ? '🟡 ' : '🟢 '}${issue.severity.toUpperCase()}${issue.severity === 'high' ? ' — HIGH IMPACT' : ''}</span>
+              <h3 style="margin-top: 10px;${issue.severity === 'high' ? ' color: #991b1b;' : ''}">${escapeHtml(issue.title)}</h3>
               <p><strong>Why this matters:</strong> ${escapeHtml(issue.plainLanguageExplanation || '')}</p>
               <p><strong>How to fix it:</strong> ${escapeHtml(issue.suggestedFix || '')}</p>
               ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
@@ -956,6 +974,47 @@ function generateHTMLReport(data: {
           <li style="margin-bottom: 8px;">After redesigning your site</li>
           <li style="margin-bottom: 8px;">Every 3 months to stay up to date</li>
         </ul>
+      </div>
+    </div>
+
+    <!-- Next Steps CTA -->
+    <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 30px; border-radius: 12px; margin: 30px 0; color: white;">
+      <h2 style="color: white; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; border: none; padding: 0;">What To Do Next</h2>
+      
+      <div style="display: grid; gap: 15px; margin-bottom: 25px;">
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
+          <span style="font-size: 1.5em; flex-shrink: 0;">🔍</span>
+          <div>
+            <div style="font-weight: 600; margin-bottom: 4px;">Run another audit on a different URL</div>
+            <div style="font-size: 0.85em; opacity: 0.9;">
+              <a href="https://seochecksite.net" style="color: white; text-decoration: underline;">Go to SEO CheckSite →</a>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
+          <span style="font-size: 1.5em; flex-shrink: 0;">👩‍💻</span>
+          <div>
+            <div style="font-weight: 600; margin-bottom: 4px;">Share this report with your web designer</div>
+            <div style="font-size: 0.85em; opacity: 0.9;">Forward this email or share the results so they can prioritize the fixes.</div>
+          </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
+          <span style="font-size: 1.5em; flex-shrink: 0;">📌</span>
+          <div>
+            <div style="font-weight: 600; margin-bottom: 4px;">These fixes take time — bookmark this page</div>
+            <div style="font-size: 0.85em; opacity: 0.9;">Come back to this report as you work through each item. SEO is a marathon, not a sprint.</div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; text-align: center; border: 1px dashed rgba(255,255,255,0.3);">
+        <p style="margin: 0; font-size: 0.9em;">
+          <strong>💬 Need help interpreting these results?</strong>
+          <br>
+          <span style="opacity: 0.9;">Email us at <a href="mailto:admin@seochecksite.net" style="color: white; text-decoration: underline; font-weight: 600;">admin@seochecksite.net</a> and we'll help you understand the next steps.</span>
+        </p>
       </div>
     </div>
 
