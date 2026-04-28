@@ -24,6 +24,7 @@
     "playwright": "^1.57.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "sharp": "^0.34.5",
     "stripe": "^14.10.0",
     "zod": "^3.22.4"
   },
@@ -37,5 +38,22 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.3.0"
-  }
+  },
+  "description": "A production-ready, beginner-friendly website audit tool built for non-technical website and small business owners. Get clear, actionable insights about your website without the jargon.",
+  "main": "next.config.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mreoch1/checksite.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Mreoch1/checksite/issues"
+  },
+  "homepage": "https://github.com/Mreoch1/checksite#readme"
 }

@@ -3,8 +3,10 @@ import Script from 'next/script'
 import './globals.css'
 import Footer from '@/components/Footer'
 import SkipLink from '@/components/SkipLink'
+import GoogleAnalytics from '@/components/GoogleAnalytics'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'
+const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-D7TTYQRCRG'
 const siteName = 'SEO CheckSite'
 const siteDescription = 'Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.'
 
@@ -24,6 +26,14 @@ const organizationSchema = {
   sameAs: [
     // Add social media links when available
   ],
+}
+
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: siteName,
+  url: siteUrl,
+  description: siteDescription,
 }
 
 export const metadata: Metadata = {
@@ -101,28 +111,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="icon" href="/logo-icon.svg" type="image/svg+xml" sizes="any" />
-        <link rel="apple-touch-icon" href="/logo-icon.svg" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
       </head>
       <body>
-        {/* Google tag (gtag.js) - Using Next.js Script component for optimization */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-T4P62T0TP2"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-T4P62T0TP2');
-          `}
-        </Script>
+        <GoogleAnalytics measurementId={gaMeasurementId} />
         <SkipLink />
         <main id="main-content">{children}</main>
         <Footer />

@@ -462,6 +462,76 @@ export default function Home() {
         </div>
       </section>
 
+      {/* SEO Learning Hub */}
+      <section className="bg-gray-50 py-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">SEO Learning Hub</h2>
+            <p className="text-lg text-gray-600">Practical guides for small business owners who want clear next steps</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                href: '/resources/best-seo-audit-tools-for-small-business',
+                title: 'Best SEO Audit Tools for Small Businesses',
+              },
+              {
+                href: '/resources/free-seo-audit-tools-compared',
+                title: 'Free SEO Audit Tools Compared',
+              },
+              {
+                href: '/resources/website-seo-audit-checklist-for-beginners',
+                title: 'Website SEO Audit Checklist for Beginners',
+              },
+              {
+                href: '/resources/how-to-fix-common-seo-issues',
+                title: 'How to Fix Common SEO Issues',
+              },
+              {
+                href: '/resources/seo-terms-for-small-business-owners',
+                title: 'SEO Terms for Small Business Owners',
+              },
+              {
+                href: '/resources/seo-audit-example-for-small-business',
+                title: 'SEO Audit Example for a Small Business',
+              },
+              {
+                href: '/resources/before-and-after-seo-audit-checklist',
+                title: 'Before and After SEO Audit Checklist',
+              },
+              {
+                href: '/resources/seo-checksite-vs-other-audit-tools',
+                title: 'SEO CheckSite vs Other SEO Audit Tools',
+              },
+              {
+                href: '/resources/seo-checksite-vs-seobility',
+                title: 'SEO CheckSite vs Seobility',
+              },
+              {
+                href: '/resources/seo-checksite-vs-seo-site-checkup',
+                title: 'SEO CheckSite vs SEO Site Checkup',
+              },
+              {
+                href: '/resources/seo-checksite-vs-semrush',
+                title: 'SEO CheckSite vs Semrush',
+              },
+              {
+                href: '/resources',
+                title: 'View All SEO Guides and Examples',
+              },
+            ].map((resource) => (
+              <Link
+                key={resource.href}
+                href={resource.href}
+                className="bg-white rounded-lg p-5 shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all"
+              >
+                <h3 className="font-semibold text-gray-900">{resource.title}</h3>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="bg-white py-16">
         <div className="max-w-3xl mx-auto px-4">
