@@ -165,6 +165,7 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       security: 1,          // Low
       local: 1.5,           // Medium (if enabled)
       competitor_overview: 1, // Low (if enabled)
+      llm_readiness: 1,        // Standard
     }
     
     // Calculate weighted average

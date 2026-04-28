@@ -57,6 +57,7 @@ const MODULE_DISPLAY_NAMES: Record<string, string> = {
   schema: 'Schema Markup',
   social: 'Social Metadata',
   competitor_overview: 'Competitor Overview',
+  llm_readiness: 'AI Readiness',
 }
 
 /**
@@ -115,6 +116,7 @@ function getModuleDescription(moduleKey: string): string {
     schema: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks for structured data that helps search engines understand your content.</p>',
     social: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks Open Graph and Twitter Card tags for social sharing.</p>',
     competitor_overview: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This provides general best practices for competing in your industry.</p>',
+    llm_readiness: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your site\'s readiness for AI-powered search engines and LLM assistants like ChatGPT, Google Gemini, and Perplexity.</p>',
   }
   return descriptions[moduleKey] || ''
 }

@@ -13,6 +13,7 @@ export type ModuleKey =
   | 'schema'
   | 'social'
   | 'competitor_overview'
+  | 'llm_readiness'
 
 export type AuditStatus = 'pending' | 'running' | 'completed' | 'failed'
 
@@ -77,6 +78,7 @@ export const PRICING_CONFIG: PricingConfig = {
     // Add-ons ($10 each)
     local: 1000, // +$10.00 - Local SEO
     competitor_overview: 1000, // +$10.00 - Competitor Overview (only charged when competitor URL provided)
+    llm_readiness: 0, // Included in base package
   },
 }
 
@@ -89,6 +91,7 @@ export const CORE_MODULES: ModuleKey[] = [
   'security',
   'schema',
   'social',
+  'llm_readiness',
 ]
 
 export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {
@@ -102,6 +105,7 @@ export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {
   schema: 'Schema Markup',
   social: 'Social Metadata',
   competitor_overview: 'Competitor Overview',
+  llm_readiness: 'AI Readiness',
 }
 
 export const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
@@ -115,5 +119,6 @@ export const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
   schema: 'Checks if your business information is properly structured for search engines.',
   social: 'Ensures your site looks great when shared on Facebook, Twitter, and other platforms.',
   competitor_overview: 'Compares your site against competitors to find opportunities.',
+  llm_readiness: 'Checks if your site is optimized for AI-powered search engines and LLM assistants.',
 }
 

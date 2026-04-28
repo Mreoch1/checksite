@@ -39,6 +39,7 @@ export const createAuditSchema = z.object({
     'schema',
     'social',
     'competitor_overview',
+    'llm_readiness',
   ])).min(1, 'At least one module must be selected'),
   competitorUrl: z.string().url().optional().or(
     z.string().refine(
