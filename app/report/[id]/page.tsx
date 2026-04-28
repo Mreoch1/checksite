@@ -210,7 +210,7 @@ export default async function ReportPage({ params }: { params: { id: string } })
                   const res = await fetch('/api/upgrade-to-full', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ auditId: '${audit.id}' }),
+                    body: JSON.stringify({ auditId: audit.id }),
                   })
                   const data = await res.json()
                   if (data.url) {
