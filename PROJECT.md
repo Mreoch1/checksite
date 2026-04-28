@@ -1,9 +1,9 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2026-04-20 (Domain registrar note, follow-up scope)  
+**Last Updated**: 2026-04-27 (Phase 4 VS pages deployed)  
 **Status**: ✅ FULLY OPERATIONAL - 100% Automated Processing Verified  
 **Version**: 2.2  
-**Last Deploy**: Enhanced reports with educational sections and website screenshots
+**Last Deploy**: 2026-04-27 - Deploy ID 69ef7b4bbaace77488df161b (Phase 4 VS pages)
 
 This document is the authoritative source for all project state, decisions, TODOs, and issues. All changes to scope, behavior, or structure must be documented here immediately.
 
@@ -57,6 +57,141 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2026-04-27: ✅ Phase 4, dedicated VS comparison pages
+
+- Added comparison landing pages:
+  - `app/resources/seo-checksite-vs-seobility/page.tsx`
+  - `app/resources/seo-checksite-vs-seo-site-checkup/page.tsx`
+  - `app/resources/seo-checksite-vs-semrush/page.tsx`
+- Expanded internal comparison discoverability:
+  - `components/ResourceLinksBlock.tsx`
+  - `app/resources/page.tsx`
+  - `app/page.tsx`
+- Expanded sitemap entries for all new VS routes in `app/sitemap.ts`.
+- Deployed to production:
+  - **Deploy ID**: `69ef7b4bbaace77488df161b`
+  - **Production URL**: `https://seochecksite.net`
+  - **Unique URL**: `https://69ef7b4bbaace77488df161b--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Phase 3 rollout, comparison landing + matrix + internal resource links
+
+- Added comparison landing page:
+  - `app/resources/seo-checksite-vs-other-audit-tools/page.tsx`
+- Added a detailed comparison matrix to:
+  - `app/resources/best-seo-audit-tools-for-small-business/page.tsx`
+- Added reusable internal linking component:
+  - `components/ResourceLinksBlock.tsx`
+- Added internal link blocks across resource/proof pages for stronger crawl flow and distribution of authority.
+- Updated resource hubs and discovery routes:
+  - `app/resources/page.tsx`
+  - `app/page.tsx`
+  - `app/sitemap.ts`
+- Deployed to production:
+  - **Deploy ID**: `69ef79d9c79892699dd740c4`
+  - **Production URL**: `https://seochecksite.net`
+  - **Unique URL**: `https://69ef79d9c79892699dd740c4--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Added Bing verification file
+
+- Added `public/BingSiteAuth.xml` using the verification token provided from Bing Webmaster Tools.
+- This exposes the file at `https://seochecksite.net/BingSiteAuth.xml` for domain verification.
+- Deployed to production:
+  - **Deploy ID**: `69ef780c10c8c968aca3d0f1`
+  - **Unique URL**: `https://69ef780c10c8c968aca3d0f1--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Phase 2 rollout, JSON-LD + FAQ + proof pages + distribution assets
+
+- Added global `WebSite` structured data in `app/layout.tsx` in addition to existing `Organization` schema.
+- Added per-page structured data (`Article`, `BreadcrumbList`, `FAQPage`) and visible FAQ blocks to resource pages:
+  - `app/resources/best-seo-audit-tools-for-small-business/page.tsx`
+  - `app/resources/free-seo-audit-tools-compared/page.tsx`
+  - `app/resources/website-seo-audit-checklist-for-beginners/page.tsx`
+  - `app/resources/how-to-fix-common-seo-issues/page.tsx`
+  - `app/resources/seo-terms-for-small-business-owners/page.tsx`
+  - `app/resources/seo-glossary/[term]/page.tsx`
+- Added two proof-content pages:
+  - `app/resources/seo-audit-example-for-small-business/page.tsx`
+  - `app/resources/before-and-after-seo-audit-checklist/page.tsx`
+- Expanded internal linking to include new proof pages in `app/page.tsx` and hub links in `app/resources/page.tsx`.
+- Expanded `app/sitemap.ts` entries for all new resource/proof URLs.
+- Added external publishing asset pack in `EXTERNAL_DISTRIBUTION_PLAYBOOK.md` with Reddit, Indie Hackers, directories, and outreach templates.
+- Attempted direct Google Search Console and Bing Webmaster sitemap submission via MCP browser, but blocked by required interactive account sign-in in the automation context.
+- Deployed to production:
+  - **Deploy ID**: `69ef76b1a3f50162508b5bb6`
+  - **Production URL**: `https://seochecksite.net`
+  - **Unique URL**: `https://69ef76b1a3f50162508b5bb6--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Added SEO content hub and indexable LLM-focused pages
+
+- Added new content hub route: `app/resources/page.tsx`.
+- Added first-wave high-intent pages:
+  - `app/resources/best-seo-audit-tools-for-small-business/page.tsx`
+  - `app/resources/free-seo-audit-tools-compared/page.tsx`
+  - `app/resources/website-seo-audit-checklist-for-beginners/page.tsx`
+  - `app/resources/how-to-fix-common-seo-issues/page.tsx`
+  - `app/resources/seo-terms-for-small-business-owners/page.tsx`
+- Added glossary term route with static params for 10 terms:
+  - `app/resources/seo-glossary/[term]/page.tsx`
+- Added internal linking from home page to content hub and core guides in `app/page.tsx`.
+- Expanded `app/sitemap.ts` with all new content routes and glossary term URLs.
+- Updated sitemap default fallback domain to `https://seochecksite.net` for production consistency.
+- Deployed to production:
+  - **Deploy ID**: `69ef74c4b9ba355d569c6d05`
+  - **Production URL**: `https://seochecksite.net`
+  - **Unique URL**: `https://69ef74c4b9ba355d569c6d05--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Deployed GA tracking hardening to production
+
+- Production deploy completed successfully via Netlify CLI.
+- **Deploy ID**: `69ef6aded49eb430bac7468a`
+- **Production URL**: `https://seochecksite.net`
+- **Unique URL**: `https://69ef6aded49eb430bac7468a--seochecksite.netlify.app`
+
+### 2026-04-27: ✅ Hardened GA4 tracking with explicit page_view dispatch
+
+- Replaced inline GA setup in `app/layout.tsx` with dedicated client component `components/GoogleAnalytics.tsx`.
+- GA init now sets `send_page_view: false` on config and emits explicit `page_view` events on route/search changes.
+- This removes reliance on implicit auto pageview timing and improves observability for realtime validation.
+
+### 2026-04-27: ✅ Fixed Edge Tools apple-touch-icon head warning
+
+- Removed manual icon `<link>` tags from `app/layout.tsx` `<head>`.
+- Kept icon definitions in Next.js `metadata.icons` as the single source for favicon and apple touch icon output.
+- This prevents duplicate/conflicting head management and resolves Edge Tools warning about `apple-touch-icon` placement.
+
+### 2026-04-27: ✅ Switched GA4 measurement ID and made it environment-driven
+
+- Updated `app/layout.tsx` to read GA measurement ID from `NEXT_PUBLIC_GA_MEASUREMENT_ID`.
+- Set fallback/default to `G-D7TTYQRCRG` so production matches selected GA property.
+- Updated `.env.example` with `NEXT_PUBLIC_GA_MEASUREMENT_ID=G-D7TTYQRCRG`.
+- This avoids future code edits for GA ID changes and resolves property mismatch (`G-T4P62T0TP2` vs `G-D7TTYQRCRG`).
+
+### 2026-04-20: ✅ Added Network Solutions inbound mail DNS records on Netlify
+
+- Added 4 MX records for apex (`seochecksite.net`) with priority `10`:
+  - `mx001.netsol.xion.oxcs.net`
+  - `mx002.netsol.xion.oxcs.net`
+  - `mx003.netsol.xion.oxcs.net`
+  - `mx004.netsol.xion.oxcs.net`
+- Added apex SPF TXT:
+  - `v=spf1 include:sendgrid.net include:spf.cloudus.oxcs.net ~all`
+- Verified in Netlify DNS zone via CLI API (`getDnsRecords`).
+- Verified publicly with DNS resolver:
+  - `dig MX seochecksite.net +short` returns all 4 MX records
+  - `dig TXT seochecksite.net +short` returns new SPF record
+- This resolves previously confirmed lack of inbound routing for `admin@seochecksite.net`.
+
+### 2026-04-20: 🚨 Inbound mailbox diagnostics (`admin@seochecksite.net`)
+
+- Verified public DNS from resolver (`8.8.8.8`) for `seochecksite.net`.
+- Found **no MX record** for apex domain, so inbound delivery to `admin@seochecksite.net` cannot route.
+- Found **no SPF TXT** record at apex (`seochecksite.net`), which also harms outbound trust.
+- DMARC exists: `v=DMARC1; p=quarantine; rua/ruf=contact@seochecksite.net`.
+- SendGrid DKIM CNAME records exist and resolve:
+  - `s1._domainkey.seochecksite.net -> s1.domainkey.u51760082.wl083.sendgrid.net`
+  - `s2._domainkey.seochecksite.net -> s2.domainkey.u51760082.wl083.sendgrid.net`
+- Impact: current issue appears primarily **inbound mailbox/DNS routing**, not just spam-folder placement.
 
 ### 2026-04-20: ✅ Admin API to list free-report survey responses
 
@@ -747,6 +882,10 @@ Created standalone Netlify function `direct-process.js` that:
 
 ### High Priority
 - [x] **Apply DB migration 006**: Applied to linked production via `supabase migration repair 005 --status applied` (remote had RLS from 005 but missing history row) then `supabase db push` for `006_marketing_consent_followup_survey.sql` (2026-04-19).
+- [x] **Fix inbound mail DNS for `admin@seochecksite.net`**:
+  - [x] Added Network Solutions MX records in Netlify DNS.
+  - [x] Added apex SPF TXT including SendGrid + OX Cloud (`spf.cloudus.oxcs.net`).
+  - [x] Re-tested DNS with `dig MX seochecksite.net` and `dig TXT seochecksite.net`.
 - [ ] **Verify Scheduled Function After Deploy**: Check Netlify dashboard → Functions → Scheduled functions to confirm `process-queue` appears and has recent executions
 - [ ] **Run Health Check Script**: Execute `node scripts/health-check.js` after deploy to verify system health
 - [ ] **Test End-to-End Flow**: Create a test audit and verify:
@@ -775,7 +914,30 @@ Created standalone Netlify function `direct-process.js` that:
 ## Unresolved Issues
 
 ### Active Issues
-1. **Scheduled Function (Cron Job) Not Running** (Reported 2025-01-28, FIXED 2025-01-28)
+1. **Inbound Email to `admin@seochecksite.net` Not Received** (Reported 2026-04-20, Active)
+   - **Status**: 🟡 DNS fixed, awaiting mailbox delivery confirmation
+   - **Symptoms**:
+     - Test messages to `admin@seochecksite.net` never appear in inbox
+     - Mail client shows sync/server failure indicators
+   - **Evidence**:
+     - `dig MX seochecksite.net` returned **0 answers** (no inbound route)
+     - `dig TXT seochecksite.net` returned **0 answers** (no SPF at apex)
+     - `dig TXT _dmarc.seochecksite.net` returned valid DMARC policy
+     - `dig CNAME s1._domainkey.seochecksite.net` and `s2...` resolve to SendGrid DKIM records
+   - **Root Cause**:
+     - Domain DNS previously lacked required inbound MX records for mailbox delivery
+   - **Fix Applied**:
+     - Added 4 Network Solutions MX records (priority 10) on Netlify DNS
+     - Added apex SPF TXT: `v=spf1 include:sendgrid.net include:spf.cloudus.oxcs.net ~all`
+     - Verified via Netlify API and public `dig`
+   - **Action**:
+     - Confirm mailbox credentials/server settings in Apple Mail
+     - Re-test with external sender and review provider logs
+     - Click **Verify Connection** in Network Solutions Professional Email panel
+   - **Priority**: CRITICAL
+   - **Impact**: Owner cannot receive support, notification, or reply emails at `admin@seochecksite.net`
+
+2. **Scheduled Function (Cron Job) Not Running** (Reported 2025-01-28, FIXED 2025-01-28)
    - **Status**: ✅ FIXED - Function now recognized by Netlify
    - **Symptoms**: 
      - Audits added to queue but never processed
@@ -833,7 +995,7 @@ Created standalone Netlify function `direct-process.js` that:
      - `scripts/check-queue-status.js` - Check queue status
      - `scripts/monitor-queue.md` - Full monitoring guide
 
-2. **Email Not Being Sent** (Reported 2025-01-28, Still Active)
+3. **Email Not Being Sent** (Reported 2025-01-28, Still Active)
    - **Status**: Investigating - Multiple possible causes
    - **Symptoms**: Audits complete but emails not sent to customers
    - **Possible Causes** (in order of likelihood):
@@ -984,7 +1146,7 @@ Created standalone Netlify function `direct-process.js` that:
 ### Current Deployment
 - **Platform**: Netlify
 - **Tier**: Pro (26-second function timeout)
-- **Last Deploy**: 2025-12-04 - Deploy ID: 69317f69e5f94b008dc2cdcc
+- **Last Deploy**: 2026-04-27 - Deploy ID: 69ef7b4bbaace77488df161b
 - **Build Status**: ✅ Passing (10.9s build time)
 - **Live Status**: ✅ Fully operational with live payments
 - **Health Check**: ✅ Healthy - All systems operational
@@ -1191,6 +1353,6 @@ Created standalone Netlify function `direct-process.js` that:
 
 ---
 
-**Last Updated**: 2025-12-04  
-**Next Review**: Monitor first live payment transactions
+**Last Updated**: 2026-04-27  
+**Next Review**: Confirm first successful inbound delivery to `admin@seochecksite.net`
 
