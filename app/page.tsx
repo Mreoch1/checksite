@@ -101,7 +101,7 @@ export default function Home() {
     {
       question: 'Will you email me after the free report?',
       answer:
-        'If you use your one free report per email, we ask you to agree before checkout to one follow-up email a few days later with a short survey about your experience, and to optional marketing email from SEO CheckSite. You can opt out of marketing using the instructions in those emails. Paid audits do not require that same consent.',
+        'Your free preview report includes scores and issue headlines. For complete fix instructions and detailed analysis, upgrade to the full report for $14.99.',
     },
   ]
 
@@ -140,10 +140,10 @@ export default function Home() {
               No jargon. No technical knowledge needed. Just clear, actionable insights.
             </p>
             <p className="text-base text-gray-600">
-              One free audit per email. Additional reports $9.99 each.
+              Free preview shows your site scores and issue headlines.
             </p>
             <p className="text-sm text-gray-600 mt-3 max-w-xl mx-auto leading-relaxed">
-              For your <strong>first free report</strong>, we ask you to agree on the next step to a short follow-up email a few days later (quick feedback survey) and optional marketing email from us. Paid-only checkouts do not require that consent.
+              Your <strong>free preview</strong> shows scores and issue headlines. The <strong>full report</strong> with complete fix instructions is <strong>$14.99</strong>.
             </p>
           </div>
         </div>
@@ -243,16 +243,16 @@ export default function Home() {
             {/* Pricing Clarity */}
             <div className="text-center pt-2">
               <p className="text-base font-semibold text-gray-900 mb-1">
-                First report free. Then $9.99 per audit.
+                Free preview shows scores + issues. Full report with fixes $14.99.
               </p>
               <p className="text-sm text-gray-600">
-                <strong>One-time audit.</strong> One free per email. <strong>No subscription.</strong>
+                <strong>One-time audit.</strong> Free preview first. <strong>No subscription.</strong>
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 Delivered to your inbox in 5-10 minutes.
               </p>
               <p className="text-xs text-gray-500 mt-2 max-w-md mx-auto leading-relaxed">
-                Free first report: after you receive the report, you may get one branded follow-up email (usually within a few days) with a link to a brief survey. You opt in on the module selection step before checkout.
+                Free preview shows your site scores and issues. Full report with fix instructions is $14.99.
               </p>
             </div>
           </form>
@@ -573,7 +573,7 @@ export default function Home() {
             Get your complete audit report in minutes
           </p>
           <p className="text-lg font-semibold text-white mb-8">
-            First report free. Then $9.99 per audit.
+            Free preview. Full report with fixes $14.99.
           </p>
           <a
             href="#main-content"

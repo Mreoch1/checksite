@@ -63,7 +63,7 @@ export interface PricingConfig {
 }
 
 export const PRICING_CONFIG: PricingConfig = {
-  basePrice: 999, // $9.99 - "Website Audit" package
+  basePrice: 1499, // $14.99 - "Website Audit" package
   modules: {
     // Base package modules (included in $9.99)
     performance: 0, // Included in base
