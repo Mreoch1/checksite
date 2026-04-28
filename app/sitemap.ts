@@ -94,6 +94,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${siteUrl}/resources/how-to-fix-broken-links`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
       url: `${siteUrl}/resources/how-to-fix-common-seo-issues`,
       lastModified: now,
       changeFrequency: 'weekly',
@@ -143,6 +149,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${siteUrl}/resources/seo-checksite-vs-semrush`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${siteUrl}/resources/seo-checksite-vs-moz-pro`,
       lastModified: now,
       changeFrequency: 'weekly',
       priority: 0.8,

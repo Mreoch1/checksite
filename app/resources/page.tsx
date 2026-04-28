@@ -22,6 +22,11 @@ const resourceLinks = [
     description: 'A step-by-step audit process you can run without technical experience.',
   },
   {
+    href: '/resources/how-to-fix-broken-links',
+    title: 'How to Fix Broken Links on Your Website',
+    description: 'A step-by-step guide to find and fix broken links with no technical experience needed.',
+  },
+  {
     href: '/resources/how-to-fix-common-seo-issues',
     title: 'How to Fix Common SEO Issues',
     description: 'Simple fixes for titles, descriptions, broken links, sitemap, and robots.',
@@ -65,6 +70,11 @@ const resourceLinks = [
     href: '/resources/seo-checksite-vs-semrush',
     title: 'SEO CheckSite vs Semrush',
     description: 'Evaluate clarity-first audits against advanced all-in-one SEO depth.',
+  },
+  {
+    href: '/resources/seo-checksite-vs-moz-pro',
+    title: 'SEO CheckSite vs Moz Pro (2026)',
+    description: 'Compare pricing, ease of use, and audit depth to see which tool fits your small business.',
   },
 ]
 
