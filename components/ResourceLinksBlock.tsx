@@ -2,6 +2,10 @@ import Link from 'next/link'
 
 const defaultLinks = [
   {
+    href: '/resources/how-to-fix-broken-links',
+    label: 'How to Fix Broken Links on Your Website',
+  },
+  {
     href: '/resources/best-seo-audit-tools-for-small-business',
     label: 'Best SEO Audit Tools for Small Businesses',
   },
@@ -36,6 +40,10 @@ const defaultLinks = [
   {
     href: '/resources/seo-checksite-vs-semrush',
     label: 'SEO CheckSite vs Semrush',
+  },
+  {
+    href: '/resources/seo-checksite-vs-moz-pro',
+    label: 'SEO CheckSite vs Moz Pro (2026)',
   },
   {
     href: '/resources/seo-terms-for-small-business-owners',
