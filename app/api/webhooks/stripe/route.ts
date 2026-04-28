@@ -48,6 +48,33 @@ export async function POST(request: NextRequest) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any
+    const db = getSupabaseServiceClient()
+
+    // Handle upgrade (existing teaser -> full report)
+    const upgradeAuditId = session.metadata?.upgrade_audit_id
+    if (upgradeAuditId) {
+      console.log(`🔄 Processing UPGRADE for audit ${upgradeAuditId} - regenerating full report`)
+      
+      // Mark as paid
+      await db
+        .from('audits')
+        .update({ total_price_cents: 1499 })
+        .eq('id', upgradeAuditId)
+      
+      // Regenerate full report
+      const { regenerateFullReport } = await import('@/lib/regenerate-full-report')
+      const result = await regenerateFullReport(upgradeAuditId)
+      
+      if (result.success) {
+        console.log(`✅ Upgrade complete for audit ${upgradeAuditId}: ${result.message}`)
+      } else {
+        console.error(`❌ Upgrade failed for audit ${upgradeAuditId}: ${result.message}`)
+      }
+      
+      return NextResponse.json({ received: true })
+    }
+
+    // Handle normal flow (new audit)
     const auditId = session.metadata?.audit_id
 
     if (!auditId) {
@@ -55,7 +82,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
-    const db = getSupabaseServiceClient()
     // Update audit status to running
     await db
       .from('audits')
