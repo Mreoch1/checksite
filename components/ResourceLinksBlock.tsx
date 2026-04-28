@@ -46,6 +46,10 @@ const defaultLinks = [
     label: 'SEO CheckSite vs Moz Pro (2026)',
   },
   {
+    href: '/resources/seo-checksite-vs-screaming-frog',
+    label: 'SEO CheckSite vs Screaming Frog (2026)',
+  },
+  {
     href: '/resources/seo-terms-for-small-business-owners',
     label: 'SEO Terms for Small Business Owners',
   },

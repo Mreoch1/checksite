@@ -159,6 +159,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.8,
     },
+    {
+      url: `${siteUrl}/resources/seo-checksite-vs-screaming-frog`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
     ...glossaryTerms.map((term) => ({
       url: `${siteUrl}/resources/seo-glossary/${term}`,
       lastModified: now,

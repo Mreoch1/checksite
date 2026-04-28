@@ -76,6 +76,11 @@ const resourceLinks = [
     title: 'SEO CheckSite vs Moz Pro (2026)',
     description: 'Compare pricing, ease of use, and audit depth to see which tool fits your small business.',
   },
+  {
+    href: '/resources/seo-checksite-vs-screaming-frog',
+    title: 'SEO CheckSite vs Screaming Frog (2026)',
+    description: 'Compare installation, ease of use, and pricing to see which audit tool fits your workflow.',
+  },
 ]
 
 export const metadata: Metadata = {

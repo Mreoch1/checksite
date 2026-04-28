@@ -878,6 +878,55 @@ Created standalone Netlify function `direct-process.js` that:
 
 ---
 
+## AI/LLM Readiness Checks (2026-04-28)
+
+### What Was Added
+
+**Module Status**: ✅ New module: `llm_readiness` (AI Readiness)
+**Crawl Health**: ✅ Enhanced with AI bot directive scanning
+
+### LLM Readiness Module (`runLLMReadinessModule`)
+
+A new audit module that evaluates how well a website is optimized for AI-powered search engines and LLM assistants (ChatGPT, Google Gemini, Perplexity, etc.):
+
+1. **Schema.org structured data** — Checks if JSON-LD structured data is present. Without it, AI assistants have less context to accurately understand and summarize page content. Medium-severity issue if missing; low-severity suggestion to add richer types if only basic types are found.
+
+2. **Heading structure** — Evaluates H1-H4 heading hierarchy. Missing headings produce high/medium issues; multiple H1s get a low-severity notice about potential AI extraction confusion.
+
+3. **Meta description quality** — Checks description presence and length. AI assistants often use meta descriptions as concise page summaries.
+
+4. **Page title** — Evaluates title presence and length for AI identification.
+
+5. **Content length** — Pages with very little content (<200 words) offer limited signal for AI extraction.
+
+### Crawl Health — AI Bot Directives
+
+The `runCrawlHealthModule` now scans `robots.txt` for six common AI/Large Language Model (LLM) bots:
+- `GPTBot` (OpenAI GPT training)
+- `ChatGPT-User` (OpenAI ChatGPT assistant)
+- `Claude-Web` (Anthropic Claude)
+- `CCBot` (Common Crawl / AI training)
+- `Google-Extended` (Google AI training for Vertex AI, Gemini)
+- `PerplexityBot` (Perplexity AI search)
+
+Behavior:
+- **If any AI bots are blocked** (`Disallow: /`) → **medium-severity issue** with explanation of trade-offs between AI training protection and AI search visibility
+- **If no AI bot rules exist at all** → **low-severity suggestion** to add explicit AI bot directives with copy-paste robots.txt examples
+- **If all detected AI bots are allowed** → no issue; noted in evidence
+
+### Module Configuration
+
+- **Key**: `llm_readiness`
+- **Price**: $0 (included in base package)
+- **Core module**: ✅ Included in `CORE_MODULES` array
+- **Display name** in reports: "AI Readiness"
+- **Weight** in score calculation: 1.0 (standard weight)
+
+### Module Weight Adjusted
+
+Updated `moduleWeights` in `process-audit.ts` to include `llm_readiness: 1` (standard weight).
+
+
 ## TODOs
 
 ### High Priority

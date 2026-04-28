@@ -1987,6 +1987,99 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
         // Store interpretive summary in evidence (not as issue)
         // This will be shown in the evidence table
       }
+      // Check robots.txt for AI bot directives
+      const aiBots = [
+        { name: 'GPTBot', description: 'OpenAI GPT training crawler' },
+        { name: 'ChatGPT-User', description: 'OpenAI ChatGPT assistant crawler' },
+        { name: 'Claude-Web', description: 'Anthropic Claude assistant crawler' },
+        { name: 'CCBot', description: 'Common Crawl / AI training bot' },
+        { name: 'Google-Extended', description: 'Google AI training crawler (used for Vertex AI, Bard/Gemini)' },
+        { name: 'PerplexityBot', description: 'Perplexity AI search assistant crawler' },
+      ]
+      
+      const blockedAiBots: string[] = []
+      const allowedAiBots: string[] = []
+      const aiBotRulesFound: string[] = []
+      
+      // Parse robots.txt to find AI bot directives
+      const parseLines = robotsContent.split('\n').map(line => line.trim())
+      let currentUA: string | null = null
+      
+      for (const line of parseLines) {
+        if (!line || line.startsWith('#')) continue
+        const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
+        if (uaMatch) {
+          currentUA = uaMatch[1].trim()
+          continue
+        }
+        
+        // Check if currentUA matches any AI bot
+        if (currentUA) {
+          for (const bot of aiBots) {
+            if (currentUA.toLowerCase() === bot.name.toLowerCase()) {
+              const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
+              const allowMatch = line.match(/^allow:\s*(.+)$/i)
+              
+              if (!aiBotRulesFound.includes(bot.name)) {
+                aiBotRulesFound.push(bot.name)
+              }
+              
+              if (disallowMatch) {
+                const path = disallowMatch[1].trim()
+                if (path === '/') {
+                  if (!blockedAiBots.includes(bot.name)) {
+                    blockedAiBots.push(bot.name)
+                  }
+                }
+              } else if (allowMatch) {
+                const path = allowMatch[1].trim()
+                if (path === '/') {
+                  if (!allowedAiBots.includes(bot.name)) {
+                    allowedAiBots.push(bot.name)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Report AI bot findings
+      if (blockedAiBots.length > 0) {
+        issues.push({
+          title: `${blockedAiBots.length} AI bot${blockedAiBots.length > 1 ? 's' : ''} blocked by robots.txt`,
+          severity: 'medium',
+          technicalExplanation: `${blockedAiBots.join(', ')} ${blockedAiBots.length > 1 ? 'are' : 'is'} blocked via Disallow: / in robots.txt`,
+          plainLanguageExplanation: 'Some AI-powered search engines and assistants (like ChatGPT, Google Gemini, and Claude) are being blocked from reading your content. While this may protect against AI training, it can also reduce your visibility in AI-generated search results and assistants that are becoming increasingly common.',
+          suggestedFix: 'Review your robots.txt and consider removing Disallow: / directives for AI bots you want to allow. If you want to allow AI bots, remove the Disallow: / line for each bot user-agent. Some services like Google-Extended respect opt-out signals differently — research each bot before making changes.',
+          evidence: {
+            found: `${blockedAiBots.length} AI bot${blockedAiBots.length > 1 ? 's' : ''} blocked`,
+            actual: `Blocked: ${blockedAiBots.join(', ')}`,
+            expected: 'AI bots should be allowed unless you have a specific reason to block them',
+          },
+        })
+        score -= 5
+      } else if (aiBotRulesFound.length === 0) {
+        // No AI bot rules found at all — suggest adding them
+        issues.push({
+          title: 'No AI/Large Language Model (LLM) bot directives found',
+          severity: 'low',
+          technicalExplanation: 'robots.txt has no explicit directives for GPTBot, ChatGPT-User, Claude-Web, CCBot, Google-Extended, or PerplexityBot',
+          plainLanguageExplanation: 'Your robots.txt file does not include any directives for AI-powered bots. As AI search tools and assistants become more popular, having explicit rules for these bots gives you control over how your content is used and discovered.',
+          suggestedFix: 'Add explicit AI bot directives to your robots.txt. For example, to allow all major AI bots: User-agent: GPTBot\nAllow: /\n\nUser-agent: ChatGPT-User\nAllow: /\n\nUser-agent: Claude-Web\nAllow: /\n\nUser-agent: CCBot\nAllow: /\n\nUser-agent: Google-Extended\nAllow: /\n\nUser-agent: PerplexityBot\nAllow: /',
+          evidence: {
+            found: 'No AI bot directives found',
+            actual: '0 out of 6 common AI bots have rules in robots.txt',
+            expected: 'Explicit Allow or Disallow rules for AI bots (GPTBot, ChatGPT-User, Claude-Web, CCBot, Google-Extended, PerplexityBot)',
+          },
+        })
+        score -= 3
+      } else if (allowedAiBots.length === aiBotRulesFound.length) {
+        // All AI bots with rules are allowed — good
+        // No issue needed; we'll note it in evidence
+      }
+      
+      // Store AI bot findings in evidence for the report
       // If robots.txt exists and doesn't block, it's good - no issue needed
     }
   } catch (error) {
@@ -2548,6 +2641,243 @@ export async function runCompetitorOverviewModule(
 }
 
 /**
+ * LLM/AI Readiness Module
+ * Checks if a site is optimized for AI-powered search engines and LLM assistants
+ */
+export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleResult> {
+  const issues: AuditIssue[] = []
+  let score = 100
+
+  // 1. Check for schema.org structured data presence
+  const schemas = siteData.$('script[type="application/ld+json"]')
+  let hasSchemaOrg = false
+  let schemaTypes: string[] = []
+  
+  schemas.each((_, el) => {
+    try {
+      const jsonText = siteData.$(el).html() || '{}'
+      let json = JSON.parse(jsonText)
+      
+      // Handle arrays and @graph
+      const explore = (obj: any) => {
+        if (Array.isArray(obj)) {
+          obj.forEach(explore)
+        } else if (obj['@graph'] && Array.isArray(obj['@graph'])) {
+          obj['@graph'].forEach(explore)
+        } else if (obj['@type'] && obj['@context'] && obj['@context'].includes('schema.org')) {
+          hasSchemaOrg = true
+          schemaTypes.push(obj['@type'])
+        } else if (obj['@type']) {
+          hasSchemaOrg = true
+          schemaTypes.push(obj['@type'])
+        }
+      }
+      explore(json)
+    } catch {
+      // Invalid JSON, skip
+    }
+  })
+
+  if (!hasSchemaOrg) {
+    issues.push({
+      title: 'No schema.org structured data detected',
+      severity: 'medium',
+      technicalExplanation: 'No @type or @context references to schema.org found in JSON-LD',
+      plainLanguageExplanation: 'AI-powered search engines and assistants rely on structured data to understand your content. Without it, your site is less likely to be featured in AI-generated summaries, knowledge panels, or rich results.',
+      suggestedFix: 'Add JSON-LD structured data to your pages. Start with Organization or WebSite schema for your homepage, and Article schema for blog posts. Use Google\'s Structured Data Markup Helper to get started.',
+      evidence: {
+        found: 'No schema.org structured data detected',
+        actual: `Schema types found: ${schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None'}`,
+        expected: 'At least one schema.org type (e.g., Organization, WebSite, Article)'
+      }
+    })
+    score -= 20
+  } else if (schemaTypes.length > 0) {
+    // Check if rich schema types are present (helpful for AI)
+    const aiFriendlyTypes = ['Article', 'FAQPage', 'HowTo', 'Product', 'Recipe', 'Event', 'LocalBusiness', 'Organization', 'WebSite', 'BreadcrumbList', 'Review', 'VideoObject']
+    const foundFriendly = schemaTypes.filter(t => aiFriendlyTypes.includes(t))
+    
+    if (foundFriendly.length === 0) {
+      issues.push({
+        title: 'Consider adding richer structured data types',
+        severity: 'low',
+        technicalExplanation: `Found schema types: ${schemaTypes.join(', ')}. None are in the recommended set for AI discoverability.`,
+        plainLanguageExplanation: 'While you have some structured data, adding richer types like Article, FAQPage, or Product can help AI assistants better understand and present your content.',
+        suggestedFix: 'Add more specific schema types relevant to your content. For example: Article for blog posts, FAQPage for common questions, Product for products, Recipe for recipes.',
+        evidence: {
+          found: schemaTypes.join(', '),
+          actual: `Current types: ${schemaTypes.join(', ')}`,
+          expected: 'Include AI-friendly types like Article, FAQPage, Product, or Organization',
+        }
+      })
+      score -= 5
+    }
+  }
+
+  // 2. Check for clear heading structure
+  const h1Count = siteData.$('h1').length
+  const h2Count = siteData.$('h2').length
+  const h3Count = siteData.$('h3').length
+  const h4Count = siteData.$('h4').length
+  const headingCount = h1Count + h2Count + h3Count + h4Count
+  
+  if (headingCount === 0) {
+    issues.push({
+      title: 'No heading structure detected',
+      severity: 'high',
+      technicalExplanation: 'No H1, H2, H3, or H4 tags found in the page HTML',
+      plainLanguageExplanation: 'AI assistants and search engines use headings to understand the structure of your content. Without headings, your content appears as a wall of text, making it harder for AI to extract key information.',
+      suggestedFix: 'Add a clear heading hierarchy to your page: one H1 for the page title, H2s for main sections, and H3s for subsections.',
+      evidence: {
+        found: 'No headings found',
+        actual: 'H1: 0, H2: 0, H3: 0, H4: 0',
+        expected: 'At least one H1 heading and supporting H2/H3 structure',
+      }
+    })
+    score -= 30
+  } else if (h1Count === 0) {
+    issues.push({
+      title: 'Missing H1 heading',
+      severity: 'medium',
+      technicalExplanation: 'Page has H2-H4 headings but no H1',
+      plainLanguageExplanation: 'An H1 heading tells AI assistants and search engines what the page is primarily about. Without it, the main topic of your page is less clear.',
+      suggestedFix: 'Add one H1 heading at the top of your main content that clearly describes the page topic.',
+      evidence: {
+        found: `H2: ${h2Count}, H3: ${h3Count}`,
+        actual: `${h1Count} H1 tags`,
+        expected: 'One H1 heading as the primary page heading',
+      }
+    })
+    score -= 15
+  } else if (h1Count > 1) {
+    issues.push({
+      title: 'Multiple H1 headings may confuse AI extraction',
+      severity: 'low',
+      technicalExplanation: `Found ${h1Count} H1 tags`,
+      plainLanguageExplanation: 'While multiple H1s are common in modern web frameworks, having a single primary H1 helps AI assistants clearly identify the main topic of your page.',
+      suggestedFix: 'Use one H1 per page. Convert additional H1s to H2 headings if they represent sub-topics.',
+      evidence: {
+        found: `${h1Count} H1 tags`,
+        actual: `${h1Count} H1 tags found`,
+        expected: '1 H1 tag for clear content structure',
+      }
+    })
+    score -= 5
+  }
+
+  // 3. Check meta description quality
+  const description = siteData.description || ''
+  if (!description) {
+    issues.push({
+      title: 'Missing meta description',
+      severity: 'medium',
+      technicalExplanation: 'No meta description tag found in HTML',
+      plainLanguageExplanation: 'Meta descriptions are often used by AI assistants as a concise summary of your page. Without one, AI tools must infer the page topic from full content, which may be less accurate.',
+      suggestedFix: 'Add a clear meta description (150-160 characters) that summarizes what your page offers.',
+      evidence: {
+        found: null,
+        expected: 'A meta description tag with 150-160 characters',
+      }
+    })
+    score -= 15
+  } else if (description.length < 80) {
+    issues.push({
+      title: 'Meta description is too short for AI use',
+      severity: 'low',
+      technicalExplanation: `Description is only ${description.length} characters`,
+      plainLanguageExplanation: 'Short descriptions give AI assistants less context about your page. A longer, descriptive summary helps AI tools accurately represent your content.',
+      suggestedFix: 'Expand your meta description to 150-160 characters with more context about your page content.',
+      evidence: {
+        found: description,
+        actual: `${description.length} characters`,
+        expected: '150-160 characters for optimal AI and search engine use',
+      }
+    })
+    score -= 5
+  }
+
+  // 4. Check for clear page title
+  const title = siteData.title || ''
+  if (!title) {
+    issues.push({
+      title: 'Missing page title',
+      severity: 'high',
+      technicalExplanation: 'No <title> tag found in HTML',
+      plainLanguageExplanation: 'AI assistants rely on page titles to quickly identify and reference your content. Without a title, your page is much harder for AI tools to categorize and summarize.',
+      suggestedFix: 'Add a descriptive page title (50-60 characters) that accurately describes the page content.',
+      evidence: {
+        found: null,
+        expected: 'A title tag with 50-60 characters',
+      }
+    })
+    score -= 25
+  } else if (title.length < 15) {
+    issues.push({
+      title: 'Page title is too short for clear AI identification',
+      severity: 'low',
+      technicalExplanation: `Title is only ${title.length} characters`,
+      plainLanguageExplanation: 'Short page titles may not provide enough context for AI assistants to understand what your page is about.',
+      suggestedFix: 'Expand your page title to 50-60 characters with relevant keywords.',
+      evidence: {
+        found: title,
+        actual: `${title.length} characters`,
+        expected: '50-60 characters',
+      }
+    })
+    score -= 5
+  }
+
+  // 5. Check for content length (AI needs enough content to extract meaning)
+  const bodyText = siteData.$('body').text().replace(/\s+/g, ' ').trim()
+  const wordCount = bodyText.split(' ').filter(w => w.length > 0).length
+  
+  if (wordCount < 200) {
+    issues.push({
+      title: 'Page has very little content for AI extraction',
+      severity: 'medium',
+      technicalExplanation: `Page has only ${wordCount} words`,
+      plainLanguageExplanation: 'AI assistants need enough content to accurately understand and summarize your page. Pages with very little content offer limited information for AI tools to work with.',
+      suggestedFix: 'Add more substantive content to your page. AI-friendly pages typically have at least 300-500 words of descriptive text.',
+      evidence: {
+        found: `${wordCount} words`,
+        actual: `${wordCount} words`,
+        expected: 'At least 300-500 words of substantive content',
+        count: wordCount,
+      }
+    })
+    score -= 15
+  }
+
+  const summary = score >= 80
+    ? 'Your site is well optimized for AI-powered search and assistants. Keep your structured data and content fresh.'
+    : score >= 60
+    ? 'Your site has room for improvement in AI readiness. Focus on adding structured data and improving your heading structure and meta descriptions.'
+    : 'Your site needs significant work to be AI-friendly. Start by adding a clear page title, structured data, and a proper heading hierarchy.'
+
+  return {
+    moduleKey: 'llm_readiness',
+    score: Math.max(0, score),
+    issues,
+    summary,
+    evidence: {
+      hasSchemaOrg,
+      schemaTypesDetected: schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None',
+      h1Count,
+      h2Count,
+      h3Count,
+      headingTotal: headingCount,
+      title: title || 'Not found',
+      titleLength: title ? title.length : 0,
+      metaDescription: description || 'Not found',
+      metaDescriptionLength: description ? description.length : 0,
+      wordCount,
+      hasClearHeadingStructure: h1Count > 0 && h2Count > 0,
+      detectionNote: 'AI readiness is based on static HTML analysis. Dynamically injected content may not be fully detected.',
+    },
+  }
+}
+
+/**
  * Run all enabled modules
  */
 export async function runAuditModules(
@@ -2570,6 +2900,7 @@ export async function runAuditModules(
     schema: runSchemaModule,
     social: runSocialModule,
     competitor_overview: runCompetitorOverviewModule,
+    llm_readiness: runLLMReadinessModule,
   }
 
   // Run modules in parallel for speed (they all use the same siteData)
