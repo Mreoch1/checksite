@@ -907,7 +907,7 @@ function generateHTMLReport(data: {
       </p>
     </div>
 
-    ${data.screenshots ? `
+    ${data.screenshots?.desktop || data.screenshots?.mobile ? `
     <hr style="margin: 40px 0; border: none; border-top: 1px solid #e5e7eb;">
     <h2 style="color: #0284c7; margin-top: 40px; margin-bottom: 20px;">Website Snapshot</h2>
     <p style="color: #6b7280; font-size: 0.95em; margin-bottom: 20px;">
