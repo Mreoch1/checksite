@@ -18,6 +18,10 @@ const defaultLinks = [
     label: 'Before and After SEO Audit Checklist',
   },
   {
+    href: '/resources/seo-checksite-vs-ahrefs',
+    label: 'SEO CheckSite vs Ahrefs (2026)',
+  },
+  {
     href: '/resources/seo-checksite-vs-other-audit-tools',
     label: 'SEO CheckSite vs Other SEO Audit Tools',
   },
