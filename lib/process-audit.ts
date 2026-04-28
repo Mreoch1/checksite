@@ -334,10 +334,12 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       console.log('📸 Capturing website screenshots...')
       let screenshots: { desktop?: string; mobile?: string } | undefined
       try {
-        screenshots = await captureWebsiteScreenshots(audit.url)
-        if (screenshots.desktop || screenshots.mobile) {
-          console.log(`✅ Screenshots captured: ${screenshots.desktop ? 'desktop' : ''} ${screenshots.mobile ? 'mobile' : ''}`)
+        const captured = await captureWebsiteScreenshots(audit.url)
+        if (captured?.desktop || captured?.mobile) {
+          screenshots = captured
+          console.log(`✅ Screenshots captured: ${captured.desktop ? 'desktop' : ''} ${captured.mobile ? 'mobile' : ''}`)
         } else {
+          screenshots = undefined
           console.log('⚠️  No screenshots captured (API may not be configured)')
         }
       } catch (screenshotError) {
