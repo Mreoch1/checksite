@@ -129,7 +129,120 @@ function escapeHtml(text: string | null | undefined): string {
     .replace(/'/g, '&#039;')
 }
 
-export function generateSimpleReport(auditResult: SimpleReportData): { html: string; plaintext: string } {
+function generateTeaserReport(auditResult: SimpleReportData): { html: string; plaintext: string } {
+  const domain = auditResult.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  const highIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'high').length, 0)
+  const mediumIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.filter(i => i.severity === 'medium').length, 0)
+  const totalIssues = auditResult.modules.reduce((sum, m) => sum + m.issues.length, 0)
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO CheckSite - Website Report Preview</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 20px; background: #f9fafb; }
+    .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    h1 { color: #0369a1; border-bottom: 3px solid #0ea5e9; padding-bottom: 10px; font-size: 28px; }
+    .score-circle { display: inline-block; width: 120px; height: 120px; border-radius: 50%; text-align: center; line-height: 120px; font-size: 36px; font-weight: bold; color: white; margin: 20px 0; }
+    .score-high { background: #10b981; }
+    .score-medium { background: #f59e0b; }
+    .score-low { background: #ef4444; }
+    .module-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+    .module-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; }
+    .module-card h3 { margin: 0 0 8px 0; color: #111827; font-size: 16px; }
+    .module-score { font-size: 24px; font-weight: bold; }
+    .issue-list { margin: 15px 0; padding: 0; list-style: none; }
+    .issue-list li { padding: 10px 15px; margin-bottom: 8px; border-left: 4px solid #e5e7eb; background: #f9fafb; border-radius: 4px; font-weight: 500; color: #111827; }
+    .issue-list .high { border-left-color: #ef4444; }
+    .issue-list .medium { border-left-color: #f59e0b; }
+    .issue-list .low { border-left-color: #10b981; }
+    .upgrade-box { background: linear-gradient(135deg, #2563eb, #0ea5e9); color: white; padding: 30px; border-radius: 12px; text-align: center; margin: 30px 0; }
+    .upgrade-box h2 { color: white; margin-top: 0; font-size: 24px; }
+    .upgrade-box p { font-size: 16px; margin-bottom: 20px; opacity: 0.9; }
+    .upgrade-btn { display: inline-block; background: white; color: #2563eb; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 18px; }
+    .upgrade-btn:hover { background: #f0f0f0; }
+    .meta { color: #6b7280; font-size: 14px; margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SEO CheckSite - Website Report Preview</h1>
+    <p class="meta">URL: ${escapeHtml(auditResult.url)}</p>
+    <p class="meta">Date: ${date}</p>
+
+    <div style="text-align: center;">
+      <div class="score-circle ${auditResult.overallScore >= 80 ? 'score-high' : auditResult.overallScore >= 60 ? 'score-medium' : 'score-low'}">
+        ${auditResult.overallScore}
+      </div>
+      <p style="font-size: 18px; color: #374151;">
+        ${auditResult.overallScore >= 80 ? 'Your site looks good!' : auditResult.overallScore >= 60 ? 'Some improvements needed' : 'Significant issues found'}
+      </p>
+    </div>
+
+    <h2>Module Scores</h2>
+    <div class="module-grid">
+      ${auditResult.modules.map(m => {
+        const label = m.moduleKey === 'crawl_health' ? 'Crawl Health' : m.moduleKey.charAt(0).toUpperCase() + m.moduleKey.slice(1).replace(/_/g, ' ')
+        return `<div class="module-card">
+          <h3>${label}</h3>
+          <div class="module-score" style="color: ${m.score >= 80 ? '#10b981' : m.score >= 60 ? '#f59e0b' : '#ef4444'}">${m.score}/100</div>
+        </div>`
+      }).join('')}
+    </div>
+
+    ${totalIssues > 0 ? `
+    <h2>Issues Found (${totalIssues})</h2>
+    <ul class="issue-list">
+      ${auditResult.modules.flatMap(m => m.issues.map(i => 
+        `<li class="${i.severity}">${escapeHtml(i.title)}</li>`
+      )).join('')}
+    </ul>
+    ` : '<p style="color: #10b981; font-size: 18px;">No issues found on scanned pages. Great work!</p>'}
+
+    <div class="upgrade-box">
+      <h2>Want the Full Fix Plan?</h2>
+      <p>Your preview shows what issues exist. Upgrade to get complete fix instructions, evidence details, and a prioritized checklist.</p>
+      <a href="https://seochecksite.net/" class="upgrade-btn">Get Full Report — $14.99</a>
+    </div>
+
+    <p style="text-align: center; color: #6b7280; font-size: 14px;">
+      SEO CheckSite — Plain-language website audits for small business owners
+    </p>
+  </div>
+</body>
+</html>`
+
+  const plaintext = `SEO CHECKISTE - WEBSITE REPORT PREVIEW
+================================
+URL: ${auditResult.url}
+Date: ${date}
+
+Overall Score: ${auditResult.overallScore}/100
+
+Module Scores:
+${auditResult.modules.map(m => `  ${m.moduleKey.replace(/_/g, ' ')}: ${m.score}/100`).join('\n')}
+
+Issues Found (${totalIssues}):
+${auditResult.modules.flatMap(m => m.issues.map(i => `  [${i.severity.toUpperCase()}] ${i.title}`)).join('\n')}
+
+---
+Want the full fix plan with detailed instructions?
+Visit https://seochecksite.net/ to upgrade for $14.99
+---`
+
+  return { html, plaintext }
+}
+
+export function generateSimpleReport(auditResult: SimpleReportData, options?: { teaser?: boolean }): { html: string; plaintext: string } {
+  // Teaser mode: scores + issue headlines only, no fix details
+  if (options?.teaser) {
+    return generateTeaserReport(auditResult)
+  }
+
   const domain = auditResult.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   

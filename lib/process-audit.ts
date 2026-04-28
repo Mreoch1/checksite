@@ -350,13 +350,14 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       console.log(`Audit result has ${auditResult.modules.length} modules`)
       
       try {
+        const isFree = audit.total_price_cents === 0 || audit.total_price_cents === null
         const result = generateSimpleReport({
           url: audit.url,
           pageAnalysis,
           modules: results,
           overallScore,
           screenshots,
-        })
+        }, { teaser: isFree })
         // Assign to outer scope variables (declared at function level)
         html = result.html
         plaintext = result.plaintext

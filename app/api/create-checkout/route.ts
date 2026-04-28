@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate total price: $0 for first report, else $9.99 base + add-ons
+    // Calculate total price: $0 for first (teaser) report, else $14.99 base + add-ons
     let totalCents = isFirstReport ? 0 : PRICING_CONFIG.basePrice
     if (!isFirstReport) {
       modules.forEach((module: ModuleKey) => {

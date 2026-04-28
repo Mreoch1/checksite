@@ -493,7 +493,7 @@ export default function RecommendPage() {
 
           <div className="border-t pt-6">
             <p className="text-sm text-gray-600 mb-4 bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded">
-              <strong>Your first report is free</strong> (one per email). If you've already used a free report, you'll see the price below. Additional reports are ${(PRICING_CONFIG.basePrice / 100).toFixed(2)} + add-ons.
+              <strong>Free preview</strong> shows your site scores and issue headlines. Get the <strong>full report</strong> with complete fix instructions for <strong>$${(PRICING_CONFIG.basePrice / 100).toFixed(2)}</strong>.
             </p>
             <div className="space-y-2 mb-6">
               <div className="flex justify-between text-gray-600">
