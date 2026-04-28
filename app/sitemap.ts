@@ -118,6 +118,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${siteUrl}/resources/seo-checksite-vs-ahrefs`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
       url: `${siteUrl}/resources/seo-checksite-vs-other-audit-tools`,
       lastModified: now,
       changeFrequency: 'weekly',

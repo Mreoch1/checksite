@@ -42,6 +42,11 @@ const resourceLinks = [
     description: 'A repeatable framework to track baseline issues and improvement over time.',
   },
   {
+    href: '/resources/seo-checksite-vs-ahrefs',
+    title: 'SEO CheckSite vs Ahrefs (2026)',
+    description: 'Compare pricing, ease of use, and depth to see which tool fits your small business.',
+  },
+  {
     href: '/resources/seo-checksite-vs-other-audit-tools',
     title: 'SEO CheckSite vs Other SEO Audit Tools',
     description: 'A clarity-first comparison focused on execution speed and practical fit.',
