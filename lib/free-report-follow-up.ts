@@ -60,20 +60,20 @@ export function buildFreeReportFollowUpEmailHtml(params: {
           </div>
         </div>
 
-        <h2 style="color: #0369a1; font-size: 22px; margin-top: 0;">Quick feedback on your free report</h2>
+        <h2 style="color: #0369a1; font-size: 22px; margin-top: 0;">Quick feedback on your free preview</h2>
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">Hello,</p>
         <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-          A few days ago we sent your free website analysis for <strong style="color: #0369a1;">${domain}</strong>.
+          A few days ago we sent your free website preview for <strong style="color: #0369a1;">${domain}</strong>.
           We would love a minute of your time to hear how it landed.
         </p>
 
         <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 16px; margin: 22px 0; border-radius: 4px;">
           <p style="color: #0369a1; font-size: 15px; margin: 0 0 8px 0; font-weight: 600;">Short questionnaire</p>
           <ul style="color: #374151; font-size: 14px; margin: 0; padding-left: 18px; line-height: 1.6;">
-            <li>How did you like the report?</li>
-            <li>Was it what you expected?</li>
-            <li>Would you consider purchasing a full paid audit in the future?</li>
-            <li>Anything else we should know?</li>
+            <li>Did the preview help you understand your website's issues?</li>
+            <li>Did you upgrade to the full report with fix instructions?</li>
+            <li>If not, what's stopping you? (price, not useful enough, etc.)</li>
+            <li>Any other feedback?</li>
           </ul>
         </div>
 
@@ -120,7 +120,7 @@ export async function sendFreeReportFollowUpEmail(
   const html = buildFreeReportFollowUpEmailHtml({ auditId, url: siteUrl })
   await sendEmail({
     to,
-    subject: `How was your free report for ${domain}?`,
+    subject: `How was your free preview for ${domain}?`,
     html,
   })
 }

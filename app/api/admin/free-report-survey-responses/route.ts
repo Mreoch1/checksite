@@ -8,7 +8,7 @@ export const runtime = 'nodejs'
 const MAX_LIMIT = 200
 
 /**
- * List submitted free-report questionnaire responses (newest first).
+ * List submitted free-report follow-up survey responses (preview/upgrade model, newest first).
  * Use Supabase Table Editor on `free_report_survey_responses` for ad-hoc browsing, or this JSON endpoint.
  */
 export async function GET(request: NextRequest) {
