@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        url: `${siteUrl}/logo.svg`,
+        url: `${siteUrl}/og-image.png`,
         width: 1200,
         height: 630,
         alt: 'SEO CheckSite Logo',
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'SEO CheckSite - Website Audit for Small Business Owners',
     description: siteDescription,
-    images: [`${siteUrl}/logo.svg`],
+    images: [`${siteUrl}/og-image.png`],
   },
   robots: {
     index: true,
