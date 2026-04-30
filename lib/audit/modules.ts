@@ -147,6 +147,9 @@ export async function fetchSite(url: string): Promise<SiteData> {
     clearTimeout(timeoutId)
 
     if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error(`HTTP 403 — ${url} blocked our analysis tool. The website or its security plugin is preventing automated access.`)
+      }
       throw new Error(`HTTP ${response.status}`)
     }
 
