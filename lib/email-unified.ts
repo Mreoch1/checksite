@@ -458,8 +458,8 @@ export async function sendAuditFailureEmail(
   
   if (errorMessage) {
     if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
-      errorExplanation = `${domain} blocked our automated analysis. This is a security measure some websites use to prevent automated access.`
-      canRetry = false
+      errorExplanation = `${domain} is blocking our analysis tool. This happens when security plugins (Wordfence, Sucuri, Cloudflare, etc.) or your web host blocks automated checks.`
+      canRetry = true
     } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
       errorExplanation = `We couldn't access ${domain}. The URL may be incorrect or the site may be temporarily unavailable.`
     } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
@@ -507,22 +507,30 @@ export async function sendAuditFailureEmail(
           <p style="color: #991b1b; font-size: 14px; margin: 0; font-weight: 600;">Reason:</p>
           <p style="color: #7f1d1d; font-size: 14px; margin: 8px 0 0 0;">${errorExplanation}</p>
         </div>
+
+        ${canRetry ? `
+        <div style="background-color: #fefce8; border: 1px solid #eab308; padding: 20px; margin: 25px 0; border-radius: 8px;">
+          <h3 style="color: #854d0e; font-size: 18px; margin-top: 0;">How to Fix This and Retry</h3>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
+            If you control this website, here's how to allow our analysis through:
+          </p>
+          <ol style="color: #374151; font-size: 14px; line-height: 1.8; margin: 10px 0; padding-left: 20px;">
+            <li><strong>Wordfence (WordPress):</strong> Go to Wordfence → All Options → Rate Limiting and temporarily disable "Enable Rate Limiting" or whitelist our crawler. Or disable Wordfence temporarily for the scan.</li>
+            <li><strong>Cloudflare:</strong> Set Security Level to "Essentially Off" temporarily, or add a WAF bypass rule for our crawler.</li>
+            <li><strong>Sucuri / Astra / other security plugins:</strong> Temporarily disable the firewall from the plugin settings.</li>
+            <li><strong>Hosting-level blocks (e.g., Kinsta, WP Engine):</strong> Contact your web host and ask them to allow access for the "SEO CheckSite" crawler.</li>
+            <li><strong>Not sure?</strong> Ask your web developer or hosting provider to whitelist our crawler (User-Agent: "Mozilla/5.0 (compatible; SEO CheckSite/1.0)").</li>
+          </ol>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0 0 0;">
+            <strong>After making changes, visit <a href="${SITE_URL}" style="color: #0ea5e9;">seochecksite.net</a> and submit your URL again</strong> — we'll run your analysis right away.
+          </p>
+        </div>
+        ` : ''}
         
         <div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; padding: 20px; margin: 25px 0; border-radius: 8px;">
-          <h3 style="color: #0369a1; font-size: 18px; margin-top: 0;">Request a Full Refund</h3>
+          <h3 style="color: #0369a1; font-size: 18px; margin-top: 0;">Need a Refund?</h3>
           <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            We're sorry we couldn't complete your audit. You're entitled to a full refund.
-          </p>
-          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            <strong>To request your refund:</strong>
-          </p>
-          <ul style="color: #374151; font-size: 14px; line-height: 1.8; margin: 10px 0; padding-left: 20px;">
-            <li>Email us at <a href="mailto:admin@seochecksite.net?subject=Refund%20Request%20for%20${encodeURIComponent(domain)}" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a></li>
-            <li>Include: The website you tried to audit (<strong>${url}</strong>)</li>
-            <li>Include: The email address you used at checkout (<strong>${email}</strong>)</li>
-          </ul>
-          <p style="color: #374151; font-size: 14px; line-height: 1.6; margin: 10px 0;">
-            <strong>We'll process a full refund within 24–48 hours.</strong>
+            If you paid for this analysis and can't resolve the issue, you're entitled to a full refund. Email us at <a href="mailto:admin@seochecksite.net?subject=Refund%20Request%20for%20${encodeURIComponent(domain)}" style="color: #0ea5e9; text-decoration: none; font-weight: 600;">admin@seochecksite.net</a> with the website URL and your email address.
           </p>
         </div>
         
