@@ -55,3 +55,6 @@ const nextConfig = {
 
 module.exports = nextConfig
 
+
+// Force _next/static to be served from public directory
+// Workaround for Netlify plugin static file serving issue

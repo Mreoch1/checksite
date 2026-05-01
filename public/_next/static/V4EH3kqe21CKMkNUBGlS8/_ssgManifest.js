@@ -1,1 +1,0 @@
-self.__SSG_MANIFEST=new Set(["\u002Fresources\u002Fseo-glossary\u002F[term]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()

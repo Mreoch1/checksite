@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && mkdir -p public/_next && cp -r .next/static public/_next/static && echo '📦 Static files copied to public/_next/ for deploy'",
+    "build": "next build && mkdir -p public/assets && cp -r .next/static/* public/assets/ && echo '📦 Static files copied to public/assets/ for deploy'",
     "start": "next start",
     "lint": "next lint",
     "setup": "./setup.sh",
