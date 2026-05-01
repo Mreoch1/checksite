@@ -8,8 +8,6 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-  # Pin plugin version for consistent builds
-  # version = "5.10.0"
 
 # Functions configuration
 # Scheduled function is defined in netlify/functions/process-queue.js
