@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import Script from 'next/script'
 
 export default function Home() {
   const router = useRouter()
@@ -105,8 +106,26 @@ export default function Home() {
     },
   ]
 
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer,
+      },
+    })),
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <Script
+        id="faq-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       {/* Hero Section */}
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
@@ -127,7 +146,7 @@ export default function Home() {
           </div>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            Get Your Website Checked
+            Free Website Audit for Small Business Owners — SEO CheckSite
           </h1>
           <p className="text-xl text-gray-600 mb-2">
             One-time website audit for regular business owners

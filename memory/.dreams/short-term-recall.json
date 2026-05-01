@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-29T07:00:01.707Z",
+  "updatedAt": "2026-04-30T07:00:01.345Z",
   "entries": {
     "memory:memory/.dreams/session-corpus/2026-04-28.txt:1:1": {
       "key": "memory:memory/.dreams/session-corpus/2026-04-28.txt:1:1",
@@ -1094,6 +1094,4097 @@
         "was",
         "created",
         "change"
+      ]
+    },
+    "memory:memory/2026-04-29.md:5:8": {
+      "key": "memory:memory/2026-04-29.md:5:8",
+      "path": "memory/2026-04-29.md",
+      "startLine": 5,
+      "endLine": 8,
+      "source": "memory",
+      "snippet": "X Account Setup: Account @SeoCheckSite created and logged into browser; 2 tweets posted (intro + audit CTA); Twitter card fixed (SVG → PNG for og:image); Followed: @neilpatel, @sejournal, @ahrefs, @googleanalytics, @NealSchaffer, @GregBoser",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "account",
+        "setup",
+        "seochecksite",
+        "created",
+        "logged",
+        "browser",
+        "tweets",
+        "posted"
+      ]
+    },
+    "memory:memory/2026-04-29.md:9:12": {
+      "key": "memory:memory/2026-04-29.md:9:12",
+      "path": "memory/2026-04-29.md",
+      "startLine": 9,
+      "endLine": 12,
+      "source": "memory",
+      "snippet": "X Account Setup: Skill file created at skills/x-social-media/SKILL.md — full brand playbook; 3 daily cron jobs configured (8AM, 2PM, 8PM ET) pointing to the skill; ~6hr/day total engagement, 24/7 automated; Credentials in TOOLS.md",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "skills/x-social-media/skill.md",
+        "6hr/day",
+        "24/7",
+        "tools.md",
+        "account",
+        "setup",
+        "skill",
+        "created"
+      ]
+    },
+    "memory:memory/2026-04-29.md:16:17": {
+      "key": "memory:memory/2026-04-29.md:16:17",
+      "path": "memory/2026-04-29.md",
+      "startLine": 16,
+      "endLine": 17,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Original Post (Pillar 1 - Technical SEO):** \"4 technical SEO issues that quietly kill indexing: • Hreflang missing self-referencing alternates • Canonicals pointing to redirected URLs • JS content crawlers can't render • Orphan pages with no int",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "self-referencing",
+        "activity",
+        "afternoon",
+        "2pm",
+        "original",
+        "post",
+        "pillar",
+        "technical"
+      ]
+    },
+    "memory:memory/2026-04-29.md:19:19": {
+      "key": "memory:memory/2026-04-29.md:19:19",
+      "path": "memory/2026-04-29.md",
+      "startLine": 19,
+      "endLine": 19,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Likes (11):** @atilus, @WebDesignerNora, @BigAppleMedia, @corranforce, @HVACSEO, @jonogill, @WebziApp, @INTELLIPLANS, @keithdreamtech, @TrustedTed, @Hey_builds",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "hey-builds",
+        "activity",
+        "afternoon",
+        "2pm",
+        "likes",
+        "atilus",
+        "webdesignernora",
+        "bigapplemedia"
+      ]
+    },
+    "memory:memory/2026-04-29.md:21:21": {
+      "key": "memory:memory/2026-04-29.md:21:21",
+      "path": "memory/2026-04-29.md",
+      "startLine": 21,
+      "endLine": 21,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Replies (4, value-added):**",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "value-added",
+        "activity",
+        "afternoon",
+        "2pm",
+        "replies",
+        "value",
+        "added"
+      ]
+    },
+    "memory:memory/2026-04-29.md:22:25": {
+      "key": "memory:memory/2026-04-29.md:22:25",
+      "path": "memory/2026-04-29.md",
+      "startLine": 22,
+      "endLine": 25,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): @HVACSEO — Added Manual Actions report check to their GSC audit workflow; @Hey_builds — Suggested also checking canonical tags alongside redirect chains; @keithdreamtech — Added note about Google rewriting titles and checking Performance report; @",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "hey-builds",
+        "activity",
+        "afternoon",
+        "2pm",
+        "hvacseo",
+        "added",
+        "manual",
+        "actions"
+      ]
+    },
+    "memory:memory/2026-04-29.md:27:27": {
+      "key": "memory:memory/2026-04-29.md:27:27",
+      "path": "memory/2026-04-29.md",
+      "startLine": 27,
+      "endLine": 27,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Follows (10):** @BrianEDean, @aleyda, @GforPublishers, @patrickstox, @lilyraynyc, @HVACSEO, @jonogill, @JoyanneHawkins, @CyrusShepard, @googlesearchc",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "afternoon",
+        "2pm",
+        "follows",
+        "brianedean",
+        "aleyda",
+        "gforpublishers",
+        "patrickstox"
+      ]
+    },
+    "memory:memory/2026-04-29.md:29:29": {
+      "key": "memory:memory/2026-04-29.md:29:29",
+      "path": "memory/2026-04-29.md",
+      "startLine": 29,
+      "endLine": 29,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Searches used:** \"technical SEO\", \"SEO tips\", \"Google Search Console\"",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "afternoon",
+        "2pm",
+        "searches",
+        "used",
+        "technical",
+        "seo",
+        "tips"
+      ]
+    },
+    "memory:memory/2026-04-29.md:31:31": {
+      "key": "memory:memory/2026-04-29.md:31:31",
+      "path": "memory/2026-04-29.md",
+      "startLine": 31,
+      "endLine": 31,
+      "source": "memory",
+      "snippet": "X Activity - Afternoon (2PM ET): **Engagement level:** Good. Mixed replies with existing accounts in SEO niche. Added technical value without promoting the product.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "afternoon",
+        "2pm",
+        "engagement",
+        "level",
+        "good",
+        "mixed",
+        "replies"
+      ]
+    },
+    "memory:memory/2026-04-29.md:35:36": {
+      "key": "memory:memory/2026-04-29.md:35:36",
+      "path": "memory/2026-04-29.md",
+      "startLine": 35,
+      "endLine": 36,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Original Post (Pillar 6 - Industry Education / Myth-busting):** \"Technical SEO myth: Valid Schema markup = Google understands it. Reality: Google's rich result guidelines are stricter than Schema.org specs. Your markup can validate but use wrong v",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "myth-busting",
+        "schema.org",
+        "activity",
+        "evening",
+        "8pm",
+        "original",
+        "post",
+        "pillar"
+      ]
+    },
+    "memory:memory/2026-04-29.md:38:38": {
+      "key": "memory:memory/2026-04-29.md:38:38",
+      "path": "memory/2026-04-29.md",
+      "startLine": 38,
+      "endLine": 38,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Likes (6):**",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "likes"
+      ]
+    },
+    "memory:memory/2026-04-29.md:39:42": {
+      "key": "memory:memory/2026-04-29.md:39:42",
+      "path": "memory/2026-04-29.md",
+      "startLine": 39,
+      "endLine": 42,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): @sejournal — Google Search Revenue grew 19% in Q1; @lilyraynyc — Comment on Alphabet earnings results; @lilyraynyc — EEAT podcast promotion; @lilyraynyc — Reddit vs YouTube visibility data post",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "sejournal",
+        "google",
+        "revenue",
+        "grew",
+        "lilyraynyc"
+      ]
+    },
+    "memory:memory/2026-04-29.md:43:44": {
+      "key": "memory:memory/2026-04-29.md:43:44",
+      "path": "memory/2026-04-29.md",
+      "startLine": 43,
+      "endLine": 44,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): @JoyanneHawkins — Local SEO grey area discussion; (Derek Mollins business/marketing post liked earlier)",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "business/marketing",
+        "activity",
+        "evening",
+        "8pm",
+        "joyannehawkins",
+        "local",
+        "seo",
+        "grey"
+      ]
+    },
+    "memory:memory/2026-04-29.md:46:46": {
+      "key": "memory:memory/2026-04-29.md:46:46",
+      "path": "memory/2026-04-29.md",
+      "startLine": 46,
+      "endLine": 46,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Replies (1):**",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "replies"
+      ]
+    },
+    "memory:memory/2026-04-29.md:47:47": {
+      "key": "memory:memory/2026-04-29.md:47:47",
+      "path": "memory/2026-04-29.md",
+      "startLine": 47,
+      "endLine": 47,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): @CashionEast — Provided SEO budget allocation advice: technical audit first, content matching search intent, 40% SEO/content, 30% paid, 30% outreach split",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seo/content",
+        "activity",
+        "evening",
+        "8pm",
+        "cashioneast",
+        "provided",
+        "seo",
+        "budget"
+      ]
+    },
+    "memory:memory/2026-04-29.md:49:49": {
+      "key": "memory:memory/2026-04-29.md:49:49",
+      "path": "memory/2026-04-29.md",
+      "startLine": 49,
+      "endLine": 49,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Follows (3):**",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "follows"
+      ]
+    },
+    "memory:memory/2026-04-29.md:50:52": {
+      "key": "memory:memory/2026-04-29.md:50:52",
+      "path": "memory/2026-04-29.md",
+      "startLine": 50,
+      "endLine": 52,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): @brodieseo — Independent SEO Consultant, built @serplens; @rustybrick (Barry Schwartz) — News and updates about search; @glenngabe — SEO and AI Search Consultant, Google algorithm recovery expert",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "brodieseo",
+        "independent",
+        "seo",
+        "consultant",
+        "built"
+      ]
+    },
+    "memory:memory/2026-04-29.md:54:54": {
+      "key": "memory:memory/2026-04-29.md:54:54",
+      "path": "memory/2026-04-29.md",
+      "startLine": 54,
+      "endLine": 54,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Notifications checked:** 1 unread — login alert from new device on Apr 29, 2026. No mentions or replies.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "notifications",
+        "checked",
+        "unread",
+        "login",
+        "alert"
+      ]
+    },
+    "memory:memory/2026-04-29.md:56:56": {
+      "key": "memory:memory/2026-04-29.md:56:56",
+      "path": "memory/2026-04-29.md",
+      "startLine": 56,
+      "endLine": 56,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Search used:** \"SEO question OR how to fix SEO OR need help with SEO\" — found Cash East asking about marketing budget allocation, replied with actionable SEO advice.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "activity",
+        "evening",
+        "8pm",
+        "used",
+        "seo",
+        "question",
+        "how",
+        "fix"
+      ]
+    },
+    "memory:memory/2026-04-29.md:58:58": {
+      "key": "memory:memory/2026-04-29.md:58:58",
+      "path": "memory/2026-04-29.md",
+      "startLine": 58,
+      "endLine": 58,
+      "source": "memory",
+      "snippet": "X Activity - Evening (8PM ET): **Who to follow discovered (and followed):** Brodie Clark, Barry Schwartz, Glenn Gabe — all top-tier SEO professionals",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "top-tier",
+        "activity",
+        "evening",
+        "8pm",
+        "who",
+        "follow",
+        "discovered",
+        "followed"
+      ]
+    },
+    "memory:memory/2026-04-29.md:62:65": {
+      "key": "memory:memory/2026-04-29.md:62:65",
+      "path": "memory/2026-04-29.md",
+      "startLine": 62,
+      "endLine": 65,
+      "source": "memory",
+      "snippet": "Ops Check — Failed Audit: **uaeup2019@gmail.com** submitted `berbopublicidad.com` at ~4:40 AM EDT (free audit, marketing consent given); Crawler got HTTP 403 — site blocks bots; Failure email sent to user at 04:42 AM explaining the block; No Michael-side alerting existed until no",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "berbopublicidad.com",
+        "michael-side",
+        "ops",
+        "check",
+        "failed",
+        "audit",
+        "uaeup2019"
+      ]
+    },
+    "memory:memory/2026-04-29.md:66:67": {
+      "key": "memory:memory/2026-04-29.md:66:67",
+      "path": "memory/2026-04-29.md",
+      "startLine": 66,
+      "endLine": 67,
+      "source": "memory",
+      "snippet": "Ops Check — Failed Audit: **Fix applied:** Added daily cron job `e67b0175` that scans for failed audits at 6 AM ET and writes findings to memory; **Learnings:** Free audit flow doesn't check reachability before enqueuing (only paid flow does). User was notified correctly. Michael",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "ops",
+        "check",
+        "failed",
+        "audit",
+        "fix",
+        "applied",
+        "added",
+        "cron"
+      ]
+    },
+    "memory:memory/2026-04-29.md:72:74": {
+      "key": "memory:memory/2026-04-29.md:72:74",
+      "path": "memory/2026-04-29.md",
+      "startLine": 72,
+      "endLine": 74,
+      "source": "memory",
+      "snippet": "Problem: `berbopublicidad.com` blocked our crawler (403) at audit time, but the pre-check let it through; Failure email just said \"we couldn't complete analysis\" with no fix instructions; User had no way to know what went wrong or how to retry",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "berbopublicidad.com",
+        "pre-check",
+        "problem",
+        "blocked",
+        "crawler",
+        "audit",
+        "time",
+        "but"
+      ]
+    },
+    "memory:memory/2026-04-29.md:78:78": {
+      "key": "memory:memory/2026-04-29.md:78:78",
+      "path": "memory/2026-04-29.md",
+      "startLine": 78,
+      "endLine": 78,
+      "source": "memory",
+      "snippet": "Changes Made: **1. lib/check-url-reachable.ts** — Tightened reachability check",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "lib/check-url-reachable.ts",
+        "changes",
+        "made",
+        "lib",
+        "check",
+        "url",
+        "reachable.ts",
+        "tightened"
+      ]
+    },
+    "memory:memory/2026-04-29.md:79:82": {
+      "key": "memory:memory/2026-04-29.md:79:82",
+      "path": "memory/2026-04-29.md",
+      "startLine": 79,
+      "endLine": 82,
+      "source": "memory",
+      "snippet": "Changes Made: Before: `response.ok || response.status < 500` → 403s passed; After: `response.ok` only → 403, 401, 404 now properly rejected; Added specific messages per status code: 403 (security plugins), 401 (password protected), 404 (wrong URL); Added `statusCode` field to err",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "response.ok",
+        "response.status",
+        "changes",
+        "made",
+        "403s",
+        "passed",
+        "only",
+        "now"
+      ]
+    },
+    "memory:memory/2026-04-29.md:84:84": {
+      "key": "memory:memory/2026-04-29.md:84:84",
+      "path": "memory/2026-04-29.md",
+      "startLine": 84,
+      "endLine": 84,
+      "source": "memory",
+      "snippet": "Changes Made: **2. lib/audit/modules.ts** — Better fetchSite error for 403",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "lib/audit/modules.ts",
+        "changes",
+        "made",
+        "lib",
+        "audit",
+        "modules.ts",
+        "better",
+        "fetchsite"
+      ]
+    },
+    "memory:memory/2026-04-29.md:85:85": {
+      "key": "memory:memory/2026-04-29.md:85:85",
+      "path": "memory/2026-04-29.md",
+      "startLine": 85,
+      "endLine": 85,
+      "source": "memory",
+      "snippet": "Changes Made: Custom error message when crawler gets blocked: \"HTTP 403 — [url] blocked our analysis tool...\"",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "changes",
+        "made",
+        "custom",
+        "error",
+        "message",
+        "when",
+        "crawler",
+        "gets"
+      ]
+    },
+    "memory:memory/2026-04-29.md:87:87": {
+      "key": "memory:memory/2026-04-29.md:87:87",
+      "path": "memory/2026-04-29.md",
+      "startLine": 87,
+      "endLine": 87,
+      "source": "memory",
+      "snippet": "Changes Made: **3. lib/email-unified.ts** — Actionable failure email",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "lib/email-unified.ts",
+        "changes",
+        "made",
+        "lib",
+        "email",
+        "unified.ts",
+        "actionable",
+        "failure"
+      ]
+    },
+    "memory:memory/2026-04-29.md:88:90": {
+      "key": "memory:memory/2026-04-29.md:88:90",
+      "path": "memory/2026-04-29.md",
+      "startLine": 88,
+      "endLine": 90,
+      "source": "memory",
+      "snippet": "Changes Made: 403 errors now get a \"How to Fix This and Retry\" section with specific instructions for Wordfence, Cloudflare, Sucuri, hosting-level blocks; `canRetry` set to `true` for 403 (previously was `false`); Refund section remains but condensed as fallback",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "hosting-level",
+        "changes",
+        "made",
+        "errors",
+        "now",
+        "get",
+        "how",
+        "fix"
+      ]
+    },
+    "memory:memory/2026-04-29.md:93:95": {
+      "key": "memory:memory/2026-04-29.md:93:95",
+      "path": "memory/2026-04-29.md",
+      "startLine": 93,
+      "endLine": 95,
+      "source": "memory",
+      "snippet": "Test Results: 31/31 logic tests passed (reachable, 403, 401, 404, DNS fail, API format, frontend display, email scenarios); 8/8 integration tests passed (HEAD/GET, status codes, DNS resolution, fallback behavior, email template); TypeScript compilation: clean (0 errors)",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "31/31",
+        "8/8",
+        "head/get",
+        "test",
+        "results",
+        "logic",
+        "tests",
+        "passed"
+      ]
+    },
+    "memory:memory/2026-04-29.md:98:98": {
+      "key": "memory:memory/2026-04-29.md:98:98",
+      "path": "memory/2026-04-29.md",
+      "startLine": 98,
+      "endLine": 98,
+      "source": "memory",
+      "snippet": "Note: Changes are local. Needs `git commit` and deployment to Netlify to take effect.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.62,
+      "maxScore": 0.62,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "312dd0eab707"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "changes",
+        "local",
+        "needs",
+        "git",
+        "commit",
+        "deployment",
+        "netlify",
+        "take"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:1:1": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:1:1",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 1,
+      "endLine": 1,
+      "source": "memory",
+      "snippet": "Assistant: Good, we're logged in as @SeoCheckSite. Let me start the afternoon session. First, I'll compose the original tweet from a different content pillar than this morning (intro + audit CTA). Going with **Pillar 1: Technical SEO tips**.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "good",
+        "we're",
+        "logged",
+        "seochecksite",
+        "let",
+        "start",
+        "afternoon",
+        "first"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:2:2": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:2:2",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 2,
+      "endLine": 2,
+      "source": "memory",
+      "snippet": "Assistant: Tweet posted! Now let me search for SEO content to engage with. Let me use search to find relevant posts.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tweet",
+        "posted",
+        "now",
+        "let",
+        "seo",
+        "content",
+        "engage",
+        "use"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:3:3": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:3:3",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 3,
+      "endLine": 3,
+      "source": "memory",
+      "snippet": "Assistant: Let me engage with posts and follow relevant accounts. Let me start liking posts from the search results.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "engage",
+        "posts",
+        "follow",
+        "relevant",
+        "accounts",
+        "start",
+        "liking"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:4:4": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:4:4",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 4,
+      "endLine": 4,
+      "source": "memory",
+      "snippet": "Assistant: Now let me search for more SEO topics and follow more accounts.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "let",
+        "seo",
+        "topics",
+        "follow",
+        "accounts"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:5:5": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:5:5",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 5,
+      "endLine": 5,
+      "source": "memory",
+      "snippet": "Assistant: Now let me reply to a few posts. Let me start with the HVAC SEO post — it's a great fit for adding value.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "let",
+        "reply",
+        "few",
+        "posts",
+        "start",
+        "hvac",
+        "seo"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:6:6": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:6:6",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 6,
+      "endLine": 6,
+      "source": "memory",
+      "snippet": "Assistant: Reply posted! Let me reply to the Hey_builds post about fixing SEO with Claude.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "hey-builds",
+        "reply",
+        "posted",
+        "let",
+        "post",
+        "fixing",
+        "seo",
+        "claude"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:7:7": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:7:7",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 7,
+      "endLine": 7,
+      "source": "memory",
+      "snippet": "Assistant: Let me reply to one more post and follow more accounts.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "reply",
+        "one",
+        "post",
+        "follow",
+        "accounts"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:8:8": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:8:8",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 8,
+      "endLine": 8,
+      "source": "memory",
+      "snippet": "Assistant: Good work! Let me write the session log to memory.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "good",
+        "let",
+        "write",
+        "log"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:9:9": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:9:9",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 9,
+      "endLine": 9,
+      "source": "memory",
+      "snippet": "Assistant: Afternoon session complete! Here's the summary: ### ✅ Afternoon Session — 2PM ET **Original Post** (Technical SEO): > *4 technical SEO issues that quietly kill indexing: • Hreflang missing self-referencing alternates • Canonicals pointing to redirected URLs • JS conten",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "self-referencing",
+        "afternoon",
+        "complete",
+        "here's",
+        "summary",
+        "2pm",
+        "original",
+        "post"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:10:10": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:10:10",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 10,
+      "endLine": 10,
+      "source": "memory",
+      "snippet": "Assistant: AI traffic framework **Follows:** 10 new accounts - SEO pros: Brian Dean, Aleyda Solis, Patrick Stox, Lily Ray, Cyrus Shepard, Joy Hawkins - Organizations: Google for Publishers, Google Search Central - Relevant: HVAC SEO, Jonathan Gill **Engaged accounts:** All SEO-ad",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seo-ad",
+        "traffic",
+        "framework",
+        "follows",
+        "new",
+        "accounts",
+        "seo",
+        "pros"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:11:11": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:11:11",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 11,
+      "endLine": 11,
+      "source": "memory",
+      "snippet": "User: [Subagent Context] You are running as a subagent (depth 1/1). Results auto-announce to your requester; do not busy-poll for status. Begin. Your assigned task is in the system prompt under **Your Role**; execute it to completion.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "1/1",
+        "auto-announce",
+        "busy-poll",
+        "context",
+        "running",
+        "depth",
+        "results",
+        "auto"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:12:12": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:12:12",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 12,
+      "endLine": 12,
+      "source": "memory",
+      "snippet": "Assistant: Let me start by opening the browser and navigating to the X login page.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "start",
+        "opening",
+        "browser",
+        "navigating",
+        "login",
+        "page"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:13:13": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:13:13",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 13,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "Assistant: I see the login dialog. Let me enter the username for the SEO Check Site account.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "see",
+        "login",
+        "dialog",
+        "let",
+        "enter",
+        "username",
+        "seo",
+        "check"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:14:14": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:14:14",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 14,
+      "endLine": 14,
+      "source": "memory",
+      "snippet": "Assistant: Clicked on the textbox. Now let me type the username.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "clicked",
+        "textbox",
+        "now",
+        "let",
+        "type",
+        "username"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:15:15": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:15:15",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 15,
+      "endLine": 15,
+      "source": "memory",
+      "snippet": "Assistant: Now let me click \"Next\".",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:16:16": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:16:16",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 16,
+      "endLine": 16,
+      "source": "memory",
+      "snippet": "Assistant: The page looks similar - let me check the textbox and try typing again more explicitly.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "page",
+        "looks",
+        "similar",
+        "let",
+        "check",
+        "textbox",
+        "try",
+        "typing"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:17:17": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:17:17",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 17,
+      "endLine": 17,
+      "source": "memory",
+      "snippet": "Assistant: The username is entered. Now let me click \"Next\".",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "username",
+        "entered",
+        "now",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:18:18": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:18:18",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 18,
+      "endLine": 18,
+      "source": "memory",
+      "snippet": "Assistant: The \"Next\" click didn't seem to advance the page. Let me try the handle variant as the username.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "click",
+        "didn't",
+        "seem",
+        "advance",
+        "page",
+        "let",
+        "try",
+        "handle"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:19:19": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:19:19",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 19,
+      "endLine": 19,
+      "source": "memory",
+      "snippet": "Assistant: The handle is entered. Let me click Next.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "handle",
+        "entered",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:20:20": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:20:20",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 20,
+      "endLine": 20,
+      "source": "memory",
+      "snippet": "Assistant: Let me try a different approach - I'll try Michael's email since the account was likely created under it.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "try",
+        "different",
+        "approach",
+        "i'll",
+        "michael's",
+        "email",
+        "account"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:21:21": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:21:21",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 21,
+      "endLine": 21,
+      "source": "memory",
+      "snippet": "Assistant: Now I'm on the password screen! Let me enter the password.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "i'm",
+        "password",
+        "screen",
+        "let",
+        "enter"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:22:22": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:22:22",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 22,
+      "endLine": 22,
+      "source": "memory",
+      "snippet": "Assistant: Password is entered. Now let me click \"Log in\".",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "password",
+        "entered",
+        "now",
+        "let",
+        "click",
+        "log"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:23:23": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:23:23",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 23,
+      "endLine": 23,
+      "source": "memory",
+      "snippet": "Assistant: The login didn't go through with that combination. Let me close this dialog and try the username directly.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "login",
+        "didn't",
+        "combination",
+        "let",
+        "close",
+        "dialog",
+        "try",
+        "username"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:24:24": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:24:24",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 24,
+      "endLine": 24,
+      "source": "memory",
+      "snippet": "Assistant: Let me check if there's any more info about the X account in project files.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "check",
+        "there's",
+        "any",
+        "info",
+        "account",
+        "project"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:25:25": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:25:25",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 25,
+      "endLine": 25,
+      "source": "memory",
+      "snippet": "Assistant: Let me try a different approach. Let me enter the username/handle and press Enter to submit.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "username/handle",
+        "let",
+        "try",
+        "different",
+        "approach",
+        "enter",
+        "username",
+        "handle"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:26:26": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:26:26",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 26,
+      "endLine": 26,
+      "source": "memory",
+      "snippet": "Assistant: Let me check if there's any user/account info in the Supabase database or other project files.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "user/account",
+        "let",
+        "check",
+        "there's",
+        "any",
+        "account",
+        "info",
+        "supabase"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:27:27": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:27:27",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 27,
+      "endLine": 27,
+      "source": "memory",
+      "snippet": "Assistant: Let me try using the admin email for the site.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "try",
+        "admin",
+        "email",
+        "site"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:28:28": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:28:28",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 28,
+      "endLine": 28,
+      "source": "memory",
+      "snippet": "Assistant: Excellent! The email is recognized. Now let me enter the password.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "excellent",
+        "email",
+        "recognized",
+        "now",
+        "let",
+        "enter",
+        "password"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:29:29": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:29:29",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 29,
+      "endLine": 29,
+      "source": "memory",
+      "snippet": "Assistant: Password entered. Let me click \"Log in\".",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "password",
+        "entered",
+        "let",
+        "click",
+        "log"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:30:30": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:30:30",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 30,
+      "endLine": 30,
+      "source": "memory",
+      "snippet": "Assistant: 🎉 Successfully logged in as @SeoCheckSite! Now let me compose and post the introductory tweet.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "successfully",
+        "logged",
+        "seochecksite",
+        "now",
+        "let",
+        "compose",
+        "post",
+        "introductory"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:31:31": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:31:31",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 31,
+      "endLine": 31,
+      "source": "memory",
+      "snippet": "User: check supabase see if someone tried to get an audit that failed?",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "check",
+        "supabase",
+        "see",
+        "someone",
+        "tried",
+        "get",
+        "audit",
+        "failed"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:32:32": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:32:32",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 32,
+      "endLine": 32,
+      "source": "memory",
+      "snippet": "Assistant: Now let me check for failed/stuck audits and audit queue items.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "failed/stuck",
+        "now",
+        "let",
+        "check",
+        "failed",
+        "stuck",
+        "audits",
+        "audit"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:33:33": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:33:33",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 33,
+      "endLine": 33,
+      "source": "memory",
+      "snippet": "Assistant: All audits returned are \"completed\" — none failed. Let me also check the audit_queue and customers tables directly for any issues.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "audit-queue",
+        "all",
+        "audits",
+        "returned",
+        "completed",
+        "none",
+        "failed",
+        "let"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:34:34": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:34:34",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 34,
+      "endLine": 34,
+      "source": "memory",
+      "snippet": "Assistant: Here's what I found: --- ## 🔍 Supabase Check — Failed Audits ### 🚨 NEW: Real user audit failed TODAY | Detail | Value | |--------|-------| | **Email** | `uaeup2019@gmail.com` ✅ (has marketing consent) | | **URL** | `https://berbopublicidad.com/` | | **Status** | **FA",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "berbopublicidad.com",
+        "here's",
+        "what",
+        "found",
+        "supabase",
+        "check",
+        "failed"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:35:35": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:35:35",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 35,
+      "endLine": 35,
+      "source": "memory",
+      "snippet": "Assistant: reddit, etc.) --- ### 📋 Customers without marketing consent (14 total) These include mostly test accounts and a few real users (gavin@purple.ai, hellkingroronoa.1@gmail.com, cyt.biz2k@gmail.com, etc.) — no follow-ups can go to them. --- ### ⚡ Recommended action for `u",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "purple.ai",
+        "hellkingroronoa.1",
+        "gmail.com",
+        "cyt.biz2k",
+        "follow-ups",
+        "reddit",
+        "etc",
+        "customers"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:36:36": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:36:36",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 36,
+      "endLine": 36,
+      "source": "memory",
+      "snippet": "User: Do you have an agent that isnt doing its job? this should have been caught and fixed automaticlly",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "isnt",
+        "doing",
+        "job",
+        "been",
+        "caught",
+        "fixed",
+        "automaticlly"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:37:37": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:37:37",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 37,
+      "endLine": 37,
+      "source": "memory",
+      "snippet": "Assistant: You're right — this is my fault. I've been sitting here waiting for you to ask instead of catching it proactively. There's no automated check running. **What happened:** - `uaeup2019@gmail.com` submitted `berbopublicidad.com` at 04:42 AM EDT today - It failed with a 40",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "berbopublicidad.com",
+        "you're",
+        "right",
+        "fault",
+        "i've",
+        "been",
+        "sitting"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:38:38": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:38:38",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 38,
+      "endLine": 38,
+      "source": "memory",
+      "snippet": "Assistant: for `uaeup2019@gmail.com` Let me also check what the current retry logic looks like in the codebase first:",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "uaeup2019",
+        "let",
+        "check",
+        "what",
+        "current",
+        "retry",
+        "logic"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:39:39": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:39:39",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 39,
+      "endLine": 39,
+      "source": "memory",
+      "snippet": "Assistant: Now I see the full picture. Let me also check what the failure email looks like, then I'll fix all the gaps.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "see",
+        "full",
+        "picture",
+        "let",
+        "check",
+        "what",
+        "failure"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:40:40": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:40:40",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 40,
+      "endLine": 40,
+      "source": "memory",
+      "snippet": "Assistant: Alright, now I have the full picture. Here's what's broken and why you're right to be frustrated. --- ## 🔍 Root Cause Analysis **3 things failed in sequence:** ### 1. ❌ Free audit flow skips reachability check The function `checkUrlReachable` exists and works — but it",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "alright",
+        "now",
+        "full",
+        "picture",
+        "here's",
+        "what's",
+        "broken",
+        "why"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:41:41": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:41:41",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 41,
+      "endLine": 41,
+      "source": "memory",
+      "snippet": "Assistant: issue). But you never got notified. There's no monitoring pipeline that tells you \"Hey, a real user hit an error today.\" --- ### ✅ The user experience actually worked - `uaeup2019@gmail.com` submitted `berbopublicidad.com` at 4:42 AM - Failure email sent at 4:42 AM exp",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "berbopublicidad.com",
+        "issue",
+        "but",
+        "never",
+        "got",
+        "notified",
+        "there's"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:42:42": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:42:42",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 42,
+      "endLine": 42,
+      "source": "memory",
+      "snippet": "Assistant: Done. A daily scan is now set for **6 AM ET** every day. It'll check for new failed audits and flag any that need your attention. --- ### 📋 What happened with `uaeup2019@gmail.com` Here's the full timeline: | Time (EDT) | Event | |---|---| | 4:40 AM | User signed up,",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "gmail.com",
+        "done",
+        "scan",
+        "now",
+        "set",
+        "day",
+        "it'll",
+        "check"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:43:43": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:43:43",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 43,
+      "endLine": 43,
+      "source": "memory",
+      "snippet": "Assistant: see it (email, etc.)? 3. **Just let it ride** since the user already got the failure email?",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "see",
+        "email",
+        "etc",
+        "let",
+        "ride",
+        "already",
+        "got",
+        "failure"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:44:44": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:44:44",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 44,
+      "endLine": 44,
+      "source": "memory",
+      "snippet": "User: as long as we know the correct path was taken and a customer isnt sitting around wondering where is my report then we're good. I'll trust that you have it handled",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "know",
+        "correct",
+        "path",
+        "was",
+        "taken",
+        "customer",
+        "isnt",
+        "sitting"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:45:45": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:45:45",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 45,
+      "endLine": 45,
+      "source": "memory",
+      "snippet": "Assistant: Good. To be thorough, let me confirm the failure email actually went through clean:",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "good",
+        "thorough",
+        "let",
+        "confirm",
+        "failure",
+        "email",
+        "actually",
+        "went"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:46:46": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:46:46",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 46,
+      "endLine": 46,
+      "source": "memory",
+      "snippet": "Assistant: Confirmed. The failure email hit their inbox at 4:42 AM sharp: > *\"Unable to Complete Analysis for berbopublicidad.com — berbopublicidad.com blocked our automated analysis.\"* The user got a clear answer immediately — no one's sitting around wondering where their report",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "berbopublicidad.com",
+        "confirmed",
+        "failure",
+        "email",
+        "hit",
+        "inbox",
+        "sharp",
+        "unable"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:47:47": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:47:47",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 47,
+      "endLine": 47,
+      "source": "memory",
+      "snippet": "User: im going to open a x account for you to manage and oversee is that a good idea?",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "going",
+        "open",
+        "account",
+        "manage",
+        "oversee",
+        "good",
+        "idea"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:48:48": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:48:48",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 48,
+      "endLine": 48,
+      "source": "memory",
+      "snippet": "Assistant: Honest take? **Wait on it.** Here's my calculus for seochecksite.net: **Against it right now:** - X API access costs **$100–$200/month minimum** (they killed the free tier). That's 10–20 audits just to break even on the bot itself - Passive income goal = automate exist",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seochecksite.net",
+        "200/month",
+        "honest",
+        "take",
+        "wait",
+        "here's",
+        "calculus",
+        "against"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:49:49": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:49:49",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 49,
+      "endLine": 49,
+      "source": "memory",
+      "snippet": "Assistant: **Better bet first:** A simple blog or LinkedIn presence where you can repurpose the audit findings as case studies. That maps to what I already generate (reports) with less ongoing maintenance. But if you want to do it anyway, I'd start with a manual account you contr",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "better",
+        "bet",
+        "first",
+        "simple",
+        "blog",
+        "linkedin",
+        "presence",
+        "where"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:50:50": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:50:50",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 50,
+      "endLine": 50,
+      "source": "memory",
+      "snippet": "User: I need an image to fit in this [media attached: media://inbound/image---1ccaa1f5-6f4a-4e4d-a2fa-15f484c9bf7f.png]",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "inbound/image",
+        "need",
+        "image",
+        "fit",
+        "media",
+        "attached",
+        "inbound",
+        "1ccaa1f5"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:51:51": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:51:51",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 51,
+      "endLine": 51,
+      "source": "memory",
+      "snippet": "Assistant: The post is too long. Let me shorten it to fit in the character limit.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "post",
+        "too",
+        "let",
+        "shorten",
+        "fit",
+        "character",
+        "limit"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:52:52": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:52:52",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 52,
+      "endLine": 52,
+      "source": "memory",
+      "snippet": "Assistant: Good, tweet posted! Now let me check notifications and start engaging.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "good",
+        "tweet",
+        "posted",
+        "now",
+        "let",
+        "check",
+        "notifications",
+        "start"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:53:53": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:53:53",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 53,
+      "endLine": 53,
+      "source": "memory",
+      "snippet": "Assistant: Notification checked - it was just a login alert. No mentions to respond to. Let me now go back to the timeline and engage with content.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "notification",
+        "checked",
+        "was",
+        "login",
+        "alert",
+        "mentions",
+        "respond",
+        "let"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:54:54": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:54:54",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 54,
+      "endLine": 54,
+      "source": "memory",
+      "snippet": "Assistant: I can see my tweet was posted successfully. Now let me switch to the Following tab and also search for SEO content to engage with.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "can",
+        "see",
+        "tweet",
+        "was",
+        "posted",
+        "successfully",
+        "now",
+        "let"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:55:55": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:55:55",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 55,
+      "endLine": 55,
+      "source": "memory",
+      "snippet": "Assistant: Great content in the Following tab! Let me like several SEO-relevant posts.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seo-relevant",
+        "great",
+        "content",
+        "following",
+        "tab",
+        "let",
+        "like",
+        "several"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:56:56": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:56:56",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 56,
+      "endLine": 56,
+      "source": "memory",
+      "snippet": "Assistant: Let me like more posts and follow some accounts.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "like",
+        "posts",
+        "follow",
+        "accounts"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:57:57": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:57:57",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 57,
+      "endLine": 57,
+      "source": "memory",
+      "snippet": "Assistant: Now let me search for SEO questions to help people. Let me also post a meaningful reply to Joy Hawkins' post.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "now",
+        "let",
+        "seo",
+        "questions",
+        "help",
+        "people",
+        "post",
+        "meaningful"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:58:58": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:58:58",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 58,
+      "endLine": 58,
+      "source": "memory",
+      "snippet": "Assistant: Let me search for people asking SEO questions.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "people",
+        "asking",
+        "seo",
+        "questions"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:59:59": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:59:59",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 59,
+      "endLine": 59,
+      "source": "memory",
+      "snippet": "Assistant: Found a post asking for SEO advice. Let me reply with value.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "found",
+        "post",
+        "asking",
+        "seo",
+        "advice",
+        "let",
+        "reply",
+        "value"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:60:60": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:60:60",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 60,
+      "endLine": 60,
+      "source": "memory",
+      "snippet": "Assistant: Let me wrap up the session now. I've done a lot of valuable engagement already.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "wrap",
+        "now",
+        "i've",
+        "done",
+        "lot",
+        "valuable",
+        "engagement"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:61:61": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:61:61",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 61,
+      "endLine": 61,
+      "source": "memory",
+      "snippet": "Assistant: Evening X session complete. Here's the summary: **✅ Original Post (8:00 PM ET):** Myth-busting tweet about Schema validation → \"Valid markup ≠ Google understands it. Test with Rich Results Test.\" **❤️ Liked (6 posts):** - @sejournal — Google Search Revenue +19% Q1 - @l",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "myth-busting",
+        "evening",
+        "complete",
+        "here's",
+        "summary",
+        "original",
+        "post",
+        "myth"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:62:62": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:62:62",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 62,
+      "endLine": 62,
+      "source": "memory",
+      "snippet": "Assistant: founder asking about marketing budget allocation **📝 Logged** to `memory/2026-04-29.md` under # X Activity - Evening",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "memory/2026-04-29.md",
+        "founder",
+        "asking",
+        "marketing",
+        "budget",
+        "allocation",
+        "logged",
+        "under"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:63:63": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:63:63",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 63,
+      "endLine": 63,
+      "source": "memory",
+      "snippet": "User: [Subagent Context] You are running as a subagent (depth 1/1). Results auto-announce to your requester; do not busy-poll for status. Begin. Your assigned task is in the system prompt under **Your Role**; execute it to completion.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "1/1",
+        "auto-announce",
+        "busy-poll",
+        "context",
+        "running",
+        "depth",
+        "results",
+        "auto"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:64:64": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:64:64",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 64,
+      "endLine": 64,
+      "source": "memory",
+      "snippet": "Assistant: Let me log into X/Twitter and post the intro tweet. Starting with the browser.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "x/twitter",
+        "let",
+        "log",
+        "twitter",
+        "post",
+        "intro",
+        "tweet",
+        "starting"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:65:65": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:65:65",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 65,
+      "endLine": 65,
+      "source": "memory",
+      "snippet": "Assistant: Good, the login page is open. Let me enter the email address.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "good",
+        "login",
+        "page",
+        "open",
+        "let",
+        "enter",
+        "email",
+        "address"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:66:66": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:66:66",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 66,
+      "endLine": 66,
+      "source": "memory",
+      "snippet": "Assistant: X detected unusual login activity. I'll enter the username as suggested.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "detected",
+        "unusual",
+        "login",
+        "activity",
+        "i'll",
+        "enter",
+        "username",
+        "suggested"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:67:67": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:67:67",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 67,
+      "endLine": 67,
+      "source": "memory",
+      "snippet": "Assistant: The Next button is now enabled. Let me click it.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "button",
+        "now",
+        "enabled",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:68:68": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:68:68",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 68,
+      "endLine": 68,
+      "source": "memory",
+      "snippet": "Assistant: The username \"SECheckSite\" didn't work. Let me try some variations.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "username",
+        "sechecksite",
+        "didn't",
+        "let",
+        "try",
+        "variations"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:69:69": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:69:69",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 69,
+      "endLine": 69,
+      "source": "memory",
+      "snippet": "Assistant: The username was accepted, and the password is already filled in. Let me click Log in.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "username",
+        "was",
+        "accepted",
+        "password",
+        "already",
+        "filled",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:70:70": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:70:70",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 70,
+      "endLine": 70,
+      "source": "memory",
+      "snippet": "Assistant: Successfully logged in! Now let me compose the intro tweet. I'll click the Post button to open the composer.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "successfully",
+        "logged",
+        "now",
+        "let",
+        "compose",
+        "intro",
+        "tweet",
+        "i'll"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:71:71": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:71:71",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 71,
+      "endLine": 71,
+      "source": "memory",
+      "snippet": "Assistant: The compose dialog is open. Let me type the intro tweet.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "compose",
+        "dialog",
+        "open",
+        "let",
+        "type",
+        "intro",
+        "tweet"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:72:72": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:72:72",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 72,
+      "endLine": 72,
+      "source": "memory",
+      "snippet": "Assistant: The tweet is composed with the link preview. Let me click Post.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tweet",
+        "composed",
+        "link",
+        "preview",
+        "let",
+        "click",
+        "post"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:73:73": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:73:73",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 73,
+      "endLine": 73,
+      "source": "memory",
+      "snippet": "Assistant: The compose dialog is still open with the tweet ready. Let me click the Post button (ref=e207).",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "compose",
+        "dialog",
+        "still",
+        "open",
+        "tweet",
+        "ready",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:74:74": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:74:74",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 74,
+      "endLine": 74,
+      "source": "memory",
+      "snippet": "User: Quick update: the X account handle is @SEOCheckSite (with the O — SEO not SE). If you're stuck on the login page, that's the handle to use if prompted. If you're past that, no worries — just use the correct handle in your intro post: \"SEO CheckSite\" not \"SE CheckSite\". Let",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "quick",
+        "update",
+        "account",
+        "handle",
+        "seochecksite",
+        "seo",
+        "not",
+        "you're"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:75:75": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:75:75",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 75,
+      "endLine": 75,
+      "source": "memory",
+      "snippet": "Assistant: Let me check the current state of things.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "check",
+        "current",
+        "state",
+        "things"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:76:76": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:76:76",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 76,
+      "endLine": 76,
+      "source": "memory",
+      "snippet": "Assistant: The tab is still open at the compose page. Let me get a fresh snapshot.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tab",
+        "still",
+        "open",
+        "compose",
+        "page",
+        "let",
+        "get",
+        "fresh"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:77:77": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:77:77",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 77,
+      "endLine": 77,
+      "source": "memory",
+      "snippet": "Assistant: The Post button should now be enabled. Let me click it.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "post",
+        "button",
+        "now",
+        "enabled",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:78:78": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:78:78",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 78,
+      "endLine": 78,
+      "source": "memory",
+      "snippet": "Assistant: Let me refresh the page to see if the post was published.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "refresh",
+        "page",
+        "see",
+        "post",
+        "was",
+        "published"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:79:79": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:79:79",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 79,
+      "endLine": 79,
+      "source": "memory",
+      "snippet": "Assistant: Let me check the profile page to see if the post was published.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "check",
+        "profile",
+        "page",
+        "see",
+        "post",
+        "was",
+        "published"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:80:80": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:80:80",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 80,
+      "endLine": 80,
+      "source": "memory",
+      "snippet": "Assistant: The post didn't go through - \"0 posts\" on the profile. Let me go back to the home page and try again.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "post",
+        "didn't",
+        "posts",
+        "profile",
+        "let",
+        "back",
+        "home",
+        "page"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:81:81": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:81:81",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 81,
+      "endLine": 81,
+      "source": "memory",
+      "snippet": "Assistant: Let me try the dedicated compose page instead of the inline box.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "try",
+        "dedicated",
+        "compose",
+        "page",
+        "instead",
+        "inline",
+        "box"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:82:82": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:82:82",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 82,
+      "endLine": 82,
+      "source": "memory",
+      "snippet": "Assistant: The post text is entered and a link preview was generated. Let me click \"Post\".",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "post",
+        "entered",
+        "link",
+        "preview",
+        "was",
+        "generated",
+        "let",
+        "click"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:83:83": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:83:83",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 83,
+      "endLine": 83,
+      "source": "memory",
+      "snippet": "Assistant: Let me try pressing Enter in the textbox to submit the post.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "try",
+        "pressing",
+        "enter",
+        "textbox",
+        "submit",
+        "post"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:84:84": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:84:84",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 84,
+      "endLine": 84,
+      "source": "memory",
+      "snippet": "Assistant: Let me close the compose dialog by navigating home, then try again with a fresh tab.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "let",
+        "close",
+        "compose",
+        "dialog",
+        "navigating",
+        "home",
+        "try",
+        "fresh"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:85:85": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:85:85",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 85,
+      "endLine": 85,
+      "source": "memory",
+      "snippet": "Assistant: I can see the image exists but I can't view it directly — my model doesn't support image analysis. Can you describe what you need? Specifically: 1. **What** is this image? (screenshot, logo, chart, something else) 2. **Where** does it need to fit? (a page on the site,",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "can",
+        "see",
+        "image",
+        "exists",
+        "but",
+        "can't",
+        "view",
+        "directly"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:86:86": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:86:86",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 86,
+      "endLine": 86,
+      "source": "memory",
+      "snippet": "User: a profile photo for seochecksite for X account.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "profile",
+        "photo",
+        "seochecksite",
+        "account"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:87:87": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:87:87",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 87,
+      "endLine": 87,
+      "source": "memory",
+      "snippet": "User: I did it. we can do it w/o an api. cant you access the page and post? [media attached: media://inbound/image---97616a8e-5b0c-4815-a019-a529eb9d64f3.png]",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "w/o",
+        "inbound/image",
+        "did",
+        "can",
+        "api",
+        "cant",
+        "access",
+        "page"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:88:88": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:88:88",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 88,
+      "endLine": 88,
+      "source": "memory",
+      "snippet": "Assistant: Yeah, I can. Browser's right here on your Mac. I can open x.com/compose/post, type, and hit publish. But there are real caveats you should know upfront: **What I'd need from you:** - You'll need to be signed into the account in **your browser** (the \"user\" profile on y",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "x.com/compose/post",
+        "yeah",
+        "can",
+        "browser's",
+        "right",
+        "here",
+        "mac",
+        "open"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:89:89": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:89:89",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 89,
+      "endLine": 89,
+      "source": "memory",
+      "snippet": "Assistant: - ✅ You tell me \"post this\" and I go publish it while you're around - ✅ Posting audit results on a schedule if the session's alive - ✅ Replying to mentions / DMs - ❌ Running a full content calendar without you involved **Simpler alternative worth considering:** There's",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tell",
+        "post",
+        "publish",
+        "while",
+        "you're",
+        "around",
+        "posting",
+        "audit"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:90:90": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:90:90",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 90,
+      "endLine": 90,
+      "source": "memory",
+      "snippet": "User: Create a social media agent if you dont have one already. let the agent handle managing all aspects of our X account. username SEO Check Site password is Jnkmjnkm63ab!",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "create",
+        "social",
+        "media",
+        "dont",
+        "one",
+        "already",
+        "let",
+        "handle"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:91:91": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:91:91",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 91,
+      "endLine": 91,
+      "source": "memory",
+      "snippet": "Assistant: First, let me tuck the credentials somewhere only I can find them, then set up the agent.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "first",
+        "let",
+        "tuck",
+        "credentials",
+        "somewhere",
+        "only",
+        "can",
+        "find"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:92:92": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:92:92",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 92,
+      "endLine": 92,
+      "source": "memory",
+      "snippet": "Assistant: The social media agent is spinning up now. It's going to navigate to X, log in, and post an intro tweet. Let me wait for it to report back.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "social",
+        "media",
+        "spinning",
+        "now",
+        "it's",
+        "going",
+        "navigate",
+        "log"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:93:93": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:93:93",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 93,
+      "endLine": 93,
+      "source": "memory",
+      "snippet": "User: admin@seochecksite.net is the email to log in with.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seochecksite.net",
+        "admin",
+        "email",
+        "log"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:94:94": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:94:94",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 94,
+      "endLine": 94,
+      "source": "memory",
+      "snippet": "User: you keep trying SEChecksite it should be SEOCheckSite",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "keep",
+        "trying",
+        "sechecksite",
+        "seochecksite"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:95:95": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:95:95",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 95,
+      "endLine": 95,
+      "source": "memory",
+      "snippet": "Assistant: Fixed in TOOLS.md. The sub-agent may have already finished its run. Let me check:",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tools.md",
+        "sub-agent",
+        "fixed",
+        "sub",
+        "may",
+        "already",
+        "finished",
+        "run"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:96:96": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:96:96",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 96,
+      "endLine": 96,
+      "source": "memory",
+      "snippet": "Assistant: Corrected the handle in TOOLS.md and steered the social media agent. It's logged your fix — it'll use @SEOCheckSite / SEO CheckSite going forward. The agent is currently logging in and posting a first intro tweet. Credentials are stored in TOOLS.md for any future manag",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "tools.md",
+        "corrected",
+        "handle",
+        "steered",
+        "social",
+        "media",
+        "it's",
+        "logged"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:97:97": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:97:97",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 97,
+      "endLine": 97,
+      "source": "memory",
+      "snippet": "User: you're already signed in and trying to open an new window to sign in. always make sure there isnt already an active instance running",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "you're",
+        "already",
+        "signed",
+        "trying",
+        "open",
+        "new",
+        "window",
+        "sign"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:98:98": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:98:98",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 98,
+      "endLine": 98,
+      "source": "memory",
+      "snippet": "Assistant: You're right. Let me clean up and do it the right way myself.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "you're",
+        "right",
+        "let",
+        "clean",
+        "way",
+        "myself"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:99:99": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:99:99",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 99,
+      "endLine": 99,
+      "source": "memory",
+      "snippet": "Assistant: You were right — X is already logged in and the compose box is open. Let me just post it.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "right",
+        "already",
+        "logged",
+        "compose",
+        "box",
+        "open",
+        "let",
+        "post"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:100:100": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:100:100",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 100,
+      "endLine": 100,
+      "source": "memory",
+      "snippet": "Assistant: It posted! 🎉 The first tweet is live on X. Let me note what else I see — there's a \"Unlock more on X\" dialog that popped up (common for new accounts). Let me close that.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "posted",
+        "first",
+        "tweet",
+        "live",
+        "let",
+        "what",
+        "else",
+        "see"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:101:101": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:101:101",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 101,
+      "endLine": 101,
+      "source": "memory",
+      "snippet": "Assistant: All set. Here's the status: **✅ First tweet is live:** > *\"SEO CheckSite is live! We automatically audit your website and deliver actionable fixes to boost your search rankings. Try a free scan at seochecksite.net 🔍 #SEO #WebDev\"* **📝 What I noted:** - Handle is @Seo",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "seochecksite.net",
+        "all",
+        "set",
+        "here's",
+        "status",
+        "first",
+        "tweet",
+        "live"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:102:102": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:102:102",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 102,
+      "endLine": 102,
+      "source": "memory",
+      "snippet": "Assistant: word.",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "word"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:103:103": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:103:103",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 103,
+      "endLine": 103,
+      "source": "memory",
+      "snippet": "User: twitter card isnt displaying correctly. [media attached: media://inbound/image---7347dc45-9a0b-40fb-ae89-4339c6dead89.png]",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "inbound/image",
+        "twitter",
+        "card",
+        "isnt",
+        "displaying",
+        "correctly",
+        "media",
+        "attached"
+      ]
+    },
+    "memory:memory/.dreams/session-corpus/2026-04-29.txt:104:104": {
+      "key": "memory:memory/.dreams/session-corpus/2026-04-29.txt:104:104",
+      "path": "memory/.dreams/session-corpus/2026-04-29.txt",
+      "startLine": 104,
+      "endLine": 104,
+      "source": "memory",
+      "snippet": "Assistant: Found the issue. Let me check the logo being used:",
+      "recallCount": 0,
+      "dailyCount": 1,
+      "groundedCount": 0,
+      "totalScore": 0.58,
+      "maxScore": 0.58,
+      "firstRecalledAt": "2026-04-30T07:00:01.345Z",
+      "lastRecalledAt": "2026-04-30T07:00:01.345Z",
+      "queryHashes": [
+        "401e1af52a6f"
+      ],
+      "recallDays": [
+        "2026-04-30"
+      ],
+      "conceptTags": [
+        "found",
+        "issue",
+        "let",
+        "check",
+        "logo",
+        "used"
       ]
     }
   }
