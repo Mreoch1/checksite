@@ -208,14 +208,167 @@ export async function fetchSite(url: string): Promise<SiteData> {
 }
 
 /**
+ * Fetch real performance metrics from Google PageSpeed Insights API
+ * No API key required for basic usage, but has rate limits (~200 queries per day)
+ */
+async function fetchPageSpeedMetrics(url: string): Promise<{
+  lighthouseScore: number | null
+  fcp: number | null
+  lcp: number | null
+  tbt: number | null
+  cls: number | null
+  si: number | null
+  recommendations: string[]
+} | null> {
+  try {
+    // Try with both mobile and desktop, but prefer desktop for scoring
+    const strategies = ['desktop', 'mobile']
+    const results: any[] = []
+    
+    for (const strategy of strategies) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+        
+        const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`
+        const response = await fetch(apiUrl, {
+          headers: { 'User-Agent': 'SEO CheckSite/1.0' },
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        
+        if (response.ok) {
+          const data = await response.json()
+          results.push({ strategy, data })
+        }
+      } catch {
+        // Continue with next strategy if one fails
+      }
+    }
+    
+    if (results.length === 0) {
+      return null
+    }
+    
+    // Prefer desktop results, fall back to mobile
+    const desktopResult = results.find(r => r.strategy === 'desktop')
+    const mobileResult = results.find(r => r.strategy === 'mobile')
+    const primary = desktopResult || mobileResult
+    
+    if (!primary) return null
+    
+    const lighthouse = primary.data.lighthouseResult
+    if (!lighthouse) return null
+    
+    // Extract core metrics
+    const lighthouseScore = Math.round((lighthouse.categories?.performance?.score || 0) * 100)
+    const audits = lighthouse.audits || {}
+    
+    const fcp = audits['first-contentful-paint']?.numericValue || null
+    const lcp = audits['largest-contentful-paint']?.numericValue || null
+    const tbt = audits['total-blocking-time']?.numericValue || null
+    const cls = audits['cumulative-layout-shift']?.numericValue || null
+    const si = audits['speed-index']?.numericValue || null
+    
+    // Extract top recommendations (passing audits with score < 0.9 are opportunities)
+    const recommendations: string[] = []
+    const diagnostics = lighthouse.configSettings?.onlyCategories || []
+    
+    // Collect opportunities from audits
+    for (const [key, audit] of Object.entries(audits) as [string, any][]) {
+      if (audit.score !== null && audit.score < 0.9 && audit.score > 0 && audit.title) {
+        recommendations.push(audit.title)
+        if (recommendations.length >= 5) break
+      }
+    }
+    
+    return {
+      lighthouseScore,
+      fcp,
+      lcp,
+      tbt,
+      cls,
+      si,
+      recommendations,
+    }
+  } catch (error) {
+    console.warn('PageSpeed Insights API call failed (will use static analysis fallback):', error)
+    return null
+  }
+}
+
+/**
  * Performance Module
- * Checks page speed and performance metrics
+ * Checks page speed and performance metrics including real PageSpeed data
  */
 export async function runPerformanceModule(siteData: SiteData): Promise<ModuleResult> {
   const issues: AuditIssue[] = []
   let score = 100
+  let pageSpeedData: Awaited<ReturnType<typeof fetchPageSpeedMetrics>> = null
 
-  // Collect evidence data
+  // Try to fetch real PageSpeed Insights data (non-blocking - gracefully falls back)
+  try {
+    pageSpeedData = await fetchPageSpeedMetrics(siteData.url)
+    if (pageSpeedData) {
+      console.log(`✅ PageSpeed Insights data fetched: score=${pageSpeedData.lighthouseScore}, LCP=${pageSpeedData.lcp}, CLS=${pageSpeedData.cls}`)
+    }
+  } catch {
+    console.warn('PageSpeed Insights fetch failed (continuing with static analysis)')
+  }
+
+  // If we got real PageSpeed data, use it as the primary score
+  if (pageSpeedData && pageSpeedData.lighthouseScore !== null) {
+    score = pageSpeedData.lighthouseScore
+    
+    // Add issues based on real metrics
+    if (pageSpeedData.lcp !== null && pageSpeedData.lcp > 2500) {
+      const lcpSeconds = (pageSpeedData.lcp / 1000).toFixed(1)
+      issues.push({
+        title: `Largest Contentful Paint is slow (${lcpSeconds}s)`,
+        severity: pageSpeedData.lcp > 4000 ? 'high' : 'medium',
+        technicalExplanation: `LCP is ${pageSpeedData.lcp}ms. Target: under 2500ms.`,
+        plainLanguageExplanation: `Your page's main content takes ${lcpSeconds} seconds to display. Visitors expect pages to load in under 2.5 seconds. Slow load times hurt both rankings and conversions.`,
+        suggestedFix: 'Optimize your largest visible element (often a hero image or large text block). Compress images, reduce server response time, and eliminate render-blocking resources. See https://seochecksite.net/resources/website-speed-optimization-guide for a step-by-step guide.',
+        evidence: {
+          found: `${lcpSeconds}s`,
+          actual: `${pageSpeedData.lcp}ms`,
+          expected: 'Under 2500ms (2.5s)',
+        },
+      })
+    }
+    
+    if (pageSpeedData.cls !== null && pageSpeedData.cls > 0.1) {
+      issues.push({
+        title: `Cumulative Layout Shift is unstable (${pageSpeedData.cls.toFixed(2)})`,
+        severity: pageSpeedData.cls > 0.25 ? 'high' : 'medium',
+        technicalExplanation: `CLS is ${pageSpeedData.cls}. Target: under 0.1.`,
+        plainLanguageExplanation: 'Elements on your page shift around as it loads, which frustrates visitors and can cause accidental clicks. This is especially problematic on mobile.',
+        suggestedFix: 'Set explicit width and height attributes on all images and embeds. Reserve space for ads and dynamically injected content. Use CSS aspect-ratio boxes for responsive media.',
+        evidence: {
+          found: pageSpeedData.cls.toFixed(2),
+          actual: `CLS: ${pageSpeedData.cls.toFixed(2)}`,
+          expected: 'Under 0.1',
+        },
+      })
+    }
+    
+    if (pageSpeedData.fcp !== null && pageSpeedData.fcp > 3000) {
+      issues.push({
+        title: 'First Contentful Paint is slow',
+        severity: 'medium',
+        technicalExplanation: `FCP is ${pageSpeedData.fcp}ms. Target: under 1800ms.`,
+        plainLanguageExplanation: 'It takes too long for the first content to appear when someone visits your page. This can increase bounce rates significantly.',
+        suggestedFix: 'Reduce server response times, eliminate render-blocking resources, and consider using a CDN. For step-by-step instructions, visit https://seochecksite.net/resources/website-speed-optimization-guide',
+        evidence: {
+          found: `${(pageSpeedData.fcp / 1000).toFixed(1)}s`,
+          actual: `${pageSpeedData.fcp}ms`,
+          expected: 'Under 1800ms (1.8s)',
+        },
+      })
+    }
+  }
+
+  // Collect evidence data for static analysis (always include alongside PageSpeed data)
   const imageSources: string[] = []
   const blockingScriptSources: string[] = []
   const asyncScriptSources: string[] = []
@@ -239,15 +392,13 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
         expected: 'HTTPS (secure connection)',
       },
     })
-    score -= 20
+    score = Math.max(0, score - 10) // Smaller deduction since PageSpeed handles real performance
   }
 
   // Check for images and lazy loading
-  // Count all img tags (matching pageAnalysis counting method)
   const images = siteData.$('img')
   images.each((_, el) => {
     const src = siteData.$(el).attr('src')
-    // Count all images (including data URIs) to match pageAnalysis
     totalImages++
     if (src && !src.startsWith('data:')) {
       imageSources.push(src)
@@ -260,19 +411,19 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
     }
   })
 
-  // Suggest lazy loading for any images without it (even if just a few)
-  if (imagesWithoutLazy > 0) {
-    const severity = imagesWithoutLazy > 5 ? 'medium' : 'low'
+  // Only add lazy loading issue if PageSpeed data didn't already cover it
+  if (imagesWithoutLazy > 0 && (!pageSpeedData || pageSpeedData.lighthouseScore === null || pageSpeedData.lighthouseScore > 80)) {
+    const severity = imagesWithoutLazy > 10 ? 'medium' : 'low'
     issues.push({
-      title: imagesWithoutLazy > 5 
-        ? 'Images may be slowing down your site'
+      title: imagesWithoutLazy > 10 
+        ? 'Many images lack lazy loading'
         : 'Consider adding lazy loading to images',
       severity,
       technicalExplanation: `Found ${imagesWithoutLazy} images without lazy loading`,
-      plainLanguageExplanation: imagesWithoutLazy > 5
-        ? 'Large images can make your site slow to load, especially on mobile devices.'
-        : 'Adding lazy loading to images can help your pages load faster.',
-      suggestedFix: 'Implementation tip: Add loading="lazy" to your images. This makes images load only when visitors scroll to them.',
+      plainLanguageExplanation: imagesWithoutLazy > 10
+        ? 'Large images can make your site slow to load, especially on mobile devices. Lazy loading defers offscreen images until users scroll near them.'
+        : 'Adding lazy loading to images can help your pages load faster, especially on pages with several images.',
+      suggestedFix: 'Add loading="lazy" to your <img> tags. This defers loading of offscreen images until the user scrolls near them, reducing initial page weight.',
       evidence: {
         found: `${imagesWithoutLazy} images without lazy loading`,
         actual: `${imagesWithLazy} with lazy loading, ${imagesWithoutLazy} without`,
@@ -280,55 +431,47 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
         count: imagesWithoutLazy,
       },
     })
-    score -= imagesWithoutLazy > 5 ? 10 : 5
+    score = Math.max(0, score - (imagesWithoutLazy > 10 ? 8 : 3))
   }
 
-  // Check for render-blocking resources
-  const allScripts = siteData.$('script[src]')
-  allScripts.each((_, el) => {
-    const src = siteData.$(el).attr('src') || ''
-    if (src) {
-      if (src.includes('async')) {
-        asyncScriptSources.push(src)
-      } else if (src.includes('defer')) {
-        deferScriptSources.push(src)
-      } else {
+  // Check for render-blocking resources (only if no PageSpeed data, otherwise PageSpeed already covers this)
+  if (!pageSpeedData) {
+    const allScripts = siteData.$('script[src]')
+    allScripts.each((_, el) => {
+      const src = siteData.$(el).attr('src') || ''
+      if (src) {
         blockingScriptSources.push(src)
       }
-    }
-  })
-
-  const blockingScriptsCount = blockingScriptSources.length
-  if (blockingScriptsCount > 3) {
-    issues.push({
-      title: 'High script count detected in initial HTML',
-      severity: 'medium',
-      technicalExplanation: `Found ${blockingScriptsCount} scripts that block page rendering`,
-      plainLanguageExplanation: 'High script count detected in initial HTML. Actual performance depends on bundling and execution strategy.',
-      suggestedFix: 'Implementation tip: Optimize scripts or move them to load after the page content. For live performance testing, verify in Google PageSpeed Insights or Chrome DevTools.',
-      evidence: {
-        found: `${blockingScriptsCount} blocking scripts`,
-        actual: `${blockingScriptsCount} blocking, ${asyncScriptSources.length} async, ${deferScriptSources.length} deferred`,
-        expected: 'Scripts should use async or defer attributes',
-        count: blockingScriptsCount,
-        details: {
-          blockingScripts: blockingScriptSources.slice(0, 5), // Limit to first 5
-        },
-      },
     })
-    score -= 10
+
+    const blockingScriptsCount = blockingScriptSources.length
+    if (blockingScriptsCount > 5) {
+      issues.push({
+        title: 'High script count detected',
+        severity: 'medium',
+        technicalExplanation: `Found ${blockingScriptsCount} external scripts in HTML`,
+        plainLanguageExplanation: 'A large number of external scripts can slow down page loading. Consider consolidating or deferring non-essential scripts.',
+        suggestedFix: 'Consolidate scripts where possible, and use async/defer attributes for non-critical scripts. Run a Google PageSpeed Insights test for detailed recommendations.',
+        evidence: {
+          found: `${blockingScriptsCount} scripts`,
+          actual: `${blockingScriptsCount} external scripts`,
+          expected: 'Fewer external scripts, or use async/defer',
+          count: blockingScriptsCount,
+        },
+      })
+      score = Math.max(0, score - 8)
+    }
   }
 
-  // Check for external resources that might slow loading
-  // Only check actual resources (src), not links (href)
+  // Check for resources over HTTP on HTTPS page
   const httpResources = siteData.$('[src^="http://"]').length
   if (httpResources > 0 && isHttps) {
     issues.push({
-      title: 'Some external resources are referenced over HTTP',
+      title: 'Some resources loaded over HTTP on an HTTPS page',
       severity: 'low',
-      technicalExplanation: `Found ${httpResources} resources with HTTP sources on HTTPS page`,
-      plainLanguageExplanation: 'While your page loads securely, some external resources are referenced over HTTP. It is best practice to update all assets to HTTPS where possible.',
-      suggestedFix: 'Update all resource URLs (images, scripts, stylesheets) to use HTTPS instead of HTTP where possible.',
+      technicalExplanation: `Found ${httpResources} resources with HTTP sources`,
+      plainLanguageExplanation: 'While your page loads securely, some external resources are still loaded over HTTP. Update these to HTTPS where possible.',
+      suggestedFix: 'Update all resource URLs (images, scripts, stylesheets) to use HTTPS instead of HTTP where the provider supports it.',
       evidence: {
         found: `${httpResources} HTTP resources`,
         actual: `${httpResources} resources using HTTP`,
@@ -336,49 +479,54 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
         count: httpResources,
       },
     })
-    score -= 3 // Reduced severity - not a vulnerability if page loads securely
+    score = Math.max(0, score - 3)
   }
 
-  // Calculate resource counts
-  const totalScripts = allScripts.length
+  // Calculate resource counts for evidence
+  const totalScripts = siteData.$('script[src]').length
   const totalStylesheets = siteData.$('link[rel="stylesheet"]').length
-  const totalResources = totalImages + totalScripts + totalStylesheets
 
-  // Adjust summary based on whether there are issues and available resources
+  // Build summary incorporating PageSpeed data
   const hasIssues = issues.length > 0
-  const hasImages = totalImages > 0
   
-  const summary = score >= 80
-    ? hasIssues 
-      ? 'Your site performance looks good. We found one small improvement opportunity.'
-      : hasImages
-        ? 'Your site performance looks good. Consider optimizing images and scripts for even better speed.'
-        : 'Your site performance looks good. Consider optimizing scripts and resources for even better speed.'
-    : score >= 60
-    ? hasImages
-      ? 'Your site performance needs improvement. Focus on optimizing images and scripts.'
-      : 'Your site performance needs improvement. Focus on optimizing scripts and resources.'
-    : hasImages
-    ? 'Your site performance needs significant improvement. Start with image and script optimization.'
-    : 'Your site performance needs significant improvement. Start with script and resource optimization.'
+  let summary: string
+  if (pageSpeedData && pageSpeedData.lighthouseScore !== null) {
+    if (pageSpeedData.lighthouseScore >= 90) {
+      summary = 'Your site performs well according to Google PageSpeed Insights. Keep up the good practices!' + (hasIssues ? ' A few minor improvements noted below.' : '')
+    } else if (pageSpeedData.lighthouseScore >= 50) {
+      summary = `Your site has a PageSpeed score of ${pageSpeedData.lighthouseScore}/100. There's room for improvement — check the issues below for specific recommendations.`
+    } else {
+      summary = `Your PageSpeed score is ${pageSpeedData.lighthouseScore}/100, which needs significant improvement. Focus on the high-priority issues below.`
+    }
+  } else {
+    summary = score >= 80
+      ? 'Your page structure looks efficient. Run a Google PageSpeed Insights test for real-user performance metrics.'
+      : score >= 50
+      ? 'Your page structure has room for improvement. Focus on optimizing images and scripts.'
+      : 'Your page structure needs significant improvement. Start with image and script optimization.'
+  }
 
   return {
     moduleKey: 'performance',
-    score: Math.max(0, score),
+    score: Math.max(0, Math.min(100, score)),
     issues,
     summary,
     evidence: {
-      isHttps: isHttps,
-      totalImages: totalImages,
+      isHttps,
+      hasPageSpeedData: !!pageSpeedData,
+      pageSpeedScore: pageSpeedData?.lighthouseScore ?? null,
+      firstContentfulPaint: pageSpeedData?.fcp ?? null,
+      largestContentfulPaint: pageSpeedData?.lcp ?? null,
+      totalBlockingTime: pageSpeedData?.tbt ?? null,
+      cumulativeLayoutShift: pageSpeedData?.cls ?? null,
+      speedIndex: pageSpeedData?.si ?? null,
+      totalImages,
       imagesWithLazyLoading: imagesWithLazy,
       imagesWithoutLazyLoading: imagesWithoutLazy,
-      totalScripts: totalScripts,
-      blockingScripts: blockingScriptsCount,
-      asyncScripts: asyncScriptSources.length,
-      deferredScripts: deferScriptSources.length,
-      totalStylesheets: totalStylesheets,
-      totalResources: totalResources,
+      totalScripts,
+      totalStylesheets,
       externalHttpResources: httpResources,
+      pageSpeedRecommendations: pageSpeedData?.recommendations ?? [],
     },
   }
 }
@@ -2645,16 +2793,17 @@ export async function runCompetitorOverviewModule(
 
 /**
  * LLM/AI Readiness Module
- * Checks if a site is optimized for AI-powered search engines and LLM assistants
+ * Checks if a site is optimized for AI-powered search engines and LLM assistants with rigorous scoring
  */
 export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleResult> {
   const issues: AuditIssue[] = []
   let score = 100
 
-  // 1. Check for schema.org structured data presence
+  // 1. Check for schema.org structured data presence and entity-level markup
   const schemas = siteData.$('script[type="application/ld+json"]')
   let hasSchemaOrg = false
   let schemaTypes: string[] = []
+  let schemaEntityDetails: { type: string; hasValidFields: boolean }[] = []
   
   schemas.each((_, el) => {
     try {
@@ -2667,12 +2816,14 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
           obj.forEach(explore)
         } else if (obj['@graph'] && Array.isArray(obj['@graph'])) {
           obj['@graph'].forEach(explore)
-        } else if (obj['@type'] && obj['@context'] && obj['@context'].includes('schema.org')) {
-          hasSchemaOrg = true
-          schemaTypes.push(obj['@type'])
         } else if (obj['@type']) {
           hasSchemaOrg = true
-          schemaTypes.push(obj['@type'])
+          const type = Array.isArray(obj['@type']) ? obj['@type'][0] : obj['@type']
+          if (type) schemaTypes.push(type)
+          
+          // Check if this entity has meaningful content fields (not just type/context boilerplate)
+          const meaningfulKeys = Object.keys(obj).filter(k => !k.startsWith('@') && k !== 'identifier' && k !== 'url')
+          schemaEntityDetails.push({ type, hasValidFields: meaningfulKeys.length >= 2 })
         }
       }
       explore(json)
@@ -2684,36 +2835,64 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
   if (!hasSchemaOrg) {
     issues.push({
       title: 'No schema.org structured data detected',
-      severity: 'medium',
-      technicalExplanation: 'No @type or @context references to schema.org found in JSON-LD',
+      severity: 'high',
+      technicalExplanation: 'No schema.org JSON-LD structured data found in static HTML',
       plainLanguageExplanation: 'AI-powered search engines and assistants rely on structured data to understand your content. Without it, your site is less likely to be featured in AI-generated summaries, knowledge panels, or rich results.',
-      suggestedFix: 'Add JSON-LD structured data to your pages. Start with Organization or WebSite schema for your homepage, and Article schema for blog posts. Use Google\'s Structured Data Markup Helper to get started.',
+      suggestedFix: 'Add JSON-LD structured data to your pages. Start with Organization or WebSite schema for your homepage, and Article schema for blog posts. Visit https://seochecksite.net/resources/schema-markup-guide to learn more.',
       evidence: {
         found: 'No schema.org structured data detected',
-        actual: `Schema types found: ${schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None'}`,
+        actual: 'Schema types found: None',
         expected: 'At least one schema.org type (e.g., Organization, WebSite, Article)'
       }
     })
-    score -= 20
+    score -= 25
   } else if (schemaTypes.length > 0) {
     // Check if rich schema types are present (helpful for AI)
-    const aiFriendlyTypes = ['Article', 'FAQPage', 'HowTo', 'Product', 'Recipe', 'Event', 'LocalBusiness', 'Organization', 'WebSite', 'BreadcrumbList', 'Review', 'VideoObject']
+    const aiFriendlyTypes = ['Article', 'FAQPage', 'HowTo', 'Product', 'Recipe', 'Event', 'LocalBusiness', 'Organization', 'WebSite', 'BreadcrumbList', 'Review', 'VideoObject', 'SoftwareApplication', 'Course', 'Book']
     const foundFriendly = schemaTypes.filter(t => aiFriendlyTypes.includes(t))
     
     if (foundFriendly.length === 0) {
       issues.push({
-        title: 'Consider adding richer structured data types',
-        severity: 'low',
+        title: 'Schema types not optimized for AI discoverability',
+        severity: 'medium',
         technicalExplanation: `Found schema types: ${schemaTypes.join(', ')}. None are in the recommended set for AI discoverability.`,
-        plainLanguageExplanation: 'While you have some structured data, adding richer types like Article, FAQPage, or Product can help AI assistants better understand and present your content.',
-        suggestedFix: 'Add more specific schema types relevant to your content. For example: Article for blog posts, FAQPage for common questions, Product for products, Recipe for recipes.',
+        plainLanguageExplanation: 'The structured data types found are less useful for AI assistants. Using recognized types like Article, FAQPage, Product, or Organization helps AI tools present your content in rich summaries.',
+        suggestedFix: 'Add more specific schema types relevant to your content. For example: Article for blog posts, FAQPage for common questions, Product for products. See https://seochecksite.net/resources/schema-markup-guide for examples.',
         evidence: {
           found: schemaTypes.join(', '),
           actual: `Current types: ${schemaTypes.join(', ')}`,
           expected: 'Include AI-friendly types like Article, FAQPage, Product, or Organization',
         }
       })
+      score -= 15
+    } else if (foundFriendly.length < 2) {
+      // Only one AI-friendly type - could do better
+      issues.push({
+        title: 'Consider adding more structured data types',
+        severity: 'low',
+        technicalExplanation: `Only ${foundFriendly.length} AI-friendly schema type(s) found: ${foundFriendly.join(', ')}`,
+        plainLanguageExplanation: 'You have one type of structured data. Adding more types (like FAQPage for questions, BreadcrumbList for navigation, or Review for testimonials) gives AI assistants more signals about your content.',
+        suggestedFix: 'Add supplementary schema types relevant to your content. FAQPage, BreadcrumbList, and Review schema are great additions for most business websites.',
+        evidence: {
+          found: foundFriendly.join(', '),
+          actual: `${foundFriendly.length} AI-friendly type(s)`,
+          expected: '2+ AI-friendly schema types (e.g., Organization + FAQPage or Article + BreadcrumbList)',
+        }
+      })
       score -= 5
+    }
+    
+    // Check if entities have meaningful field content (not just skeleton)
+    const emptyEntities = schemaEntityDetails.filter(e => !e.hasValidFields).length
+    if (emptyEntities > 0) {
+      issues.push({
+        title: `${emptyEntities} schema entit${emptyEntities > 1 ? 'ies' : 'y'} lack${emptyEntities === 1 ? 's' : ''} meaningful content`,
+        severity: 'medium',
+        technicalExplanation: `${emptyEntities} schema entit${emptyEntities > 1 ? 'ies' : 'y'} ha${emptyEntities === 1 ? 's' : 've'} only boilerplate fields (@type, @context, url) without substantive content like name, description, address, or other entity-specific fields.`,
+        plainLanguageExplanation: 'Some of your structured data entries contain only basic wrapper fields without the detailed entity information that AI assistants need to understand and present your business or content.',
+        suggestedFix: 'Fill in all relevant schema fields for each entity type. For Organization: add name, description, address, telephone, logo, sameAs. For Article: add headline, author, datePublished, description, image.'
+      })
+      score -= 10
     }
   }
 
@@ -2737,11 +2916,11 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: 'At least one H1 heading and supporting H2/H3 structure',
       }
     })
-    score -= 30
+    score -= 25
   } else if (h1Count === 0) {
     issues.push({
       title: 'Missing H1 heading',
-      severity: 'medium',
+      severity: 'high',
       technicalExplanation: 'Page has H2-H4 headings but no H1',
       plainLanguageExplanation: 'An H1 heading tells AI assistants and search engines what the page is primarily about. Without it, the main topic of your page is less clear.',
       suggestedFix: 'Add one H1 heading at the top of your main content that clearly describes the page topic.',
@@ -2751,11 +2930,11 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: 'One H1 heading as the primary page heading',
       }
     })
-    score -= 15
+    score -= 20
   } else if (h1Count > 1) {
     issues.push({
       title: 'Multiple H1 headings may confuse AI extraction',
-      severity: 'low',
+      severity: 'medium',
       technicalExplanation: `Found ${h1Count} H1 tags`,
       plainLanguageExplanation: 'While multiple H1s are common in modern web frameworks, having a single primary H1 helps AI assistants clearly identify the main topic of your page.',
       suggestedFix: 'Use one H1 per page. Convert additional H1s to H2 headings if they represent sub-topics.',
@@ -2765,7 +2944,7 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: '1 H1 tag for clear content structure',
       }
     })
-    score -= 5
+    score -= 10
   }
 
   // 3. Check meta description quality
@@ -2773,7 +2952,7 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
   if (!description) {
     issues.push({
       title: 'Missing meta description',
-      severity: 'medium',
+      severity: 'high',
       technicalExplanation: 'No meta description tag found in HTML',
       plainLanguageExplanation: 'Meta descriptions are often used by AI assistants as a concise summary of your page. Without one, AI tools must infer the page topic from full content, which may be less accurate.',
       suggestedFix: 'Add a clear meta description (150-160 characters) that summarizes what your page offers.',
@@ -2782,13 +2961,13 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: 'A meta description tag with 150-160 characters',
       }
     })
-    score -= 15
-  } else if (description.length < 80) {
+    score -= 20
+  } else if (description.length < 100) {
     issues.push({
-      title: 'Meta description is too short for AI use',
-      severity: 'low',
-      technicalExplanation: `Description is only ${description.length} characters`,
-      plainLanguageExplanation: 'Short descriptions give AI assistants less context about your page. A longer, descriptive summary helps AI tools accurately represent your content.',
+      title: 'Meta description too short for AI use',
+      severity: 'medium',
+      technicalExplanation: `Description is only ${description.length} characters (recommended: 150-160 for AI extracts)`,
+      plainLanguageExplanation: 'Short descriptions give AI assistants less context about your page. A longer, descriptive summary helps AI tools accurately represent your content in search-generated answers.',
       suggestedFix: 'Expand your meta description to 150-160 characters with more context about your page content.',
       evidence: {
         found: description,
@@ -2796,7 +2975,7 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: '150-160 characters for optimal AI and search engine use',
       }
     })
-    score -= 5
+    score -= 10
   }
 
   // 4. Check for clear page title
@@ -2813,11 +2992,11 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: 'A title tag with 50-60 characters',
       }
     })
-    score -= 25
+    score -= 20
   } else if (title.length < 15) {
     issues.push({
-      title: 'Page title is too short for clear AI identification',
-      severity: 'low',
+      title: 'Page title too short for clear AI identification',
+      severity: 'medium',
       technicalExplanation: `Title is only ${title.length} characters`,
       plainLanguageExplanation: 'Short page titles may not provide enough context for AI assistants to understand what your page is about.',
       suggestedFix: 'Expand your page title to 50-60 characters with relevant keywords.',
@@ -2827,7 +3006,7 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
         expected: '50-60 characters',
       }
     })
-    score -= 5
+    score -= 10
   }
 
   // 5. Check for content length (AI needs enough content to extract meaning)
@@ -2837,25 +3016,96 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
   if (wordCount < 200) {
     issues.push({
       title: 'Page has very little content for AI extraction',
-      severity: 'medium',
+      severity: 'high',
       technicalExplanation: `Page has only ${wordCount} words`,
       plainLanguageExplanation: 'AI assistants need enough content to accurately understand and summarize your page. Pages with very little content offer limited information for AI tools to work with.',
-      suggestedFix: 'Add more substantive content to your page. AI-friendly pages typically have at least 300-500 words of descriptive text.',
+      suggestedFix: 'Add more substantive content to your page. AI-friendly pages typically have at least 500-1000 words of descriptive text.',
       evidence: {
         found: `${wordCount} words`,
         actual: `${wordCount} words`,
-        expected: 'At least 300-500 words of substantive content',
+        expected: 'At least 500-1000 words of substantive content for optimal AI extraction',
         count: wordCount,
       }
     })
-    score -= 15
+    score -= 20
+  } else if (wordCount < 500) {
+    issues.push({
+      title: 'Page content may be thin for AI extraction',
+      severity: 'medium',
+      technicalExplanation: `Page has ${wordCount} words (recommended: 500+ for substantive AI extraction)`,
+      plainLanguageExplanation: 'AI assistants work best with pages that have substantial, detailed content. More content gives AI tools more signals to accurately summarize and reference your page.',
+      suggestedFix: 'Aim for at least 500 words of substantive content on each main page. Add detailed descriptions, examples, and relevant information about your topic or business.',
+      evidence: {
+        found: `${wordCount} words`,
+        actual: `${wordCount} words`,
+        expected: '500+ words for substantive AI extraction',
+        count: wordCount,
+      }
+    })
+    score -= 10
+  }
+
+  // 6. NEW: Check for AI-friendly content structures (lists, tables, Q&A patterns)
+  const listCount = siteData.$('ul, ol').length
+  const tableCount = siteData.$('table').length
+  const hasListsOrTables = listCount > 0 || tableCount > 0
+  
+  // Check for Q&A patterns (FAQ sections, question-like headings)
+  const questionHeadings = siteData.$('h2, h3, h4').filter((_, el) => {
+    const text = siteData.$(el).text().trim()
+    return /\?$/.test(text) || /^(what|how|why|when|where|who|can|do|does|is|are|should|would)/i.test(text)
+  }).length
+  
+  if (!hasListsOrTables && wordCount >= 200) {
+    issues.push({
+      title: 'Content lacks structured elements for AI extraction',
+      severity: 'medium',
+      technicalExplanation: `No lists or tables found. ${listCount} list(s), ${tableCount} table(s).`,
+      plainLanguageExplanation: 'AI assistants and AI overviews in search results favor content that uses structured elements like bulleted lists, numbered steps, and tables. These structures make it easy for AI to extract key facts and present them directly in search results.',
+      suggestedFix: 'Break down key information using bulleted lists (for features, benefits, or FAQs), numbered steps (for processes), and tables (for comparisons, pricing, or specifications). This increases the chance your content is used in AI-generated answers.',
+      evidence: {
+        found: `Lists: ${listCount}, Tables: ${tableCount}`,
+        actual: `${listCount} lists, ${tableCount} tables`,
+        expected: 'Lists or tables to aid AI content extraction',
+      }
+    })
+    score -= 10
+  }
+
+  // 7. NEW: Check for clear entity identification (does the page clearly state what it's about?)
+  // This checks for: defined terms, clear subject statements, author/publisher info
+  const hasEntityIntro = /^(welcome to|about|our|introducing|this (page|article|guide|site)|learn|find|discover)/i.test(
+    siteData.$('h1, h2, p').first().text().trim().substring(0, 100)
+  )
+  
+  // Check if page explicitly names the business/organization
+  const orgName = siteData.$('[itemprop="name"], [class*="brand"], [class*="logo"]').first().text().trim() || ''
+  
+  // Check for clear topic identification in first content paragraph
+  const firstParagraphs = siteData.$('p').first().text().trim().substring(0, 200).toLowerCase()
+  const hasClearTopic = firstParagraphs.length > 50 && /^(the|this|our|welcome|at|for|with)/i.test(firstParagraphs)
+
+  if (wordCount >= 200 && !hasClearTopic && !questionHeadings && !hasListsOrTables) {
+    issues.push({
+      title: 'Page topic may not be clearly identifiable by AI',
+      severity: 'low',
+      technicalExplanation: 'First content paragraph does not clearly establish page topic. Limited structured elements for AI extraction.' as any,
+      plainLanguageExplanation: 'AI assistants benefit when the opening content clearly states what the page is about. A strong opening helps AI tools quickly categorize and reference your content.',
+      suggestedFix: 'Ensure the first paragraph of your page clearly states what it covers. Use explicit topic statements rather than generic introductions.' as any,
+      evidence: {
+        found: firstParagraphs.substring(0, 100) + '...',
+        actual: 'Ambiguous topic introduction',
+        expected: 'Clear topic statement in the first content paragraph'
+      }
+    })
+    score -= 5
   }
 
   const summary = score >= 80
     ? 'Your site is well optimized for AI-powered search and assistants. Keep your structured data and content fresh.'
     : score >= 60
-    ? 'Your site has room for improvement in AI readiness. Focus on adding structured data and improving your heading structure and meta descriptions.'
-    : 'Your site needs significant work to be AI-friendly. Start by adding a clear page title, structured data, and a proper heading hierarchy.'
+    ? 'Your site has room for improvement in AI readiness. Structured data, clear headings, and better content structure will help AI assistants understand your content.'
+    : 'Your site needs significant work to be AI-friendly. Start by adding structured data, descriptive titles/meta descriptions, and a clear heading hierarchy.'
 
   return {
     moduleKey: 'llm_readiness',
@@ -2865,6 +3115,8 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
     evidence: {
       hasSchemaOrg,
       schemaTypesDetected: schemaTypes.length > 0 ? schemaTypes.join(', ') : 'None',
+      schemaEntitiesWithContent: schemaEntityDetails.filter(e => e.hasValidFields).length,
+      schemaEntitiesTotal: schemaEntityDetails.length,
       h1Count,
       h2Count,
       h3Count,
@@ -2875,6 +3127,11 @@ export async function runLLMReadinessModule(siteData: SiteData): Promise<ModuleR
       metaDescriptionLength: description ? description.length : 0,
       wordCount,
       hasClearHeadingStructure: h1Count > 0 && h2Count > 0,
+      listsFound: listCount,
+      tablesFound: tableCount,
+      hasStructuredContent: hasListsOrTables,
+      questionHeadingsFound: questionHeadings,
+      hasClearEntityIntro: hasEntityIntro || hasClearTopic,
       detectionNote: 'AI readiness is based on static HTML analysis. Dynamically injected content may not be fully detected.',
     },
   }

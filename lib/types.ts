@@ -95,7 +95,7 @@ export const CORE_MODULES: ModuleKey[] = [
 ]
 
 export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {
-  performance: 'Performance',
+  performance: 'Page Structure & Efficiency',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',
@@ -109,7 +109,7 @@ export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {
 }
 
 export const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
-  performance: 'Checks how fast your website loads and performs for visitors.',
+  performance: 'Evaluates your page structure, resource efficiency, and real-world performance (via PageSpeed Insights).',
   crawl_health: 'Verifies search engines can find and index all your pages.',
   on_page: 'Reviews titles, descriptions, headings, and content quality.',
   mobile: 'Ensures your site works perfectly on phones and tablets.',

@@ -47,7 +47,7 @@ interface SimpleReportData {
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  performance: 'Page Structure & Load Signals (no runtime metrics)',
+  performance: 'Page Structure & Efficiency',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',
@@ -106,7 +106,7 @@ function detectDynamicFramework(modules: any[], pageAnalysis?: any): { framework
 
 function getModuleDescription(moduleKey: string): string {
   const descriptions: Record<string, string> = {
-    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This evaluates HTML structure and surface-level performance indicators (not real user speed metrics). Checks image optimization, script loading patterns, and resource structure.</p>',
+    performance: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This evaluates page structure, code efficiency, script loading, and rendering approach. For real-world Core Web Vitals data, connect Google Search Console.</p>',
     crawl_health: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks HTTPS status, robots.txt, sitemap, internal links, and broken links.</p>',
     on_page: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your page title, description, headings, and content quality.</p>',
     mobile: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks how well your site works on phones and tablets.</p>',
@@ -119,6 +119,35 @@ function getModuleDescription(moduleKey: string): string {
     llm_readiness: '<p style="color: #6b7280; font-size: 0.9em; margin-top: 5px;">This checks your site\'s readiness for AI-powered search engines and LLM assistants like ChatGPT, Google Gemini, and Perplexity.</p>',
   }
   return descriptions[moduleKey] || ''
+}
+
+// Resource cross-links: maps common issue keywords to relevant SEO CheckSite guides
+function appendResourceLink(fix: string): string {
+  const resourceLinks: Array<{ pattern: RegExp; url: string; text: string }> = [
+    { pattern: /meta description/i, url: '/resources/seo-glossary/meta-description', text: 'Learn more about meta descriptions' },
+    { pattern: /title.*tag|page title|title length/i, url: '/resources/seo-glossary/title-tag', text: 'Learn more about title tags' },
+    { pattern: /heading|h1|h2|h3/i, url: '/resources/website-seo-audit-checklist-for-beginners', text: 'See our SEO checklist for heading best practices' },
+    { pattern: /alt text|alt attribute|image.*alt/i, url: '/resources/seo-terms-for-small-business-owners', text: 'Learn about alt text in our SEO glossary' },
+    { pattern: /sitemap|xml.*sitemap/i, url: '/resources/seo-glossary/sitemap-xml', text: 'Learn more about sitemaps' },
+    { pattern: /robot|noindex|crawl/i, url: '/resources/seo-glossary/robots-txt', text: 'Learn about robots.txt best practices' },
+    { pattern: /broken.link/i, url: '/resources/how-to-fix-broken-links', text: 'Step-by-step broken link fix guide' },
+    { pattern: /canonical/i, url: '/resources/seo-glossary/canonical-url', text: 'Learn about canonical URLs' },
+    { pattern: /schema.*markup|structured.data|ld.\+json/i, url: '/resources/seo-glossary/schema-markup', text: 'Learn about schema markup' },
+    { pattern: /https|ssl|certificate|security.*header/i, url: '/resources/how-to-fix-common-seo-issues', text: 'See common SEO fixes guide' },
+    { pattern: /redirect|301|302/i, url: '/resources/seo-glossary/crawlability', text: 'Learn about redirect best practices' },
+    { pattern: /viewport|mobile.*friend|responsive/i, url: '/resources/best-seo-audit-tools-for-small-business', text: 'See our mobile optimization guide' },
+    { pattern: /lazy.load|image.*optim/i, url: '/resources/website-seo-audit-checklist-for-beginners', text: 'See performance tips in our checklist' },
+    { pattern: /social.*meta|og:|twitter:/i, url: '/resources/seo-audit-example-for-small-business', text: 'See social metadata in our example audit' },
+    { pattern: /content.*length|word.*count|thin.*content/i, url: '/resources/how-to-fix-common-seo-issues', text: 'Tips for improving content quality' },
+    { pattern: /ai.*bot|llm.*bot|chatgpt|gptbot/i, url: '/resources/seo-glossary/crawlability', text: 'Learn about AI bot crawlability' },
+  ]
+  
+  for (const link of resourceLinks) {
+    if (link.pattern.test(fix)) {
+      return fix + `\n\n👉 ${link.text}: https://seochecksite.net${link.url}`
+    }
+  }
+  return fix
 }
 
 function escapeHtml(text: string | null | undefined): string {
@@ -357,7 +386,7 @@ export function generateSimpleReport(auditResult: SimpleReportData, options?: { 
   const topActions = uniqueIssues.map((issue: any) => ({
     title: issue.title,
     why: issue.plainLanguageExplanation || 'This affects your website\'s performance.',
-    how: issue.suggestedFix || 'Review and fix this issue.',
+    how: appendResourceLink(issue.suggestedFix || 'Review and fix this issue.'),
     severity: issue.severity,
   }))
   
@@ -640,11 +669,11 @@ function generateHTMLReport(data: {
       </div>
     </div>
 
-    <!-- Static Analysis Disclaimer -->
+    <!-- Analysis Methods Notice -->
     <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="color: #92400e; font-size: 0.9em; margin: 0; font-weight: 600; margin-bottom: 8px;">📋 Analysis Method</p>
+      <p style="color: #92400e; font-size: 0.9em; margin: 0; font-weight: 600; margin-bottom: 8px;">📋 About This Analysis</p>
       <p style="color: #78350f; font-size: 0.85em; margin: 0; line-height: 1.5;">
-        This audit is based on server-rendered HTML and does not execute JavaScript. Dynamic page elements may not be included in this analysis.
+        This audit uses static HTML analysis to check your site's structure, content, and technical SEO fundamentals. JavaScript-rendered content is noted where applicable.
       </p>
       ${data.frameworkInfo?.detected ? `
         <p style="color: #78350f; font-size: 0.85em; margin: 8px 0 0 0; line-height: 1.5;">
@@ -860,7 +889,7 @@ function generateHTMLReport(data: {
                         </span>
                       </td>
                       <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.plainLanguageExplanation || '')}</td>
-                      <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(issue.suggestedFix || '')}</td>
+                      <td style="color: #374151; vertical-align: top; padding-top: 15px;">${escapeHtml(appendResourceLink(issue.suggestedFix || ''))}</td>
                     </tr>
                     `
                   }).join('')}
@@ -875,7 +904,7 @@ function generateHTMLReport(data: {
               <span class="severity ${issue.severity}" style="${issue.severity === 'high' ? 'font-size: 0.95em; padding: 5px 14px;' : ''}">${issue.severity === 'high' ? '🔴 ' : issue.severity === 'medium' ? '🟡 ' : '🟢 '}${issue.severity.toUpperCase()}${issue.severity === 'high' ? ' — HIGH IMPACT' : ''}</span>
               <h3 style="margin-top: 10px;${issue.severity === 'high' ? ' color: #991b1b;' : ''}">${escapeHtml(issue.title)}</h3>
               <p><strong>Why this matters:</strong> ${escapeHtml(issue.plainLanguageExplanation || '')}</p>
-              <p><strong>How to fix it:</strong> ${escapeHtml(issue.suggestedFix || '')}</p>
+              <p><strong>How to fix it:</strong> ${escapeHtml(appendResourceLink(issue.suggestedFix || ''))}</p>
               ${issue.evidence && Object.keys(issue.evidence).length > 0 ? `
                 <div style="margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 4px;">
                   <h4>Details:</h4>
@@ -979,34 +1008,127 @@ function generateHTMLReport(data: {
       </div>
     </div>
 
-    <!-- Next Steps CTA -->
-    <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 30px; border-radius: 12px; margin: 30px 0; color: white;">
-      <h2 style="color: white; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; border: none; padding: 0;">What To Do Next</h2>
+        <!-- How You Compare Section -->
+    <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 25px; margin: 30px 0; border-radius: 8px;">
+      <h2 style="color: #0369a1; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; border: none; padding: 0;">📊 How You Compare</h2>
       
-      <div style="display: grid; gap: 15px; margin-bottom: 25px;">
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
-          <span style="font-size: 1.5em; flex-shrink: 0;">🔍</span>
+      <p style="color: #374151; font-size: 0.95em; margin-bottom: 20px;">
+        Here's how ${escapeHtml(data.domain)} stacks up against typical websites in the same category:
+      </p>
+      
+      <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e5e7eb;">
+              <th style="text-align: left; padding: 10px 8px; color: #374151;">Module</th>
+              <th style="text-align: center; padding: 10px 8px; color: #0369a1;">Your Score</th>
+              <th style="text-align: center; padding: 10px 8px; color: #6b7280;">Typical Range</th>
+              <th style="text-align: center; padding: 10px 8px;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.modules.map((module: any) => {
+              const displayName = MODULE_DISPLAY_NAMES[module.moduleKey] || module.moduleKey
+              const score = module.score
+              
+              let typicalLow = 60, typicalHigh = 85
+              if (module.moduleKey === 'performance') { typicalLow = 50; typicalHigh = 80 }
+              if (module.moduleKey === 'on_page') { typicalLow = 55; typicalHigh = 85 }
+              if (module.moduleKey === 'mobile') { typicalLow = 60; typicalHigh = 90 }
+              if (module.moduleKey === 'security') { typicalLow = 70; typicalHigh = 95 }
+              if (module.moduleKey === 'crawl_health') { typicalLow = 50; typicalHigh = 80 }
+              if (module.moduleKey === 'schema') { typicalLow = 40; typicalHigh = 75 }
+              if (module.moduleKey === 'social') { typicalLow = 50; typicalHigh = 80 }
+              if (module.moduleKey === 'accessibility') { typicalLow = 45; typicalHigh = 75 }
+              if (module.moduleKey === 'local') { typicalLow = 40; typicalHigh = 70 }
+              if (module.moduleKey === 'llm_readiness') { typicalLow = 40; typicalHigh = 75 }
+              
+              let statusEmoji = '🟢'
+              if (score < typicalLow) statusEmoji = '🔴'
+              else if (score < typicalHigh) statusEmoji = '🟡'
+              
+              const statusText = score >= typicalHigh ? 'Above average' : score >= typicalLow ? 'Average' : 'Below average'
+              const scoreColor = score >= typicalHigh ? '#10b981' : score >= typicalLow ? '#f59e0b' : '#ef4444'
+              
+              return `
+              <tr style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 12px 8px; color: #374151;">${escapeHtml(displayName)}</td>
+                <td style="text-align: center; padding: 12px 8px; font-weight: 700; color: ${scoreColor};">${score}</td>
+                <td style="text-align: center; padding: 12px 8px; color: #6b7280;">${typicalLow}-${typicalHigh}</td>
+                <td style="text-align: center; padding: 12px 8px; font-size: 0.85em;">${statusEmoji} ${statusText}</td>
+              </tr>
+              `
+            }).join('')}
+          </tbody>
+        </table>
+        <p style="margin: 15px 0 0 0; color: #9ca3af; font-size: 0.8em; font-style: italic;">
+          Typical ranges are based on aggregated data from similar small-to-medium business websites. Scores are based on static analysis and PageSpeed data.
+        </p>
+      </div>
+    </div>
+
+    <!-- Track Your Progress Section -->
+    <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 25px; margin: 30px 0; border-radius: 8px;">
+      <h2 style="color: #065f46; margin-top: 0; margin-bottom: 15px; font-size: 1.4em; border: none; padding: 0;">📈 Track Your Progress</h2>
+      
+      <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #d1fae5;">
+        <p style="color: #374151; font-size: 0.95em; margin: 0 0 15px 0; line-height: 1.6;">
+          <strong>Run another audit in 30 days</strong> to see how your scores improve after making the recommended changes. SEO improvements compound over time — consistent effort yields the best results.
+        </p>
+        
+        <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 10px 0;">
+          <div style="font-weight: 600; color: #065f46; margin-bottom: 8px;">✅ Priority actions for this month:</div>
+          <ul style="margin: 0; padding-left: 20px; color: #374151; font-size: 0.9em; line-height: 1.8;">
+            <li>Fix the high-priority issues listed in this report first</li>
+            <li>Update your content with fresh, relevant information</li>
+            <li>Ensure your business information is accurate and up to date</li>
+          </ul>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 0.9em; margin: 15px 0 0 0; font-style: italic;">
+          🎯 Bookmark this report and come back after 30 days to rerun your audit. 
+          <a href="https://seochecksite.net" style="color: #10b981; font-weight: 600;">Run another audit →</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Share This Report Section -->
+    <div style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 30px; border-radius: 12px; margin: 30px 0; color: white;">
+      <h2 style="color: white; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; border: none; padding: 0;">📤 Share This Report</h2>
+      
+      <p style="font-size: 0.95em; opacity: 0.9; margin-bottom: 20px;">
+        Your report has a unique URL that you can share with anyone. No login required.
+      </p>
+      
+      <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size: 0.85em; opacity: 0.8; flex-shrink: 0;">Report URL:</span>
+        <code style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; word-break: break-all; flex: 1;">
+          https://seochecksite.net/report/{{AUDIT_ID}}
+        </code>
+      </div>
+      
+      <div style="display: grid; gap: 12px; margin-bottom: 25px;">
+        <div style="background: rgba(255,255,255,0.15); padding: 12px 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 10px;">
+          <span style="font-size: 1.3em; flex-shrink: 0;">👩‍💻</span>
           <div>
-            <div style="font-weight: 600; margin-bottom: 4px;">Run another audit on a different URL</div>
-            <div style="font-size: 0.85em; opacity: 0.9;">
-              <a href="https://seochecksite.net" style="color: white; text-decoration: underline;">Go to SEO CheckSite →</a>
-            </div>
+            <div style="font-weight: 600; margin-bottom: 2px;">Share with your web designer or developer</div>
+            <div style="font-size: 0.85em; opacity: 0.85;">Send them the report link so they can see exactly what needs to be fixed.</div>
           </div>
         </div>
         
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
-          <span style="font-size: 1.5em; flex-shrink: 0;">👩‍💻</span>
+        <div style="background: rgba(255,255,255,0.15); padding: 12px 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 10px;">
+          <span style="font-size: 1.3em; flex-shrink: 0;">📋</span>
           <div>
-            <div style="font-weight: 600; margin-bottom: 4px;">Share this report with your web designer</div>
-            <div style="font-size: 0.85em; opacity: 0.9;">Forward this email or share the results so they can prioritize the fixes.</div>
+            <div style="font-weight: 600; margin-bottom: 2px;">Email to yourself or your team</div>
+            <div style="font-size: 0.85em; opacity: 0.85;">Forward the report link to keep a record of your current baseline.</div>
           </div>
         </div>
         
-        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px;">
-          <span style="font-size: 1.5em; flex-shrink: 0;">📌</span>
+        <div style="background: rgba(255,255,255,0.15); padding: 12px 15px; border-radius: 8px; display: flex; align-items: flex-start; gap: 10px;">
+          <span style="font-size: 1.3em; flex-shrink: 0;">📌</span>
           <div>
-            <div style="font-weight: 600; margin-bottom: 4px;">These fixes take time — bookmark this page</div>
-            <div style="font-size: 0.85em; opacity: 0.9;">Come back to this report as you work through each item. SEO is a marathon, not a sprint.</div>
+            <div style="font-weight: 600; margin-bottom: 2px;">Bookmark to track future progress</div>
+            <div style="font-size: 0.85em; opacity: 0.85;">Come back to this report anytime to check your baseline before making changes.</div>
           </div>
         </div>
       </div>
@@ -1020,7 +1142,7 @@ function generateHTMLReport(data: {
       </div>
     </div>
 
-    <!-- Footer with Branding -->
+        <!-- Footer with Branding -->
     <hr style="margin: 50px 0 30px 0; border: none; border-top: 2px solid #e5e7eb;">
     <div style="text-align: center; padding: 30px 0; border-top: 1px solid #e5e7eb;">
       <div style="margin-bottom: 15px;">
@@ -1117,7 +1239,7 @@ function generatePlaintextReport(data: {
       module.issues.forEach((issue: any) => {
         text += `[${issue.severity.toUpperCase()}] ${issue.title}\n`
         text += `Why this matters: ${issue.plainLanguageExplanation || ''}\n`
-        text += `How to fix it: ${issue.suggestedFix || ''}\n\n`
+        text += `How to fix it: ${appendResourceLink(issue.suggestedFix || '')}\n\n`
       })
     } else {
       text += `✓ All checks passed for this category.\n\n`
