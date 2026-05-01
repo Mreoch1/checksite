@@ -5,6 +5,7 @@
 
 import * as cheerio from 'cheerio'
 import { ModuleKey, ModuleResult, AuditIssue } from '../types'
+import { fetchPageSpeedMetrics } from '../pagespeed-api'
 
 interface SiteData {
   url: string
@@ -207,95 +208,7 @@ export async function fetchSite(url: string): Promise<SiteData> {
   }
 }
 
-/**
- * Fetch real performance metrics from Google PageSpeed Insights API
- * No API key required for basic usage, but has rate limits (~200 queries per day)
- */
-async function fetchPageSpeedMetrics(url: string): Promise<{
-  lighthouseScore: number | null
-  fcp: number | null
-  lcp: number | null
-  tbt: number | null
-  cls: number | null
-  si: number | null
-  recommendations: string[]
-} | null> {
-  try {
-    // Try with both mobile and desktop, but prefer desktop for scoring
-    const strategies = ['desktop', 'mobile']
-    const results: any[] = []
-    
-    for (const strategy of strategies) {
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
-        
-        const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`
-        const response = await fetch(apiUrl, {
-          headers: { 'User-Agent': 'SEO CheckSite/1.0' },
-          signal: controller.signal,
-        })
-        clearTimeout(timeoutId)
-        
-        if (response.ok) {
-          const data = await response.json()
-          results.push({ strategy, data })
-        }
-      } catch {
-        // Continue with next strategy if one fails
-      }
-    }
-    
-    if (results.length === 0) {
-      return null
-    }
-    
-    // Prefer desktop results, fall back to mobile
-    const desktopResult = results.find(r => r.strategy === 'desktop')
-    const mobileResult = results.find(r => r.strategy === 'mobile')
-    const primary = desktopResult || mobileResult
-    
-    if (!primary) return null
-    
-    const lighthouse = primary.data.lighthouseResult
-    if (!lighthouse) return null
-    
-    // Extract core metrics
-    const lighthouseScore = Math.round((lighthouse.categories?.performance?.score || 0) * 100)
-    const audits = lighthouse.audits || {}
-    
-    const fcp = audits['first-contentful-paint']?.numericValue || null
-    const lcp = audits['largest-contentful-paint']?.numericValue || null
-    const tbt = audits['total-blocking-time']?.numericValue || null
-    const cls = audits['cumulative-layout-shift']?.numericValue || null
-    const si = audits['speed-index']?.numericValue || null
-    
-    // Extract top recommendations (passing audits with score < 0.9 are opportunities)
-    const recommendations: string[] = []
-    const diagnostics = lighthouse.configSettings?.onlyCategories || []
-    
-    // Collect opportunities from audits
-    for (const [key, audit] of Object.entries(audits) as [string, any][]) {
-      if (audit.score !== null && audit.score < 0.9 && audit.score > 0 && audit.title) {
-        recommendations.push(audit.title)
-        if (recommendations.length >= 5) break
-      }
-    }
-    
-    return {
-      lighthouseScore,
-      fcp,
-      lcp,
-      tbt,
-      cls,
-      si,
-      recommendations,
-    }
-  } catch (error) {
-    console.warn('PageSpeed Insights API call failed (will use static analysis fallback):', error)
-    return null
-  }
-}
+
 
 /**
  * Performance Module
@@ -310,15 +223,15 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   try {
     pageSpeedData = await fetchPageSpeedMetrics(siteData.url)
     if (pageSpeedData) {
-      console.log(`✅ PageSpeed Insights data fetched: score=${pageSpeedData.lighthouseScore}, LCP=${pageSpeedData.lcp}, CLS=${pageSpeedData.cls}`)
+      console.log(`✅ PageSpeed Insights data fetched: score=${pageSpeedData.performanceScore}, LCP=${pageSpeedData.lcp}, CLS=${pageSpeedData.cls}`)
     }
   } catch {
     console.warn('PageSpeed Insights fetch failed (continuing with static analysis)')
   }
 
   // If we got real PageSpeed data, use it as the primary score
-  if (pageSpeedData && pageSpeedData.lighthouseScore !== null) {
-    score = pageSpeedData.lighthouseScore
+  if (pageSpeedData && pageSpeedData.performanceScore !== null) {
+    score = pageSpeedData.performanceScore
     
     // Add issues based on real metrics
     if (pageSpeedData.lcp !== null && pageSpeedData.lcp > 2500) {
@@ -412,7 +325,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   })
 
   // Only add lazy loading issue if PageSpeed data didn't already cover it
-  if (imagesWithoutLazy > 0 && (!pageSpeedData || pageSpeedData.lighthouseScore === null || pageSpeedData.lighthouseScore > 80)) {
+  if (imagesWithoutLazy > 0 && (!pageSpeedData || pageSpeedData.performanceScore === null || pageSpeedData.performanceScore > 80)) {
     const severity = imagesWithoutLazy > 10 ? 'medium' : 'low'
     issues.push({
       title: imagesWithoutLazy > 10 
@@ -490,13 +403,13 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
   const hasIssues = issues.length > 0
   
   let summary: string
-  if (pageSpeedData && pageSpeedData.lighthouseScore !== null) {
-    if (pageSpeedData.lighthouseScore >= 90) {
+  if (pageSpeedData && pageSpeedData.performanceScore !== null) {
+    if (pageSpeedData.performanceScore >= 90) {
       summary = 'Your site performs well according to Google PageSpeed Insights. Keep up the good practices!' + (hasIssues ? ' A few minor improvements noted below.' : '')
-    } else if (pageSpeedData.lighthouseScore >= 50) {
-      summary = `Your site has a PageSpeed score of ${pageSpeedData.lighthouseScore}/100. There's room for improvement — check the issues below for specific recommendations.`
+    } else if (pageSpeedData.performanceScore >= 50) {
+      summary = `Your site has a PageSpeed score of ${pageSpeedData.performanceScore}/100. There's room for improvement — check the issues below for specific recommendations.`
     } else {
-      summary = `Your PageSpeed score is ${pageSpeedData.lighthouseScore}/100, which needs significant improvement. Focus on the high-priority issues below.`
+      summary = `Your PageSpeed score is ${pageSpeedData.performanceScore}/100, which needs significant improvement. Focus on the high-priority issues below.`
     }
   } else {
     summary = score >= 80
@@ -514,7 +427,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
     evidence: {
       isHttps,
       hasPageSpeedData: !!pageSpeedData,
-      pageSpeedScore: pageSpeedData?.lighthouseScore ?? null,
+      pageSpeedScore: pageSpeedData?.performanceScore ?? null,
       firstContentfulPaint: pageSpeedData?.fcp ?? null,
       largestContentfulPaint: pageSpeedData?.lcp ?? null,
       totalBlockingTime: pageSpeedData?.tbt ?? null,
@@ -526,6 +439,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
       totalScripts,
       totalStylesheets,
       externalHttpResources: httpResources,
+      pageSpeedStrategy: pageSpeedData?.strategy ?? null,
       pageSpeedRecommendations: pageSpeedData?.recommendations ?? [],
     },
   }

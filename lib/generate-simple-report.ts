@@ -24,6 +24,14 @@ interface SimpleReportData {
     internalLinks?: number
     externalLinks?: number
     isIndexable?: boolean
+    sampledPages?: Array<{
+      url: string
+      title?: string
+      metaDescription?: string
+      wordCount?: number
+      h1Count?: number
+      issues?: string[]
+    }>
   }
   modules: Array<{
     moduleKey: string
@@ -700,6 +708,56 @@ function generateHTMLReport(data: {
     </div>
     ` : ''}
 
+    ${data.pageAnalysis?.sampledPages && data.pageAnalysis.sampledPages.length > 0 ? `
+    <!-- Crawl Overview: data collected from sitemap multi-page scan -->
+    <h2 id="crawl-overview">Crawl Overview</h2>
+    <div class="summary" style="background: #f0f9ff; border-left-color: #0ea5e9;">
+      <p style="margin: 5px 0; color: #374151;">
+        <strong>Sitemap Check</strong> — We found <strong>${data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and reviewed a sample to see how your site\'s content looks across multiple pages.
+      </p>
+      <p style="margin: 5px 0; color: #6b7280; font-size: 0.9em;">
+        The table below shows key SEO elements from a random sample of pages. This helps catch site-wide patterns that a single-page audit might miss.
+      </p>
+      <table class="evidence-table" style="margin-top: 15px;">
+        <thead>
+          <tr>
+            <th>Page URL</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Words</th>
+            <th>Issues</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.pageAnalysis.sampledPages.map((page: any) => {
+            const pageUrl = page.url || ''
+            const shortUrl = pageUrl.length > 50 ? pageUrl.substring(0, 50) + '...' : pageUrl
+            const title = page.title ? escapeHtml(page.title.substring(0, 60) + (page.title.length > 60 ? '...' : '')) : '<span style="color: #9ca3af; font-style: italic;">Not found</span>'
+            const description = page.metaDescription 
+              ? escapeHtml(page.metaDescription.substring(0, 80) + (page.metaDescription.length > 80 ? '...' : '')) 
+              : '<span style="color: #9ca3af; font-style: italic;">Not found</span>'
+            const wordCount = page.wordCount !== undefined ? page.wordCount : '<span style="color: #9ca3af;">N/A</span>'
+            
+            const issues = page.issues && page.issues.length > 0
+              ? page.issues.map((i: string) => `<span style="color: #dc2626; font-size: 0.85em;">⚠ ${escapeHtml(i)}</span>`).join('<br>')
+              : '<span style="color: #10b981; font-size: 0.85em;">✓ No issues</span>'
+            
+            return `<tr${page.issues && page.issues.length > 0 ? ' style="background: #fef2f2;"' : ''}>
+              <td style="font-size: 0.85em; word-break: break-all; max-width: 200px;" title="${escapeHtml(pageUrl)}">${escapeHtml(shortUrl)}</td>
+              <td style="font-size: 0.85em;">${title}</td>
+              <td style="font-size: 0.85em;">${description}</td>
+              <td style="text-align: center; font-size: 0.85em;">${wordCount}</td>
+              <td style="font-size: 0.85em;">${issues}</td>
+            </tr>`
+          }).join('')}
+        </tbody>
+      </table>
+      <p style="margin-top: 15px; color: #6b7280; font-size: 0.85em; font-style: italic;">
+        Pages are sampled randomly from the sitemap. Additional pages may exist that were not included in this quick scan.
+      </p>
+    </div>
+    ` : ''}
+
     <h2 id="executive-summary">Technical Summary</h2>
     <div class="summary">
       ${data.executiveSummary.map(point => `<p style="margin: 8px 0;">${escapeHtml(point)}</p>`).join('')}
@@ -807,6 +865,46 @@ function generateHTMLReport(data: {
         </div>
         <p style="margin-bottom: 15px;">${escapeHtml(module.summary || `This section checks ${displayName.toLowerCase()}.`)}</p>
         ${getModuleDescription(module.moduleKey)}
+        
+        ${module.moduleKey === 'performance' && module.evidence?.hasPageSpeedData ? `
+          <div style="margin: 20px 0; padding: 20px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
+            <h4 style="margin-top: 0; margin-bottom: 15px; color: #0369a1;">🚀 Real-world Performance (PageSpeed Insights)</h4>
+            <p style="margin-bottom: 15px; color: #374151; font-size: 0.9em;">
+              Real-world performance data from Google PageSpeed Insights. These metrics reflect actual user experience.
+              ${module.evidence?.pageSpeedStrategy ? `Strategy used: <strong>${module.evidence.pageSpeedStrategy}</strong>.` : ''}
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Performance</div>
+                <div style="font-size: 1.8em; font-weight: 700; color: ${module.evidence?.pageSpeedScore >= 90 ? '#10b981' : module.evidence?.pageSpeedScore >= 50 ? '#f59e0b' : '#ef4444'};">${module.evidence?.pageSpeedScore ?? '—'}</div>
+                <div style="font-size: 0.8em; color: #9ca3af;">/100</div>
+              </div>
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">FCP</div>
+                <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.firstContentfulPaint ? `${(module.evidence.firstContentfulPaint / 1000).toFixed(1)}s` : '—'}</div>
+                <div style="font-size: 0.75em; color: #9ca3af;">First Contentful Paint</div>
+              </div>
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">LCP</div>
+                <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.largestContentfulPaint ? `${(module.evidence.largestContentfulPaint / 1000).toFixed(1)}s` : '—'}</div>
+                <div style="font-size: 0.75em; color: #9ca3af;">Largest Contentful Paint</div>
+              </div>
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">TBT</div>
+                <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.totalBlockingTime ? `${(module.evidence.totalBlockingTime / 1000).toFixed(1)}s` : '—'}</div>
+                <div style="font-size: 0.75em; color: #9ca3af;">Total Blocking Time</div>
+              </div>
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">CLS</div>
+                <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.cumulativeLayoutShift !== null && module.evidence?.cumulativeLayoutShift !== undefined ? module.evidence.cumulativeLayoutShift.toFixed(3) : '—'}</div>
+                <div style="font-size: 0.75em; color: #9ca3af;">Cumulative Layout Shift</div>
+              </div>
+            </div>
+            ${module.evidence?.pageSpeedScore && module.evidence?.pageSpeedScore >= 90 ? '<p style="margin: 15px 0 0 0; color: #10b981; font-weight: 600;">✅ Good — Your page meets Core Web Vitals thresholds.</p>' : ''}
+            ${module.evidence?.pageSpeedScore && module.evidence?.pageSpeedScore < 90 && module.evidence?.pageSpeedScore >= 50 ? '<p style="margin: 15px 0 0 0; color: #f59e0b; font-weight: 600;">⚠️ Needs improvement — Your page does not meet all Core Web Vitals thresholds. Focus on the issues below.</p>' : ''}
+            ${module.evidence?.pageSpeedScore && module.evidence?.pageSpeedScore < 50 ? '<p style="margin: 15px 0 0 0; color: #ef4444; font-weight: 600;">❌ Poor — Significant performance issues detected. Prioritize the high-severity fixes below.</p>' : ''}
+          </div>
+        ` : ''}
         
         ${module.evidence && Object.keys(module.evidence).length > 0 ? `
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
