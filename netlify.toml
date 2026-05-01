@@ -20,43 +20,6 @@
 # [functions."process-queue"]
 #   schedule = "*/2 * * * *"  # Every 2 minutes
 
-# Serve static files from public/ directory before Next.js handles them
-[[redirects]]
-  from = "/robots.txt"
-  to = "/robots.txt"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/favicon.svg"
-  to = "/favicon.svg"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/logo.svg"
-  to = "/logo.svg"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/logo-icon.svg"
-  to = "/logo-icon.svg"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/og-image.png"
-  to = "/og-image.png"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/BingSiteAuth.xml"
-  to = "/BingSiteAuth.xml"
-  status = 200
-  force = true
-
 # CRITICAL: Force 301 redirect from Netlify subdomain to custom domain
 # This ensures Google treats seochecksite.net as the canonical, not seochecksite.netlify.app
 # Multiple redirect patterns to ensure all requests from netlify.app subdomain redirect
