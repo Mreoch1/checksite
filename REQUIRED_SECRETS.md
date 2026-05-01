@@ -78,3 +78,4 @@ node scripts/test-audit-end-to-end.js \
 - Use different secrets for development and production
 - The test endpoints are for testing only - they bypass normal authentication
 
+PAGESPEED_API_KEY - Google PageSpeed Insights API key (free, 25K queries/day). Get one at https://console.cloud.google.com/apis/credentials

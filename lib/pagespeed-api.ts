@@ -1,7 +1,8 @@
 /**
  * Google PageSpeed Insights API caller
  * Fetches real-world performance metrics for a given URL
- * No API key required for basic usage (rate-limited to ~200 queries/day per IP)
+ * Requires PAGESPEED_API_KEY environment variable for production use (25K queries/day)
+ * Without a key, quota is ~200 queries/day shared across all users — not reliable for customer reports
  */
 
 export interface PageSpeedData {
@@ -35,7 +36,8 @@ async function callPageSpeedAPI(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}`
+    const apiKey = process.env.PAGESPEED_API_KEY || ''
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
     const response = await fetch(apiUrl, {
       headers: { 'User-Agent': 'SEO CheckSite/1.0' },
       signal: controller.signal,
@@ -143,7 +145,7 @@ export async function getPageSpeedData(url: string): Promise<PageSpeedData> {
       lcp: null,
       tbt: null,
       cls: null,
-      error: 'PageSpeed data unavailable (API quota exceeded or timeout)',
+      error: 'PageSpeed data unavailable (check PAGESPEED_API_KEY or try again later)',
     }
   }
 
