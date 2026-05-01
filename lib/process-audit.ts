@@ -7,7 +7,205 @@ import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
 import { isEmailSent, isEmailSending, isEmailReservationAbandoned, getEmailSentAtAge } from '@/lib/email-status'
 import { captureWebsiteScreenshots } from '@/lib/screenshot'
+import { XMLParser } from 'fast-xml-parser'
+import * as cheerio from 'cheerio'
 import type { SupabaseClient } from '@supabase/supabase-js'
+
+/**
+ * Crawl additional pages from the site's sitemap
+ * Fetches /sitemap.xml, parses URLs, picks 3-5 representative pages,
+ * and runs a lightweight check on each (title, description, headings, word count).
+ * This provides a broader picture than auditing just the submitted URL.
+ * 
+ * @param baseUrl - The base URL of the site being audited
+ * @returns Array of sampled page data, or empty array on failure
+ */
+async function crawlSitemapPages(baseUrl: string): Promise<{
+  sampledPages: Array<{
+    url: string
+    title?: string
+    metaDescription?: string
+    wordCount?: number
+    h1Count?: number
+    issues?: string[]
+  }>
+  totalSitemapUrls: number
+}> {
+  // Determine sitemap URL (try common locations)
+  const sitemapUrls = [
+    new URL('/sitemap.xml', baseUrl).toString(),
+    new URL('/sitemap_index.xml', baseUrl).toString(),
+    new URL('/sitemap/sitemap.xml', baseUrl).toString(),
+  ]
+
+  let sitemapContent: string | null = null
+  let usedSitemapUrl: string | null = null
+
+  // Try each sitemap URL
+  for (const sitemapUrl of sitemapUrls) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+      const response = await fetch(sitemapUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      if (response.ok) {
+        sitemapContent = await response.text()
+        usedSitemapUrl = sitemapUrl
+        console.log(`[crawlSitemapPages] Found sitemap at ${sitemapUrl}`)
+        break
+      }
+    } catch {
+      // Sitemap fetch failed for this URL, try next
+      continue
+    }
+  }
+
+  if (!sitemapContent) {
+    console.log('[crawlSitemapPages] No sitemap found - skipping multi-page crawl')
+    return { sampledPages: [], totalSitemapUrls: 0 }
+  }
+
+  // Parse the sitemap XML
+  let urls: string[] = []
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+    })
+    const parsed = parser.parse(sitemapContent)
+
+    // Handle sitemap index (multiple sitemaps) - just extract URLs from first level
+    if (parsed?.sitemapindex?.sitemap) {
+      console.log('[crawlSitemapPages] Sitemap index detected - using first-level sitemaps')
+      // For sitemap index, we could recursively fetch sub-sitemaps, but for now
+      // we just extract what we can from the index itself or fall through to URL set
+    }
+
+    // Handle standard URL set (urlset)
+    if (parsed?.urlset?.url) {
+      const rawUrls = Array.isArray(parsed.urlset.url) 
+        ? parsed.urlset.url 
+        : [parsed.urlset.url]
+      
+      urls = rawUrls
+        .map((entry: any) => {
+          // The loc field could be a string or an object
+          if (typeof entry.loc === 'string') return entry.loc
+          if (typeof entry === 'string') return entry
+          return null
+        })
+        .filter((url: string | null): url is string => url !== null)
+    }
+  } catch (parseError) {
+    console.warn('[crawlSitemapPages] Failed to parse sitemap XML:', parseError)
+    return { sampledPages: [], totalSitemapUrls: 0 }
+  }
+
+  if (urls.length === 0) {
+    console.log('[crawlSitemapPages] No URLs found in sitemap')
+    return { sampledPages: [], totalSitemapUrls: 0 }
+  }
+
+  console.log(`[crawlSitemapPages] Found ${urls.length} URLs in sitemap`)
+
+  // Filter out excluded paths
+  const excludedPatterns = [
+    '/api/', '/admin/', '/privacy', '/terms', '/refund', 
+    '/accessibility', '/login', '/signup', '/wp-admin',
+    '/feed/', '/comments/', '/trackback/',
+  ]
+  const filteredUrls = urls.filter(url => {
+    const path = url.toLowerCase()
+    return !excludedPatterns.some(pattern => path.includes(pattern))
+  })
+
+  if (filteredUrls.length === 0) {
+    console.log('[crawlSitemapPages] All sitemap URLs were excluded - returning empty')
+    return { sampledPages: [], totalSitemapUrls: urls.length }
+  }
+
+  // Pick 3-5 representative pages (prefer diverse paths)
+  // Shuffle to get a random sample, then pick up to 5
+  const shuffled = [...filteredUrls].sort(() => Math.random() - 0.5)
+  const sampleCount = Math.min(5, shuffled.length)
+  const sampledUrls = shuffled.slice(0, sampleCount)
+
+  console.log(`[crawlSitemapPages] Sampling ${sampleCount} pages for lightweight check:
+  ${sampledUrls.join('\n  ')}`)
+
+  // Fetch and analyze each sampled page
+  const sampledPages: Array<{
+    url: string
+    title?: string
+    metaDescription?: string
+    wordCount?: number
+    h1Count?: number
+    issues?: string[]
+  }> = []
+
+  for (const pageUrl of sampledUrls) {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+      const response = await fetch(pageUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        redirect: 'follow',
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      if (!response.ok) {
+        sampledPages.push({
+          url: pageUrl,
+          issues: [`HTTP ${response.status} returned when fetching page`],
+        })
+        continue
+      }
+
+      const html = await response.text()
+      const $ = cheerio.load(html)
+
+      const title = $('title').first().text().trim() || undefined
+      const metaDescription = $('meta[name="description"]').attr('content') || 
+                              $('meta[property="og:description"]').attr('content') || undefined
+      const bodyText = $('body').text().replace(/\s+/g, ' ').trim()
+      const wordCount = bodyText.split(' ').filter(w => w.length > 0).length
+      const h1Count = $('h1').length
+
+      // Detect any issues on this sampled page
+      const issues: string[] = []
+      if (!title) issues.push('Missing page title')
+      if (!metaDescription) issues.push('Missing meta description')
+      if (h1Count === 0) issues.push('No H1 heading found')
+      if (h1Count > 1) issues.push(`Multiple H1 headings (${h1Count})`)
+      if (wordCount < 100) issues.push(`Very low word count (${wordCount} words)`)
+
+      sampledPages.push({
+        url: pageUrl,
+        title,
+        metaDescription,
+        wordCount,
+        h1Count,
+        issues: issues.length > 0 ? issues : undefined,
+      })
+
+      console.log(`[crawlSitemapPages] Sampled: ${pageUrl.split('/').pop()} - title: ${title?.substring(0, 50) || 'none'}, words: ${wordCount}`)
+    } catch (pageError) {
+      console.warn(`[crawlSitemapPages] Failed to fetch/analyze ${pageUrl}:`, pageError)
+      sampledPages.push({
+        url: pageUrl,
+        issues: [`Failed to fetch: ${pageError instanceof Error ? pageError.message : 'Unknown error'}`],
+      })
+    }
+  }
+
+  console.log(`[crawlSitemapPages] Completed sampling ${sampledPages.length} pages, ${sampledPages.filter(p => p.issues).length} with issues`)
+  return { sampledPages, totalSitemapUrls: urls.length }
+}
 
 /**
  * Process an audit - runs modules, generates report, sends email
@@ -275,6 +473,29 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       externalLinks: externalLinks,
       isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
+
+    // === Multi-Page Sitemap Crawl ===
+    // After analyzing the primary page, crawl additional pages from the site's sitemap
+    // to get a broader picture of the site's health across multiple pages.
+    // This is ADDITIVE - it doesn't affect existing module scoring.
+    console.log('[processAudit] Starting sitemap multi-page crawl...')
+    try {
+      // Use the normalized URL as the base for sitemap discovery
+      const crawlResult = await crawlSitemapPages(normalizedAuditUrl)
+      const sampledPages = crawlResult.sampledPages
+      const totalSitemapUrls = crawlResult.totalSitemapUrls
+      console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
+      
+      // Attach sampled pages to pageAnalysis for use in the report
+      // If we have sampled pages, add them to the pageAnalysis
+      if (sampledPages.length > 0) {
+        ;(pageAnalysis as any).sampledPages = sampledPages
+      }
+    } catch (crawlError) {
+      // Graceful failure: log and continue with just the primary page
+      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
+    }
+    // === End Multi-Page Sitemap Crawl ===
 
     // Store raw results
     auditResult = {
