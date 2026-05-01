@@ -3,7 +3,7 @@
  * Tries the normalized URL and, if the host has no "www", also tries the www variant.
  */
 
-const REACHABILITY_TIMEOUT_MS = 12_000
+const REACHABILITY_TIMEOUT_MS = 20_000
 
 export type ReachabilityResult =
   | { ok: true; url: string }

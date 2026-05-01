@@ -133,9 +133,9 @@ export function isEnterpriseSite(siteData: SiteData): boolean {
  */
 export async function fetchSite(url: string): Promise<SiteData> {
   try {
-    // Add timeout to fetch (15 seconds - reduced for faster audits)
+    // Add timeout to fetch (25 seconds)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    const timeoutId = setTimeout(() => controller.abort(), 25000)
 
     const response = await fetch(url, {
       headers: {
@@ -196,7 +196,7 @@ export async function fetchSite(url: string): Promise<SiteData> {
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Request timeout: ${url} took longer than 30 seconds to respond`)
+      throw new Error(`Request timeout: ${url} took too long to respond`)
     }
     const rawMessage = error instanceof Error ? error.message : String(error)
     if (/fetch failed|TypeError: fetch failed/i.test(rawMessage)) {
