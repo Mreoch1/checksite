@@ -45,6 +45,7 @@ export async function regenerateFullReport(auditId: string): Promise<{ success: 
   // Regenerate as FULL report (teaser: false)
   const result = generateSimpleReport({
     url: audit.url,
+    auditId: audit.id,
     pageAnalysis: rawData.pageAnalysis,
     modules: rawData.modules || [],
     overallScore: overallScore,

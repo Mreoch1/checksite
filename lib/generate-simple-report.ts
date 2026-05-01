@@ -5,6 +5,7 @@
 
 interface SimpleReportData {
   url: string
+  auditId?: string
   pageAnalysis?: {
     url: string
     finalUrl?: string
@@ -449,6 +450,7 @@ export function generateSimpleReport(auditResult: SimpleReportData, options?: { 
     screenshots: auditResult.screenshots,
     scoreOverviewSummary,
     frameworkInfo,
+    auditId: auditResult.auditId,
   })
   
   // Generate plaintext report
@@ -471,6 +473,7 @@ function generateHTMLReport(data: {
   domain: string
   date: string
   url: string
+  auditId?: string
   pageAnalysis?: any
   executiveSummary: string[]
   quickFixChecklist: Array<string | { title: string; severity: string; effort: string }>
@@ -1201,7 +1204,7 @@ function generateHTMLReport(data: {
       <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <span style="font-size: 0.85em; opacity: 0.8; flex-shrink: 0;">Report URL:</span>
         <code style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; word-break: break-all; flex: 1;">
-          https://seochecksite.net/report/{{AUDIT_ID}}
+          https://seochecksite.net/report/${data.auditId || '{{AUDIT_ID}}'}
         </code>
       </div>
       
