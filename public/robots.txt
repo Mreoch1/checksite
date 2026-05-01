@@ -15,5 +15,5 @@ Allow: /success
 Allow: /report/
 
 # Sitemap
-Sitemap: https://seochecksite.netlify.app/sitemap.xml
+Sitemap: https://seochecksite.net/sitemap.xml
 
