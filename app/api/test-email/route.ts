@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       <h1>Test Email from SEO CheckSite</h1>
       <p>This is a test email to verify email delivery is working.</p>
       <p>If you received this, your email configuration is correct!</p>
-      <p><a href="https://seochecksite.netlify.app/report/${testAuditId}">View Test Report</a></p>
+      <p><a href="https://seochecksite.net/report/${testAuditId}">View Test Report</a></p>
     `
 
     console.log(`Sending test email to ${email}`)

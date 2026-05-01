@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if report URL would work
-    const reportUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'}/report/${auditId}`
+    const reportUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'}/report/${auditId}`
     const reportAccessible = audit.status === 'completed' && audit.formatted_report_html
 
     return NextResponse.json({

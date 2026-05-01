@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'
 
 export const metadata: Metadata = {
   title: 'Select Audit Modules | SEO CheckSite',

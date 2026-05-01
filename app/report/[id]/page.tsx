@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     ? new Date(audit.completed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
   
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'
   
   return {
     title: `Website Audit Report for ${domain} - ${reportDate} | SEO CheckSite`,

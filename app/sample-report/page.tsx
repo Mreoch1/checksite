@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     description: 'See what you\'ll get in your SEO audit report.',
   },
   alternates: {
-    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.netlify.app'}/sample-report`,
+    canonical: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'}/sample-report`,
   },
   robots: {
     index: true,
@@ -172,7 +172,7 @@ export default function SampleReportPage() {
     
     <h1 style="margin-top: 20px;">Website Report</h1>
     <div class="meta-info">
-      <p><strong>Website:</strong> seochecksite.netlify.app</p>
+      <p><strong>Website:</strong> seochecksite.net</p>
       <p><strong>Date:</strong> November 26, 2025</p>
       <p><strong>Overall Score:</strong> 
         <span class="score-badge score-high">
@@ -185,8 +185,8 @@ export default function SampleReportPage() {
     <h2>Page Breakdown</h2>
     <div class="summary">
       <table class="evidence-table">
-        <tbody><tr><th>Page URL</th><td>https://seochecksite.netlify.app</td></tr>
-        <tr><th>Final URL (after redirect)</th><td>https://seochecksite.netlify.app/</td></tr>
+        <tbody><tr><th>Page URL</th><td>https://seochecksite.net</td></tr>
+        <tr><th>Final URL (after redirect)</th><td>https://seochecksite.net/</td></tr>
         <tr><th>Page Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr>
         <tr><th>Page Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr>
         <tr><th>Main Heading (H1)</th><td>Get Your Website Checked</td></tr>
@@ -194,7 +194,7 @@ export default function SampleReportPage() {
         <tr><th>Images</th><td>1 total</td></tr>
         <tr><th>Links</th><td>5 internal, 0 external</td></tr>
         <tr><th>HTTPS</th><td>Yes ✓</td></tr>
-        <tr><th>Redirect</th><td>Yes (redirected from https://seochecksite.netlify.app to https://seochecksite.netlify.app/)</td></tr>
+        <tr><th>Redirect</th><td>Yes (redirected from https://seochecksite.net to https://seochecksite.net/)</td></tr>
       </tbody></table>
     </div>
     
@@ -323,9 +323,9 @@ Allow: /success
 Allow: /report/
 
 # Sitemap
-Sitemap: https://seochecksite.netlify.app/sitemap.xml
+Sitemap: https://seochecksite.net/sitemap.xml
 
-</td></tr><tr><th style="width: 30%;">Internal Links Count</th><td>5</td></tr><tr><th style="width: 30%;">Total Links Checked</th><td>5</td></tr><tr><th style="width: 30%;">Broken Links Count</th><td>0</td></tr><tr><th style="width: 30%;">Sitemap Exists</th><td>true</td></tr><tr><th style="width: 30%;">Sitemap Url</th><td>https://seochecksite.netlify.app/sitemap.xml</td></tr>
+</td></tr><tr><th style="width: 30%;">Internal Links Count</th><td>5</td></tr><tr><th style="width: 30%;">Total Links Checked</th><td>5</td></tr><tr><th style="width: 30%;">Broken Links Count</th><td>0</td></tr><tr><th style="width: 30%;">Sitemap Exists</th><td>true</td></tr><tr><th style="width: 30%;">Sitemap Url</th><td>https://seochecksite.net/sitemap.xml</td></tr>
             </tbody></table>
           </div>
         
@@ -455,7 +455,7 @@ Sitemap: https://seochecksite.netlify.app/sitemap.xml
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Schema Found</th><td>true</td></tr><tr><th style="width: 30%;">Schema Count</th><td>1</td></tr><tr><th style="width: 30%;">Schema Types</th><td>Organization</td></tr><tr><th style="width: 30%;">Schema Preview</th><td><pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">{"@context":"https://schema.org","@type":"Organization","name":"SEO CheckSite","url":"https://seochecksite.netlify.app","logo":"https://seochecksite.netlify.app/logo.svg","description":"Get a simple, ...</pre></td></tr>
+              <tbody><tr><th style="width: 30%;">Schema Found</th><td>true</td></tr><tr><th style="width: 30%;">Schema Count</th><td>1</td></tr><tr><th style="width: 30%;">Schema Types</th><td>Organization</td></tr><tr><th style="width: 30%;">Schema Preview</th><td><pre style="white-space: pre-wrap; font-size: 0.85em; background: #f9fafb; padding: 12px; border-radius: 4px; border: 1px solid #e5e7eb; overflow-x: auto; max-width: 100%; margin: 0;">{"@context":"https://schema.org","@type":"Organization","name":"SEO CheckSite","url":"https://seochecksite.net","logo":"https://seochecksite.net/logo.svg","description":"Get a simple, ...</pre></td></tr>
             </tbody></table>
           </div>
         
@@ -476,7 +476,7 @@ Sitemap: https://seochecksite.netlify.app/sitemap.xml
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">
             <h4 style="margin-top: 0; color: #374151;">What We Found:</h4>
             <table class="evidence-table">
-              <tbody><tr><th style="width: 30%;">Og Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Og Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Og Image</th><td>https://seochecksite.netlify.app/logo.svg</td></tr><tr><th style="width: 30%;">Og Type</th><td>website</td></tr><tr><th style="width: 30%;">Og Url</th><td>https://seochecksite.netlify.app</td></tr><tr><th style="width: 30%;">Twitter Card</th><td>summary_large_image</td></tr><tr><th style="width: 30%;">Twitter Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Twitter Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Twitter Image</th><td>https://seochecksite.netlify.app/logo.svg</td></tr>
+              <tbody><tr><th style="width: 30%;">Og Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Og Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Og Image</th><td>https://seochecksite.net/logo.svg</td></tr><tr><th style="width: 30%;">Og Type</th><td>website</td></tr><tr><th style="width: 30%;">Og Url</th><td>https://seochecksite.net</td></tr><tr><th style="width: 30%;">Twitter Card</th><td>summary_large_image</td></tr><tr><th style="width: 30%;">Twitter Title</th><td>SEO CheckSite - Website Audit for Small Business Owners</td></tr><tr><th style="width: 30%;">Twitter Description</th><td>Get a simple, jargon-free website report. No technical knowledge required. Professional SEO audits for small business owners.</td></tr><tr><th style="width: 30%;">Twitter Image</th><td>https://seochecksite.net/logo.svg</td></tr>
             </tbody></table>
           </div>
         
