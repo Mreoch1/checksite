@@ -375,6 +375,30 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Popular Resources Section - Added for SEO internal linking */}
+      <section className="bg-white py-12 border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Popular SEO Guides</h2>
+            <p className="text-gray-600">Free resources to help you understand and improve your website SEO</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            <Link href="/resources/seo-audit-example-for-small-business" className="group bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md hover:border-blue-300 transition-all">
+              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 mb-1">SEO Audit Example</h3>
+              <p className="text-sm text-gray-500">See what a real SEO audit looks like with sample findings and fixes</p>
+            </Link>
+            <Link href="/resources/website-seo-audit-checklist-for-beginners" className="group bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md hover:border-blue-300 transition-all">
+              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 mb-1">Audit Checklist</h3>
+              <p className="text-sm text-gray-500">Step-by-step checklist you can run without any technical experience</p>
+            </Link>
+            <Link href="/resources/best-seo-audit-tools-for-small-business" className="group bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md hover:border-blue-300 transition-all">
+              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 mb-1">Best SEO Tools</h3>
+              <p className="text-sm text-gray-500">Compare the best SEO audit tools for small business owners</p>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* What We Check Section */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-4">
