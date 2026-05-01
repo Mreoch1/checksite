@@ -128,10 +128,10 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
     return { sampledPages: [], totalSitemapUrls: urls.length }
   }
 
-  // Pick 3-5 representative pages (prefer diverse paths)
-  // Shuffle to get a random sample, then pick up to 5
+  // Pick 1-2 representative pages (keep fast for Netlify's 26s function limit)
+  // Shuffle to get a random sample, then pick up to 2
   const shuffled = [...filteredUrls].sort(() => Math.random() - 0.5)
-  const sampleCount = Math.min(5, shuffled.length)
+  const sampleCount = Math.min(2, shuffled.length)
   const sampledUrls = shuffled.slice(0, sampleCount)
 
   console.log(`[crawlSitemapPages] Sampling ${sampleCount} pages for lightweight check:
@@ -150,7 +150,7 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
   for (const pageUrl of sampledUrls) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 15000)
+      const timeout = setTimeout(() => controller.abort(), 8000)
       const response = await fetch(pageUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
         redirect: 'follow',
@@ -474,27 +474,10 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
 
-    // === Multi-Page Sitemap Crawl ===
-    // After analyzing the primary page, crawl additional pages from the site's sitemap
-    // to get a broader picture of the site's health across multiple pages.
-    // This is ADDITIVE - it doesn't affect existing module scoring.
-    console.log('[processAudit] Starting sitemap multi-page crawl...')
-    try {
-      // Use the normalized URL as the base for sitemap discovery
-      const crawlResult = await crawlSitemapPages(normalizedAuditUrl)
-      const sampledPages = crawlResult.sampledPages
-      const totalSitemapUrls = crawlResult.totalSitemapUrls
-      console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
-      
-      // Attach sampled pages to pageAnalysis for use in the report
-      // If we have sampled pages, add them to the pageAnalysis
-      if (sampledPages.length > 0) {
-        ;(pageAnalysis as any).sampledPages = sampledPages
-      }
-    } catch (crawlError) {
-      // Graceful failure: log and continue with just the primary page
-      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
-    }
+    // === Multi-Page Sitemap Crawl (SKIPPED for performance) ===
+    // Sitemap crawl was removed to stay within Netlify's 26s function limit
+    // The audit now analyzes only the primary page + PageSpeed Insights data
+    // This gives users a faster, more reliable report delivery
     // === End Multi-Page Sitemap Crawl ===
 
     // Store raw results

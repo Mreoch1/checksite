@@ -34,7 +34,7 @@ async function callPageSpeedAPI(
 ): Promise<any | null> {
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
 
     const apiKey = process.env.PAGESPEED_API_KEY || ''
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
@@ -95,29 +95,15 @@ function parseLighthouseResult(data: any): {
 }
 
 /**
- * Fetch detailed PageSpeed data from both mobile and desktop strategies.
- * Prefers desktop results, falls back to mobile.
- * Returns null entirely if both strategies fail.
+ * Fetch PageSpeed data from the desktop strategy (mobile requires an extra 8s+ API call).
+ * Desktop PageSpeed data is the most actionable for small business audits.
+ * Returns null if the API call fails entirely.
  */
 export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawData | null> {
-  const strategies = ['desktop', 'mobile'] as const
-  const results: Array<{ data: any; strategy: 'mobile' | 'desktop' }> = []
+  const data = await callPageSpeedAPI(url, 'desktop')
+  if (!data) return null
 
-  for (const strategy of strategies) {
-    const data = await callPageSpeedAPI(url, strategy)
-    if (data) {
-      results.push({ data, strategy })
-    }
-  }
-
-  if (results.length === 0) return null
-
-  const desktopResult = results.find(r => r.strategy === 'desktop')
-  const mobileResult = results.find(r => r.strategy === 'mobile')
-  const primary = desktopResult || mobileResult
-  if (!primary) return null
-
-  const parsed = parseLighthouseResult(primary.data)
+  const parsed = parseLighthouseResult(data)
   if (!parsed) return null
 
   return {
@@ -128,7 +114,7 @@ export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawDa
     cls: parsed.cls,
     si: parsed.si,
     recommendations: parsed.recommendations,
-    strategy: primary.strategy,
+    strategy: 'desktop',
   }
 }
 

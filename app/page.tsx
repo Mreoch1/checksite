@@ -143,7 +143,7 @@ export default function Home() {
           {/* Credibility Badge */}
           <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm mb-6 text-sm text-gray-700">
             <span className="text-green-600 font-semibold">✓</span>
-            <span>1,000+ audits delivered</span>
+            <span>Free preview — full report with fixes $14.99</span>
           </div>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
