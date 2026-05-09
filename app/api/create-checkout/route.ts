@@ -215,20 +215,17 @@ export async function POST(request: NextRequest) {
       // Continue anyway - modules can be added later
     }
 
-    if (totalCents === 0) {
+    // Bypass payment: first free report per email, or complimentary full-report allowlist
+    const isComplimentaryFullReportEmail = receivesComplimentaryFullReport(email)
+    const isFreeFirstReport = totalCents === 0
+
+    if (isFreeFirstReport || isComplimentaryFullReportEmail) {
       await emitFunnelEvent({
         event_name: 'audit_started_free',
         audit_id: audit.id,
         customer_id: customer.id,
         url: urlForAudit,
       })
-    }
-
-    // Bypass payment: first free report per email, or complimentary full-report allowlist
-    const isComplimentaryFullReportEmail = receivesComplimentaryFullReport(email)
-    const isFreeFirstReport = totalCents === 0
-
-    if (isComplimentaryFullReportEmail || isFreeFirstReport) {
       if (isFreeFirstReport) console.log(`First free report for ${email} – adding to queue`)
       else console.log(`Complimentary full-report email: bypassing payment for ${email}`)
       
