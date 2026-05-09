@@ -15,10 +15,6 @@ const { EventWebhook, EventWebhookHeader } = require('@sendgrid/eventwebhook') a
   EventWebhookHeader: { SIGNATURE: () => string; TIMESTAMP: () => string }
 }
 
-// ECDSA public key for SendGrid signed event webhook verification.
-// This is a public key (not a secret) — safe to embed. Env var overrides when set.
-const SENDGRID_WEBHOOK_PUBLIC_KEY_FALLBACK = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFNYQcrnHBmM2b2jE3gryM29oNDKy61O4PVSSq+xGyo1udMpNE2E6XnD+fMX636mMlieLrqB4rj2AT0gABS/GCQ=='
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function safeAuditId(v: unknown): string | null {
@@ -84,7 +80,7 @@ function normalizeIncomingEvent(evt: Record<string, unknown>): Record<string, un
 }
 
 export async function POST(request: NextRequest) {
-  const publicKeyPem = process.env.SENDGRID_WEBHOOK_PUBLIC_KEY?.trim() || SENDGRID_WEBHOOK_PUBLIC_KEY_FALLBACK
+  const publicKeyPem = process.env.SENDGRID_WEBHOOK_PUBLIC_KEY?.trim()
   const isProduction = process.env.NODE_ENV === 'production' || process.env.NETLIFY === 'true'
 
   const rawBody = await request.text()
