@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (totalCents === 0) {
-      void emitFunnelEvent({
+      await emitFunnelEvent({
         event_name: 'audit_started_free',
         audit_id: audit.id,
         customer_id: customer.id,

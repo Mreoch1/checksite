@@ -1,0 +1,29 @@
+{
+  "handle": "@SeoCheckSite",
+  "strategy": "5 sessions/day - mix of posting, retweeting, liking, replying, following",
+  "lastUpdated": "2026-05-03",
+  "postingRules": {
+    "originalPostsPerDay": 5,
+    "likesPerDay": "15-25",
+    "retweetsPerDay": "15-25",
+    "repliesPerDay": "10-15",
+    "followsPerDay": "10-15",
+    "pollsPerWeek": "1-2",
+    "minBetweenReplies": 30,
+    "minBetweenQuoteRts": 120,
+    "schedule": ["9am", "11am", "2pm", "5pm", "8pm"],
+    "antiSpam": true,
+    "endPostsWithQuestion": true,
+    "contentRotation": {
+      "themes": [
+        "1 - Technical SEO / Web Performance",
+        "2 - Industry Education / Myth-Busting",
+        "3 - On-Page SEO / SEO Audits",
+        "4 - AI + SEO / Vibe Coding",
+        "5 - Product / SaaS Growth / Open Topic"
+      ],
+      "lastTheme": "pillar-5",
+      "currentCycleDay": 1
+    }
+  }
+}
