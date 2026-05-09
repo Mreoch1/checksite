@@ -432,6 +432,7 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
       largestContentfulPaint: pageSpeedData?.lcp ?? null,
       totalBlockingTime: pageSpeedData?.tbt ?? null,
       cumulativeLayoutShift: pageSpeedData?.cls ?? null,
+      interactionToNextPaint: pageSpeedData?.inp ?? null,
       speedIndex: pageSpeedData?.si ?? null,
       totalImages,
       imagesWithLazyLoading: imagesWithLazy,

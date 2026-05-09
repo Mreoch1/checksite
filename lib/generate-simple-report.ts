@@ -869,7 +869,7 @@ function generateHTMLReport(data: {
         <p style="margin-bottom: 15px;">${escapeHtml(module.summary || `This section checks ${displayName.toLowerCase()}.`)}</p>
         ${getModuleDescription(module.moduleKey)}
         
-        ${module.moduleKey === 'performance' && module.evidence?.hasPageSpeedData ? `
+        ${module.moduleKey === 'performance' ? (module.evidence?.hasPageSpeedData ? `
           <div style="margin: 20px 0; padding: 20px; background: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;">
             <h4 style="margin-top: 0; margin-bottom: 15px; color: #0369a1;">🚀 Real-world Performance (PageSpeed Insights)</h4>
             <p style="margin-bottom: 15px; color: #374151; font-size: 0.9em;">
@@ -898,6 +898,11 @@ function generateHTMLReport(data: {
                 <div style="font-size: 0.75em; color: #9ca3af;">Total Blocking Time</div>
               </div>
               <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">INP</div>
+                <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.interactionToNextPaint ? `${(module.evidence.interactionToNextPaint).toFixed(0)}ms` : '—'}</div>
+                <div style="font-size: 0.75em; color: #9ca3af;">Interaction to Next Paint</div>
+              </div>
+              <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
                 <div style="font-size: 0.75em; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">CLS</div>
                 <div style="font-size: 1.3em; font-weight: 700; color: #111827;">${module.evidence?.cumulativeLayoutShift !== null && module.evidence?.cumulativeLayoutShift !== undefined ? module.evidence.cumulativeLayoutShift.toFixed(3) : '—'}</div>
                 <div style="font-size: 0.75em; color: #9ca3af;">Cumulative Layout Shift</div>
@@ -907,7 +912,11 @@ function generateHTMLReport(data: {
             ${module.evidence?.pageSpeedScore && module.evidence?.pageSpeedScore < 90 && module.evidence?.pageSpeedScore >= 50 ? '<p style="margin: 15px 0 0 0; color: #f59e0b; font-weight: 600;">⚠️ Needs improvement — Your page does not meet all Core Web Vitals thresholds. Focus on the issues below.</p>' : ''}
             ${module.evidence?.pageSpeedScore && module.evidence?.pageSpeedScore < 50 ? '<p style="margin: 15px 0 0 0; color: #ef4444; font-weight: 600;">❌ Poor — Significant performance issues detected. Prioritize the high-severity fixes below.</p>' : ''}
           </div>
-        ` : ''}
+        ` : `
+          <div style="margin: 20px 0; padding: 20px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: #b91c1c;">PageSpeed data unavailable for this audit; Performance score below is from static analysis only.</h4>
+          </div>
+        `) : ''}
         
         ${module.evidence && Object.keys(module.evidence).length > 0 ? `
           <div style="margin: 20px 0; padding: 15px; background: #fff; border-radius: 4px; border: 1px solid #e5e7eb;">

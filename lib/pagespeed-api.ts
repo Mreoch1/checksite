@@ -20,6 +20,7 @@ export interface PageSpeedRawData {
   lcp: number | null   // milliseconds
   tbt: number | null   // milliseconds
   cls: number | null   // unitless
+  inp: number | null   // milliseconds (interaction-to-next-paint)
   si: number | null    // speed index, milliseconds
   recommendations: string[]
   strategy: 'mobile' | 'desktop'
@@ -72,6 +73,7 @@ function parseLighthouseResult(data: any): {
   lcp: number | null
   tbt: number | null
   cls: number | null
+  inp: number | null
   si: number | null
   recommendations: string[]
 } | null {
@@ -85,6 +87,7 @@ function parseLighthouseResult(data: any): {
   const lcp = audits['largest-contentful-paint']?.numericValue ?? null
   const tbt = audits['total-blocking-time']?.numericValue ?? null
   const cls = audits['cumulative-layout-shift']?.numericValue ?? null
+  const inp = audits['interaction-to-next-paint']?.numericValue ?? null
   const si = audits['speed-index']?.numericValue ?? null
 
   // Collect top improvement opportunities (passing audits with score < 0.9)
@@ -96,7 +99,7 @@ function parseLighthouseResult(data: any): {
     }
   }
 
-  return { score, fcp, lcp, tbt, cls, si, recommendations }
+  return { score, fcp, lcp, tbt, cls, inp, si, recommendations }
 }
 
 /**
@@ -116,6 +119,7 @@ export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawDa
     lcp: parsed.lcp,
     tbt: parsed.tbt,
     cls: parsed.cls,
+    inp: parsed.inp,
     si: parsed.si,
     recommendations: parsed.recommendations,
     strategy: 'desktop',
