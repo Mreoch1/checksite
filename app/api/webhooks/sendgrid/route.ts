@@ -81,6 +81,7 @@ function normalizeIncomingEvent(evt: Record<string, unknown>): Record<string, un
 
 export async function POST(request: NextRequest) {
   const publicKeyPem = process.env.SENDGRID_WEBHOOK_PUBLIC_KEY?.trim()
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.NETLIFY === 'true'
 
   const rawBody = await request.text()
 
@@ -99,8 +100,11 @@ export async function POST(request: NextRequest) {
       console.error('[sendgrid-webhook] Verification error', e)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
+  } else if (isProduction) {
+    console.error('[sendgrid-webhook] SENDGRID_WEBHOOK_PUBLIC_KEY missing in production')
+    return NextResponse.json({ error: 'Webhook verification not configured' }, { status: 503 })
   } else {
-    console.warn('[sendgrid-webhook] SENDGRID_WEBHOOK_PUBLIC_KEY not set — events processed without signature verification')
+    console.warn('[sendgrid-webhook] SENDGRID_WEBHOOK_PUBLIC_KEY not set — skipping verification (dev only)')
   }
 
   let parsed: unknown
