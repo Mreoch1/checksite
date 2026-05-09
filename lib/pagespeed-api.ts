@@ -39,7 +39,7 @@ async function callPageSpeedAPI(
 ): Promise<any | null> {
   try {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 12000)
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
     const apiKey = process.env.PAGESPEED_API_KEY || PAGESPEED_API_KEY_FALLBACK
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
@@ -101,15 +101,10 @@ function parseLighthouseResult(data: any): {
 
 /**
  * Uses mobile strategy (real-user metrics are more actionable for SMB audits).
- * Falls back to desktop if mobile fails (rare).
- * Returns null if both API calls fail entirely.
+ * Returns null if the API call fails entirely.
  */
 export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawData | null> {
-  // Try mobile first (per mission spec — real-user mobile metrics are most representative)
-  let data = await callPageSpeedAPI(url, 'mobile')
-  if (!data) {
-    data = await callPageSpeedAPI(url, 'desktop')
-  }
+  const data = await callPageSpeedAPI(url, 'mobile')
   if (!data) return null
 
   const parsed = parseLighthouseResult(data)
