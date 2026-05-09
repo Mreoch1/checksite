@@ -712,11 +712,11 @@ function generateHTMLReport(data: {
     ` : ''}
 
     ${data.pageAnalysis?.sampledPages && data.pageAnalysis.sampledPages.length > 0 ? `
-    <!-- Crawl Overview: data collected from sitemap multi-page scan -->
-    <h2 id="crawl-overview">Crawl Overview</h2>
+    <!-- Pages Audited: multi-page scan from sitemap sampling -->
+    <h2 id="pages-audited">Pages Audited</h2>
     <div class="summary" style="background: #f0f9ff; border-left-color: #0ea5e9;">
       <p style="margin: 5px 0; color: #374151;">
-        <strong>Sitemap Check</strong> — We found <strong>${data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and reviewed a sample to see how your site\'s content looks across multiple pages.
+        <strong>Sitemap Sampling</strong> — We found <strong>${data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and checked <strong>${data.pageAnalysis.sampledPages.length}</strong> to see how your site\\'s content looks across multiple pages.
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 0.9em;">
         The table below shows key SEO elements from a random sample of pages. This helps catch site-wide patterns that a single-page audit might miss.

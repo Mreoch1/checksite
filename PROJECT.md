@@ -1128,6 +1128,16 @@ Updated `moduleWeights` in `process-audit.ts` to include `llm_readiness: 1` (sta
 - **Processing Delay**: 2 minutes (matches schedule to ensure audits are fully set up before processing)
 - **Note**: Legacy `schedule()` wrapper from `@netlify/functions` doesn't work with modern runtime - causes Functions section to not appear in dashboard
 
+### Multi-Page Sitemap Sampling
+- **Decision**: Sample up to 5 pages from sitemap, fetched concurrently with 8s per-page timeout
+- **Rationale**: Provides broader site coverage than single-page audit without blowing Netlify's 26s function timeout. Concurrent fetches keep wall time ≈ 8s regardless of sample count.
+- **Scoring rules**:
+  - **Worst-page scoring**: crawl_health, on_page, security — a single broken page drags the score down because customers care about the broken page, not the average
+  - **Average scoring**: accessibility, social, schema — these are typically consistent across a site, so average is more representative
+  - **Performance**: homepage only (PageSpeed Insights is the cost bottleneck; multi-page Performance is out of scope for v1)
+- **Implementation**: `lib/process-audit.ts` — `crawlSitemapPages()` function
+- **Report display**: "Pages Audited" section in HTML report listing sampled URLs with title, word count, and detected issues
+
 ### Email System
 - **Decision**: Atomic reservation system using `email_sent_at` timestamp with replication lag handling
 - **Rationale**: Prevents duplicate emails, handles race conditions, allows retry on failure, handles database replication lag

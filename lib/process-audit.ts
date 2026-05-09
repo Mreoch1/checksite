@@ -130,16 +130,17 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
     return { sampledPages: [], totalSitemapUrls: urls.length }
   }
 
-  // Pick 1-2 representative pages (keep fast for Netlify's 26s function limit)
-  // Shuffle to get a random sample, then pick up to 2
+  // Pick 3-5 representative pages (prefer diverse paths)
+  // Shuffle to get a random sample, then pick up to 5
+  // Use concurrent fetches so total wall time ≈ single page time
   const shuffled = [...filteredUrls].sort(() => Math.random() - 0.5)
-  const sampleCount = Math.min(2, shuffled.length)
+  const sampleCount = Math.min(5, shuffled.length)
   const sampledUrls = shuffled.slice(0, sampleCount)
 
-  console.log(`[crawlSitemapPages] Sampling ${sampleCount} pages for lightweight check:
+  console.log(`[crawlSitemapPages] Sampling ${sampleCount} pages for lightweight check (concurrent):
   ${sampledUrls.join('\n  ')}`)
 
-  // Fetch and analyze each sampled page
+  // Fetch and analyze each sampled page concurrently
   const sampledPages: Array<{
     url: string
     title?: string
@@ -149,8 +150,8 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
     issues?: string[]
   }> = []
 
-  for (const pageUrl of sampledUrls) {
-    try {
+  const results = await Promise.allSettled(
+    sampledUrls.map(async (pageUrl) => {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
       const response = await fetch(pageUrl, {
@@ -161,11 +162,10 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
       clearTimeout(timeout)
 
       if (!response.ok) {
-        sampledPages.push({
+        return {
           url: pageUrl,
           issues: [`HTTP ${response.status} returned when fetching page`],
-        })
-        continue
+        }
       }
 
       const html = await response.text()
@@ -186,22 +186,30 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
       if (h1Count > 1) issues.push(`Multiple H1 headings (${h1Count})`)
       if (wordCount < 100) issues.push(`Very low word count (${wordCount} words)`)
 
-      sampledPages.push({
+      console.log(`[crawlSitemapPages] Sampled: ${pageUrl.split('/').pop()} - title: ${title?.substring(0, 50) || 'none'}, words: ${wordCount}`)
+
+      return {
         url: pageUrl,
         title,
         metaDescription,
         wordCount,
         h1Count,
         issues: issues.length > 0 ? issues : undefined,
-      })
+      }
+    })
+  )
 
-      console.log(`[crawlSitemapPages] Sampled: ${pageUrl.split('/').pop()} - title: ${title?.substring(0, 50) || 'none'}, words: ${wordCount}`)
-    } catch (pageError) {
-      console.warn(`[crawlSitemapPages] Failed to fetch/analyze ${pageUrl}:`, pageError)
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      sampledPages.push(result.value)
+    } else {
+      // Promise rejected (network error, timeout, etc.)
+      const failedUrl = '[unknown]'
       sampledPages.push({
-        url: pageUrl,
-        issues: [`Failed to fetch: ${pageError instanceof Error ? pageError.message : 'Unknown error'}`],
+        url: failedUrl,
+        issues: [`Failed to fetch: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`],
       })
+      console.warn(`[crawlSitemapPages] A page failed to fetch:`, result.reason)
     }
   }
 
@@ -476,10 +484,25 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
 
-    // === Multi-Page Sitemap Crawl (SKIPPED for performance) ===
-    // Sitemap crawl was removed to stay within Netlify's 26s function limit
-    // The audit now analyzes only the primary page + PageSpeed Insights data
-    // This gives users a faster, more reliable report delivery
+    // === Multi-Page Sitemap Crawl ===
+    // After analyzing the primary page, crawl additional pages from the site's sitemap
+    // to get a broader picture of the site's health across multiple pages.
+    // Runs concurrently with 8s per-page timeout; total wall time ≈ 8s.
+    console.log('[processAudit] Starting sitemap multi-page crawl...')
+    try {
+      const crawlResult = await crawlSitemapPages(normalizedAuditUrl)
+      const sampledPages = crawlResult.sampledPages
+      const totalSitemapUrls = crawlResult.totalSitemapUrls
+      console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
+
+      // Attach sampled pages to pageAnalysis for use in the report
+      if (sampledPages.length > 0) {
+        ;(pageAnalysis as any).sampledPages = sampledPages
+      }
+    } catch (crawlError) {
+      // Graceful failure: log and continue with just the primary page
+      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
+    }
     // === End Multi-Page Sitemap Crawl ===
 
     // Store raw results
