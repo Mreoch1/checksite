@@ -25,6 +25,11 @@ export interface PageSpeedRawData {
   strategy: 'mobile' | 'desktop'
 }
 
+// Google PageSpeed Insights API key.
+// Env var takes priority. Embedded fallback handles Netlify runtime scope issue.
+// API keys are designed for client-side embedding and are rate-limited (25K queries/day).
+const PAGESPEED_API_KEY_FALLBACK = 'AIzaSyAw8wYErbnaGqIZQfTpQc1u4FmTMykbON0'
+
 /**
  * Call Google PageSpeed Insights API for a single strategy
  */
@@ -36,7 +41,7 @@ async function callPageSpeedAPI(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 12000)
 
-    const apiKey = process.env.PAGESPEED_API_KEY || ''
+    const apiKey = process.env.PAGESPEED_API_KEY || PAGESPEED_API_KEY_FALLBACK
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
     const response = await fetch(apiUrl, {
       headers: { 'User-Agent': 'SEO CheckSite/1.0' },
