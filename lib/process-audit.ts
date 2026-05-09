@@ -345,6 +345,11 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
     // Run audit modules
     console.log('Starting audit module execution...')
     let results, siteData
+    // Launch sitemap crawl in parallel with modules to save wall clock time
+    const crawlPromise = crawlSitemapPages(normalizedAuditUrl).catch(err => {
+      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', err)
+      return { sampledPages: [], totalSitemapUrls: 0 }
+    })
     try {
       const moduleResult = await runAuditModules(normalizedAuditUrl, enabledModules, competitorUrl)
       results = moduleResult.results
@@ -484,26 +489,18 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
 
-    // === Multi-Page Sitemap Crawl ===
-    // After analyzing the primary page, crawl additional pages from the site's sitemap
-    // to get a broader picture of the site's health across multiple pages.
-    // Runs concurrently with 8s per-page timeout; total wall time ≈ 8s.
-    console.log('[processAudit] Starting sitemap multi-page crawl...')
+    // Collect sitemap crawl results (launched in parallel with modules above)
     try {
-      const crawlResult = await crawlSitemapPages(normalizedAuditUrl)
+      const crawlResult = await crawlPromise
       const sampledPages = crawlResult.sampledPages
       const totalSitemapUrls = crawlResult.totalSitemapUrls
       console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
-
-      // Attach sampled pages to pageAnalysis for use in the report
       if (sampledPages.length > 0) {
         ;(pageAnalysis as any).sampledPages = sampledPages
       }
     } catch (crawlError) {
-      // Graceful failure: log and continue with just the primary page
       console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
     }
-    // === End Multi-Page Sitemap Crawl ===
 
     // Store raw results
     auditResult = {
