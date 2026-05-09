@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { getSupabaseServiceClient } from '@/lib/supabase'
 import { sendAuditFailureEmail } from '@/lib/email-unified'
 import { processAudit } from '@/lib/process-audit' // Used as fallback if queue fails
+import { emitFunnelEvent } from '@/lib/emit-funnel-event'
 
 // Force dynamic rendering - webhooks must be dynamic
 export const dynamic = 'force-dynamic'
@@ -67,6 +68,10 @@ export async function POST(request: NextRequest) {
       
       if (result.success) {
         console.log(`✅ Upgrade complete for audit ${upgradeAuditId}: ${result.message}`)
+        void emitFunnelEvent({
+          event_name: 'upgrade_checkout_completed',
+          audit_id: upgradeAuditId,
+        })
       } else {
         console.error(`❌ Upgrade failed for audit ${upgradeAuditId}: ${result.message}`)
       }

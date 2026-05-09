@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@netlify/functions": "^5.1.0",
+    "@sendgrid/eventwebhook": "^8.0.0",
     "@sendgrid/mail": "^8.1.6",
     "@stripe/stripe-js": "^2.4.0",
     "@supabase/supabase-js": "^2.39.0",

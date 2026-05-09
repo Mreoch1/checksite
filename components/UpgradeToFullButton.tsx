@@ -1,6 +1,17 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+import { trackFunnelEvent } from '@/lib/funnel-tracker'
+
 export default function UpgradeToFullButton({ auditId }: { auditId: string }) {
+  const shownTracked = useRef(false)
+
+  useEffect(() => {
+    if (shownTracked.current) return
+    shownTracked.current = true
+    trackFunnelEvent('upgrade_button_shown', { auditId })
+  }, [auditId])
+
   return (
     <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl p-8 mb-8 text-center shadow-lg">
       <h2 className="text-2xl font-bold text-white mb-3">
@@ -14,6 +25,7 @@ export default function UpgradeToFullButton({ auditId }: { auditId: string }) {
         id="upgrade-to-full-btn"
         className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-all shadow-md hover:shadow-lg"
         onClick={async () => {
+          trackFunnelEvent('upgrade_button_clicked', { auditId })
           const btn = document.getElementById('upgrade-to-full-btn') as HTMLButtonElement
           btn.disabled = true
           btn.textContent = 'Processing...'

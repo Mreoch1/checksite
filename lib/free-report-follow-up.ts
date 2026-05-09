@@ -122,6 +122,10 @@ export async function sendFreeReportFollowUpEmail(
     to,
     subject: `How was your free preview for ${domain}?`,
     html,
+    sendGridTracking: {
+      audit_id: auditId,
+      email_category: 'free_report_followup',
+    },
   })
 }
 

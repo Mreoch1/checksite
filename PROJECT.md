@@ -1,6 +1,6 @@
 # SEO CheckSite - Project Single Source of Truth (SSOT)
 
-**Last Updated**: 2026-04-27 (Phase 4 VS pages deployed)  
+**Last Updated**: 2026-05-09 (SendGrid email events webhook — CURSOR_TICKET_002)  
 **Status**: ✅ FULLY OPERATIONAL - 100% Automated Processing Verified  
 **Version**: 2.2  
 **Last Deploy**: 2026-04-27 - Deploy ID 69ef7b4bbaace77488df161b (Phase 4 VS pages)
@@ -57,6 +57,32 @@ This document is the authoritative source for all project state, decisions, TODO
 ---
 
 ## Recent Changes
+
+### 2026-05-09: ✅ SendGrid email engagement webhook (CURSOR_TICKET_002)
+
+- **Migration**: `supabase/migrations/011_email_events.sql` — `email_events` table + `insert_email_events_batch` RPC (`ON CONFLICT (sg_event_id) DO NOTHING`).
+- **Webhook**: `POST /api/webhooks/sendgrid` — verifies ECSDA signature (`@sendgrid/eventwebhook`, env **`SENDGRID_WEBHOOK_PUBLIC_KEY`**); parses batched events; maps `customArgs` → `audit_id` / `email_category`.
+- **Email sends**: `lib/email-unified.ts` adds SendGrid **`customArgs`** (`audit_id`, `email_category`: `report_delivery` | `free_report_followup` | `upgrade_receipt`). Follow-up: `lib/free-report-follow-up.ts`. Upgrade full report: `lib/regenerate-full-report.ts` uses `upgrade_receipt`.
+- **Admin**: `GET /api/admin/funnel` includes **`email`** keyed by category with sent/delivered/opened/clicked/bounced/spam_reports + rates.
+- **Observability**: funnel inserts log **`[FUNNEL_EVENT_INSERT_FAILED]`** via `console.error` (visible in Netlify function logs).
+- **Docs**: `REQUIRED_SECRETS.md` (`SENDGRID_WEBHOOK_PUBLIC_KEY`), `NETLIFY_DEPLOY.md` (SendGrid Event Webhook setup).
+- **Dependency**: `@sendgrid/eventwebhook`.
+- **Debt**: GSC module still deferred until `googleapis` install (`REQUIRED_SECRETS.md` updated).
+
+### 2026-05-09: ✅ Funnel event tracking (CURSOR_TICKET_001)
+
+- **Migration**: `supabase/migrations/010_funnel_events.sql` — table `funnel_events` (session_id, event_name, optional audit_id/customer_id/url/metadata), RLS deny `anon`, indexes.
+- **Ingest**: `POST /api/funnel-event` — validates event names; returns **204** (best-effort).
+- **Client**: `lib/funnel-tracker.ts` — `trackFunnelEvent()` uses `localStorage` key `sitecheck_session_id`, POST + `gtag('event', …)`.
+- **Server**: `lib/emit-funnel-event.ts` — `emitFunnelEvent()` for queue/email/webhook paths (`session_id` = `server`).
+- **Event names (exact)**: acquisition — `homepage_url_entered`, `homepage_email_submitted`, `homepage_consent_given`, `audit_started_free`, `audit_started_paid`, `audit_completed`, `report_email_sent`; upsell — `report_viewed`, `upgrade_button_shown`, `upgrade_button_clicked`, `upgrade_checkout_started`, `upgrade_checkout_completed`.
+- **Read**: `GET /api/admin/funnel?days=7` (max 90), **Bearer `ADMIN_SECRET`**, JSON with per-event counts + `rates` (pct).
+- **Tooling**: `tsconfig.json` excludes `scripts/` from app typecheck (standalone scripts use optional deps). Removed orphan `lib/search-console-api.ts` (broken without `googleapis`); restore when wiring GSC scripts.
+
+### 2026-05-09: ✅ Complimentary full report for allowlisted email
+
+- **Issue**: `mreoch82@hotmail.com` bypassed Stripe via checkout but `total_price_cents === 0` still triggered **teaser** HTML in `generateSimpleReport`, not the paid full report.
+- **Fix**: Central list in `lib/free-full-report-emails.ts`; `lib/process-audit.ts` uses `teaser: false` when the customer email is on that list (even at $0); `app/report/[id]/page.tsx` hides **Upgrade to full** for those emails; `app/api/create-checkout/route.ts` uses the same helper for bypass naming consistency.
 
 ### 2026-04-27: ✅ Phase 4, dedicated VS comparison pages
 

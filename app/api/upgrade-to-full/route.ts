@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getSupabaseServiceClient } from '@/lib/supabase'
+import { emitFunnelEvent } from '@/lib/emit-funnel-event'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -63,6 +64,13 @@ export async function POST(request: NextRequest) {
       },
       success_url: `${siteUrl}/report/${auditId}?upgraded=true`,
       cancel_url: `${siteUrl}/report/${auditId}`,
+    })
+
+    void emitFunnelEvent({
+      event_name: 'upgrade_checkout_started',
+      audit_id: auditId,
+      customer_id: (audit as { customer_id?: string }).customer_id ?? null,
+      url: audit.url,
     })
 
     return NextResponse.json({ url: session.url })

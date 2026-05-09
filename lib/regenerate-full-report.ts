@@ -1,6 +1,7 @@
 import { generateSimpleReport } from './generate-simple-report'
 import { sendAuditReportEmail } from './email-unified'
 import { getSupabaseServiceClient } from './supabase'
+import { emitFunnelEvent } from './emit-funnel-event'
 
 /**
  * Regenerate a full report for an audit that currently has a teaser (free) report.
@@ -76,8 +77,18 @@ export async function regenerateFullReport(auditId: string): Promise<{ success: 
   const customerEmail = (audit.customers as any)?.email
   if (customerEmail) {
     try {
-      await sendAuditReportEmail(customerEmail, audit.url, audit.id, result.html)
+      await sendAuditReportEmail(customerEmail, audit.url, audit.id, result.html, {
+        emailCategory: 'upgrade_receipt',
+      })
       console.log(`[regenerateFullReport] Full report email sent to ${customerEmail}`)
+
+      void emitFunnelEvent({
+        event_name: 'report_email_sent',
+        audit_id: audit.id,
+        customer_id: audit.customer_id,
+        url: audit.url,
+        metadata: { source: 'regenerate_full_report' },
+      })
       
       // Mark email as sent
       await db

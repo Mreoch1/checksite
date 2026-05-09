@@ -38,7 +38,7 @@ In Netlify Dashboard → Site Settings → Environment Variables, add:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://ybliuezkxrlgiydbfzqy.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SXAll4OlWo66uf7qrTAcQQGGeXozYMSO5GsQb28fmBBXMsxaUOaHBcaVKKXrFvQyyVPL01YYtCg7RflPp9OHAqr00zjMhZE1w
 STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY
@@ -66,6 +66,18 @@ NEXT_PUBLIC_SITE_URL=https://your-site-name.netlify.app
 4. Select event: `checkout.session.completed`
 5. Copy the new webhook signing secret
 6. Update `STRIPE_WEBHOOK_SECRET` in Netlify environment variables
+
+### Step 6: SendGrid Event Webhook Setup
+
+Used for open/click/bounce analytics (`email_events` + `/api/admin/funnel`). Requires migration `011_email_events.sql` applied in Supabase.
+
+1. In SendGrid: **Settings** → **Mail Settings** → **Event Webhook**.
+2. **HTTP POST URL**: `https://seochecksite.net/api/webhooks/sendgrid` (or your Netlify production URL + `/api/webhooks/sendgrid`).
+3. Enable action types: **Delivered**, **Opened**, **Clicked**, **Bounced**, **Dropped**, **Spam Reports**, **Unsubscribed** (match what you need for deliverability).
+4. Enable **Signed Event Webhook** (signature verification on the server).
+5. Copy the **verification public key** into Netlify as **`SENDGRID_WEBHOOK_PUBLIC_KEY`** (same value in production env).
+
+Without this env var, production returns **503** on the webhook route (local dev skips verification with a warning).
 
 ## Option 2: Deploy via Netlify CLI
 
@@ -99,7 +111,7 @@ Follow the prompts:
 ```bash
 # Set each variable
 netlify env:set NEXT_PUBLIC_SUPABASE_URL "https://ybliuezkxrlgiydbfzqy.supabase.co"
-netlify env:set NEXT_PUBLIC_SUPABASE_ANON_KEY "YOUR_SUPABASE_SERVICE_ROLE_KEY
+netlify env:set NEXT_PUBLIC_SUPABASE_ANON_KEY "your_supabase_anon_key"
 # ... (set all other variables)
 ```
 
@@ -126,9 +138,11 @@ netlify deploy --prod
 - [ ] Update `NEXT_PUBLIC_SITE_URL` in Netlify env vars to your production URL
 - [ ] Configure Stripe webhook endpoint for production
 - [ ] Update Stripe webhook secret in Netlify env vars
+- [ ] Apply Supabase migrations (including `010_funnel_events.sql`, `011_email_events.sql`)
+- [ ] Configure SendGrid Event Webhook + `SENDGRID_WEBHOOK_PUBLIC_KEY` (see Step 6 above)
 - [ ] Test the full flow: URL → Payment → Report
 - [ ] Verify emails are being sent
-- [ ] Check Netlify function logs for any errors
+- [ ] Check Netlify function logs for any errors (grep `FUNNEL_EVENT_INSERT_FAILED` if funnel inserts fail)
 
 ## Troubleshooting
 

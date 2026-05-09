@@ -3,8 +3,10 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { getSupabaseServiceClient } from '@/lib/supabase'
+import { receivesComplimentaryFullReport } from '@/lib/free-full-report-emails'
 import PrintButton from './PrintButton'
 import UpgradeToFullButton from '@/components/UpgradeToFullButton'
+import ReportFunnelTracker from '@/components/ReportFunnelTracker'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const db = getSupabaseServiceClient()
@@ -92,7 +94,7 @@ export default async function ReportPage({ params }: { params: { id: string } })
   const db = getSupabaseServiceClient()
   const { data: audit, error } = await db
     .from('audits')
-    .select('*')
+    .select('*, customers(email)')
     .eq('id', id)
     .single()
 
@@ -106,6 +108,12 @@ export default async function ReportPage({ params }: { params: { id: string } })
   if (error || !audit) {
     notFound()
   }
+
+  const customerEmail =
+    (audit.customers as { email?: string } | null | undefined)?.email ?? null
+  const showUpgradeToFull =
+    (!audit.total_price_cents || audit.total_price_cents === 0) &&
+    !receivesComplimentaryFullReport(customerEmail)
 
   if (audit.status !== 'completed' || !audit.formatted_report_html) {
     return (
@@ -190,10 +198,9 @@ export default async function ReportPage({ params }: { params: { id: string } })
             Back to Home
           </Link>
         </div>
-        {/* Upgrade CTA for free/teaser reports */}
-        {(!audit.total_price_cents || audit.total_price_cents === 0) && (
-          <UpgradeToFullButton auditId={audit.id} />
-        )}
+        <ReportFunnelTracker auditId={audit.id} siteUrl={audit.url} />
+        {/* Upgrade CTA for free/teaser reports (hidden for complimentary full-report allowlist) */}
+        {showUpgradeToFull && <UpgradeToFullButton auditId={audit.id} />}
         <div
           className="prose prose-lg max-w-none"
           dangerouslySetInnerHTML={{ __html: audit.formatted_report_html }}

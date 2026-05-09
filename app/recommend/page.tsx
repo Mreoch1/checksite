@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ModuleKey, MODULE_DISPLAY_NAMES, MODULE_DESCRIPTIONS, PRICING_CONFIG, CORE_MODULES } from '@/lib/types'
+import { trackFunnelEvent } from '@/lib/funnel-tracker'
 
 interface ModuleOption {
   key: ModuleKey
@@ -63,6 +64,12 @@ export default function RecommendPage() {
     // Fetch recommendations
     fetchRecommendations(auditUrl)
   }, [router])
+
+  useEffect(() => {
+    if (marketingConsentAccepted && url) {
+      trackFunnelEvent('homepage_consent_given', { url })
+    }
+  }, [marketingConsentAccepted, url])
 
   const fetchRecommendations = async (siteUrl: string) => {
     try {

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { trackFunnelEvent } from '@/lib/funnel-tracker'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -13,6 +14,7 @@ export default function Home() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const urlEnteredTracked = useRef(false)
   const validateUrl = (urlString: string): boolean => {
     try {
       // Normalize URL - add https:// if no protocol is provided
@@ -63,6 +65,8 @@ export default function Home() {
         // If URL parsing fails, just lowercase the entire string as fallback
         normalizedUrl = normalizedUrl.toLowerCase()
       }
+
+      trackFunnelEvent('homepage_email_submitted', { url: normalizedUrl })
       
       // Store in sessionStorage and redirect
       sessionStorage.setItem('auditUrl', normalizedUrl)
@@ -190,6 +194,14 @@ export default function Home() {
                 name="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
+                onBlur={() => {
+                  if (urlEnteredTracked.current) return
+                  const t = url.trim()
+                  if (!t || !validateUrl(t)) return
+                  urlEnteredTracked.current = true
+                  const normalized = t.startsWith('http://') || t.startsWith('https://') ? t : `https://${t}`
+                  trackFunnelEvent('homepage_url_entered', { url: normalized })
+                }}
                 placeholder="example.com or https://example.com"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={loading}

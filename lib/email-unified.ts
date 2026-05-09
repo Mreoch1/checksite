@@ -25,6 +25,14 @@ const FROM_NAME = process.env.FROM_NAME || 'SEO CheckSite'
 // Shared
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
+/** SendGrid Event Webhook joins on these (customArgs). */
+export type EmailCategory = 'report_delivery' | 'free_report_followup' | 'upgrade_receipt'
+
+export type SendGridTrackingArgs = {
+  audit_id: string
+  email_category: EmailCategory
+}
+
 // Zoho SMTP Transporter (lazy initialization)
 let zohoTransporter: nodemailer.Transporter | null = null
 
@@ -75,6 +83,7 @@ async function sendViaSendGrid(options: {
   subject: string
   html: string
   text?: string
+  sendGridTracking?: SendGridTrackingArgs
 }): Promise<void> {
   initializeSendGrid()
   
@@ -140,6 +149,14 @@ async function sendViaSendGrid(options: {
       },
       // Add categories to help with inbox placement
       categories: ['audit-report', 'transactional'],
+      ...(options.sendGridTracking
+        ? {
+            customArgs: {
+              audit_id: String(options.sendGridTracking.audit_id),
+              email_category: String(options.sendGridTracking.email_category),
+            },
+          }
+        : {}),
     } as any // Type assertion to bypass strict SendGrid types
     
     const result = await Promise.race([
@@ -238,6 +255,7 @@ export async function sendEmail(options: {
   subject: string
   html: string
   text?: string
+  sendGridTracking?: SendGridTrackingArgs
 }): Promise<void> {
   // Validate email address before sending
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -331,7 +349,8 @@ export async function sendAuditReportEmail(
   email: string,
   url: string,
   auditId: string,
-  reportHtml: string
+  reportHtml: string,
+  opts?: { emailCategory?: EmailCategory }
 ): Promise<void> {
   // Validate email configuration before attempting to send
   if (!SENDGRID_API_KEY && !SMTP_PASSWORD) {
@@ -439,6 +458,10 @@ export async function sendAuditReportEmail(
     to: email,
     subject,
     html,
+    sendGridTracking: {
+      audit_id: auditId,
+      email_category: opts?.emailCategory ?? 'report_delivery',
+    },
   })
 }
 

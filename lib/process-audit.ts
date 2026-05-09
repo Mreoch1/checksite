@@ -5,6 +5,8 @@ import { generateSimpleReport } from '@/lib/generate-simple-report'
 import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
 import { ModuleKey } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
+import { receivesComplimentaryFullReport } from '@/lib/free-full-report-emails'
+import { emitFunnelEvent } from '@/lib/emit-funnel-event'
 import { isEmailSent, isEmailSending, isEmailReservationAbandoned, getEmailSentAtAge } from '@/lib/email-status'
 import { captureWebsiteScreenshots } from '@/lib/screenshot'
 import { XMLParser } from 'fast-xml-parser'
@@ -558,6 +560,8 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       
       try {
         const isFree = audit.total_price_cents === 0 || audit.total_price_cents === null
+        const customerEmail = (audit.customers as { email?: string } | null)?.email
+        const teaser = isFree && !receivesComplimentaryFullReport(customerEmail)
         const result = generateSimpleReport({
           url: audit.url,
           auditId: audit.id,
@@ -565,7 +569,7 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
           modules: results,
           overallScore,
           screenshots,
-        }, { teaser: isFree })
+        }, { teaser })
         // Assign to outer scope variables (declared at function level)
         html = result.html
         plaintext = result.plaintext
@@ -602,6 +606,13 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
         throw new Error(`Failed to save report to database: ${reportUpdateError.message}`)
       }
       console.log('✅ Report saved to database - report URL is now accessible')
+
+      void emitFunnelEvent({
+        event_name: 'audit_completed',
+        audit_id: auditId,
+        customer_id: audit.customer_id,
+        url: audit.url,
+      })
       
       // Verify report was saved (double-check)
       const { data: savedAudit } = await db
@@ -1101,6 +1112,13 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
           console.warn(`[${reservationAttemptId}] ⚠️  Timestamp mismatch: expected ${emailSentAt}, got ${finalTimestamp} (difference: ${timeDiff}ms)`)
         }
         console.log(`[${reservationAttemptId}] 📊 Final state: email_sent_at=${finalTimestamp}, status=completed, has_report=true`)
+
+        void emitFunnelEvent({
+          event_name: 'report_email_sent',
+          audit_id: auditId,
+          customer_id: audit.customer_id,
+          url: audit.url,
+        })
       }
     } catch (err) {
         emailError = err instanceof Error ? err : new Error(String(err))
