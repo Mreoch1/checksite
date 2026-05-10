@@ -47,7 +47,7 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
   for (const sitemapUrl of sitemapUrls) {
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 12000)
+      const timeout = setTimeout(() => controller.abort(), 5000)
       const response = await fetch(sitemapUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
         signal: controller.signal,
