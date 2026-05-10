@@ -3,8 +3,8 @@ import { Metadata } from 'next'
 import SuccessClient from './SuccessClient'
 
 export const metadata: Metadata = {
-  title: 'Payment Successful | SEO CheckSite',
-  description: 'Your payment was successful. Your website audit report will be delivered to your email within 5-10 minutes.',
+  title: 'Audit Started | SEO CheckSite',
+  description: 'Your website audit is being processed. You will receive an email with your report when it is ready.',
   robots: {
     index: false, // Don't index success pages (they're dynamic with query params)
     follow: false,

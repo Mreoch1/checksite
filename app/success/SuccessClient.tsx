@@ -113,10 +113,10 @@ export default function SuccessClient() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Payment Successful!
+              Audit Started!
             </h1>
             <p className="text-gray-600 mb-4">
-              Your website audit is being processed.
+              Your website audit is being processed. You'll receive an email when it's ready.
             </p>
           </div>
 

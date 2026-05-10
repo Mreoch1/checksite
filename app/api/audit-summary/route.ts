@@ -1,7 +1,3 @@
-/**
- * Public endpoint to get basic audit summary (URL and modules) for success page
- */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServiceClient } from '@/lib/supabase'
 
@@ -9,57 +5,35 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
+  const { searchParams } = new URL(request.url)
   const auditId = searchParams.get('id')
-  
+
   if (!auditId) {
-    return NextResponse.json(
-      { error: 'Audit ID parameter is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Missing audit id' }, { status: 400 })
   }
 
-  try {
-    // Get audit with only URL and selected_modules (public info)
-    const { data: audit, error: auditError } = await getSupabaseServiceClient()
-      .from('audits')
-      .select('url, selected_modules')
-      .eq('id', auditId)
-      .single()
+  const db = getSupabaseServiceClient()
 
-    if (auditError || !audit) {
-      return NextResponse.json(
-        { error: 'Audit not found' },
-        { status: 404 }
-      )
-    }
+  // Get audit URL
+  const { data: audit } = await db
+    .from('audits')
+    .select('url')
+    .eq('id', auditId)
+    .single()
 
-    // Parse selected_modules if it's a string
-    let modules = []
-    if (audit.selected_modules) {
-      try {
-        modules = typeof audit.selected_modules === 'string' 
-          ? JSON.parse(audit.selected_modules)
-          : audit.selected_modules
-      } catch (e) {
-        // If parsing fails, return empty array
-        modules = []
-      }
-    }
-
-    return NextResponse.json({
-      url: audit.url,
-      modules: modules || [],
-    })
-  } catch (error) {
-    console.error('Error fetching audit summary:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch audit summary',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    )
+  if (!audit) {
+    return NextResponse.json({ error: 'Audit not found' }, { status: 404 })
   }
+
+  // Get modules from audit_modules table
+  const { data: modules } = await db
+    .from('audit_modules')
+    .select('module_key')
+    .eq('audit_id', auditId)
+    .eq('enabled', true)
+
+  return NextResponse.json({
+    url: audit.url,
+    modules: modules?.map(m => m.module_key) || [],
+  })
 }
-

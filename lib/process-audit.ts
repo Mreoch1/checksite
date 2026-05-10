@@ -116,9 +116,9 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
 
   // Filter out excluded paths
   const excludedPatterns = [
-    '/api/', '/admin/', '/privacy', '/terms', '/refund', 
+    '/api/', '/admin/', '/privacy', '/terms', '/refund',
     '/accessibility', '/login', '/signup', '/wp-admin',
-    '/feed/', '/comments/', '/trackback/',
+    '/feed/', '/comments/', '/trackback/', '/success',
   ]
   const filteredUrls = urls.filter(url => {
     const path = url.toLowerCase()
