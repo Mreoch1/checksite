@@ -716,7 +716,7 @@ function generateHTMLReport(data: {
     <h2 id="pages-audited">Pages Audited</h2>
     <div class="summary" style="background: #f0f9ff; border-left-color: #0ea5e9;">
       <p style="margin: 5px 0; color: #374151;">
-        <strong>Sitemap Sampling</strong> — We found <strong>${data.pageAnalysis.totalSitemapUrls || data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and checked <strong>${data.pageAnalysis.sampledPages.length}</strong> to see how your site's content looks across multiple pages.
+        <strong>Sitemap Sampling</strong> — We found <strong>${data.pageAnalysis.totalSitemapUrls ?? data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and checked <strong>${data.pageAnalysis.sampledPages.length}</strong> to see how your site's content looks across multiple pages.
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 0.9em;">
         The table below shows key SEO elements from a random sample of pages. This helps catch site-wide patterns that a single-page audit might miss.

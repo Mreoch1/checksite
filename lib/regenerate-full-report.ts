@@ -41,7 +41,7 @@ export async function regenerateFullReport(auditId: string): Promise<{ success: 
 
   // Build the report data from existing raw results
   const rawData = audit.raw_result_json as any
-  const overallScore = rawData.overallScore || audit.modules?.reduce?.((sum: number, m: any) => sum + (m.score || 0), 0) / Math.max(modules.length, 1) || 0
+  const overallScore = rawData.overallScore ?? 0
 
   // Regenerate as FULL report (teaser: false)
   const result = generateSimpleReport({
