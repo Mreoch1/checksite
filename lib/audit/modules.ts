@@ -217,7 +217,7 @@ export async function fetchSite(url: string): Promise<SiteData> {
 export async function runPerformanceModule(siteData: SiteData): Promise<ModuleResult> {
   const issues: AuditIssue[] = []
   let score = 100
-  let pageSpeedData: Awaited<ReturnType<typeof fetchPageSpeedMetrics>> = null
+  let pageSpeedData: any = null
 
   // Try to fetch real PageSpeed Insights data (non-blocking - gracefully falls back)
   try {
