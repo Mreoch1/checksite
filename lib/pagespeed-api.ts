@@ -43,9 +43,7 @@ async function callPageSpeedAPI(
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
     const apiKey = process.env.PAGESPEED_API_KEY || PAGESPEED_API_KEY_FALLBACK
-    console.log(`[pagespeed] key_present=${!!process.env.PAGESPEED_API_KEY} len=${apiKey.length} preview=${apiKey.substring(0,8)}...${apiKey.substring(apiKey.length-4)}`)
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
-    console.log(`[pagespeed] url=${apiUrl.substring(0,120)}...`)
     const response = await fetch(apiUrl, {
       headers: { 'User-Agent': 'SEO CheckSite/1.0' },
       signal: controller.signal,
@@ -53,10 +51,9 @@ async function callPageSpeedAPI(
     clearTimeout(timeoutId)
     if (!response.ok) {
       const body = await response.text().catch(() => '')
-      console.warn(`[pagespeed] API returned ${response.status}: ${body.substring(0,200)}`)
+      console.warn(`PageSpeed API returned ${response.status}: ${body.substring(0,200)}`)
       return null
     }
-    console.log(`[pagespeed] Response OK, parsing...`)
     return await response.json()
   } catch (error) {
     console.warn(`PageSpeed API call failed for ${strategy}:`, error)
@@ -123,7 +120,7 @@ export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawDa
     inp: parsed.inp,
     si: parsed.si,
     recommendations: parsed.recommendations,
-    strategy: 'desktop',
+    strategy: 'mobile',
   }
 }
 

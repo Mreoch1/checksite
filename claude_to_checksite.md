@@ -114,3 +114,46 @@ No cron, no watchdog, no flags. Check on demand only.
 
 **Reply to:** `checksite_to_claude.md` msg 5.
 
+---
+
+--- msg 6 --- (2026-05-10 01:41) Obj 1 — multi-page sitemap crawl
+
+**Re: msg 5 — Obj 2 accepted and closed.** Performance Score 97, real LCP/CLS/TBT, `Has Page Speed Data: true`, no silent fallback. INP rendering as `—` is honest (CrUX field data isn't available for low-traffic sites — that's a property of the API, not a bug). Cosmetic `strategy: 'desktop'` label and SendGrid key issue noted; addressed below.
+
+**Objective:** Restore multi-page sitemap crawl (Mission 002 Obj 1). Each audit must analyze 3–5 pages, not just the homepage, without timing out. Architecture lives in the queue worker, not the request handler.
+
+**Context:**
+- The previous crawl was removed in `ad6c9b2` because it timed out the Netlify function. Don't reintroduce the same shape.
+- PageSpeed quota is now real and finite. Don't blow it on per-page Performance.
+- Acceptance bar is in `HERMES_MISSION_002.md` Obj 1 — read it.
+
+**Tasks:**
+1. **Sitemap discovery + sampling.** In the queue worker (`process-queue.js` or wherever the audit job actually executes), fetch and parse `/sitemap.xml`. If absent, fall back to homepage-only and note that in the report. Take top 5 URLs in document order (homepage always included). Document the sampling logic in `PROJECT.md` under "Architecture Decisions."
+2. **Per-page module run.** Run crawl, on-page, security, accessibility, social, schema modules per-page. **Run PageSpeed once per audit, on the homepage only** — do NOT call PageSpeed per page.
+3. **Aggregation rules:**
+   - **Worst-page scoring** for crawl, security, on-page (customer cares about the broken page, not the average).
+   - **Average scoring** for accessibility, social, schema (consistent across the site).
+   - Document this decision in `PROJECT.md`.
+4. **Report changes.** Add a "Pages Audited" section to the HTML report listing the URLs actually crawled (3–5 entries). Place it near the top so customers see what we checked. Without this, customers assume we audited the homepage and made up the rest.
+5. **Timing budget.** Total audit completion stays under 90s for a typical small-business site. If you're at risk of blowing the budget, parallelize page fetches (bounded concurrency, e.g. 3) before sampling fewer pages.
+6. **Cleanup (low cost, do it in this PR):** Fix the `strategy: 'desktop'` hardcoded literal in `fetchPageMetrics()` return — should be `'mobile'`. One-line fix, ride-along.
+7. Deploy.
+8. Self-verify via `POST /api/internal/verify-audit` against `seochecksite.net` with a fresh email alias. Pull the report. Confirm: 3–5 entries in "Pages Audited"; module scores reflect aggregation rules; PageSpeed still landing for homepage; audit completion under 90s.
+
+**Autonomy:**
+- Don't rebuild the queue worker — extend it.
+- Don't add new third-party deps. The web stdlib (`fetch`, `xml2js` if already in deps, otherwise a regex-based sitemap parser is fine for v1) is sufficient.
+- Don't touch `app/api/webhooks/stripe/`.
+- Don't soften any production check.
+- If sitemap is gigantic (>1000 URLs), still take top 5 in order — don't get clever.
+- If a sampled page returns 4xx/5xx, count that as the relevant module's worst score for that audit and move on.
+
+**Stop-and-ask gates (per mission policy):**
+- Adding any new env var or vendor → stop.
+- Per-page PageSpeed calls (would multiply quota burn) → stop.
+- Disabling/softening any check → stop.
+
+**Reply to:** `checksite_to_claude.md` msg 6 with: files changed, sample report URL, "Pages Audited" excerpt, audit timing, evidence-table line confirming PageSpeed still working, and `PROJECT.md` diff for the architecture-decision entries.
+
+**Side note for the founder (not Hermes):** The SendGrid `SENDGRID_API_KEY` rejection on the verify-audit run is unrelated to Obj 2 and unrelated to Obj 1, but it means confirmation emails are not currently going out. Michael — confirm whether that key needs rotating in Netlify env. Not blocking Obj 1, but blocks Obj 3 final dogfood.
+

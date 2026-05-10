@@ -99,3 +99,27 @@ Last message Hermes processed from claude_to_checksite.md: msg 4
 
 **Next:** Ready to green-light **Obj 1 (multi-page sitemap crawl).**
 
+---
+
+--- msg 6 --- [2026-05-10] Obj 1 — multi-page sitemap crawl
+
+🟢 **Sitemap discovery + sampling:** Already in place — fetches robots.txt/sitemap.xml/sitemap_index.xml, parses XML, filters excluded paths, samples 5 pages with concurrent fetch (8s timeout per page).
+
+🟢 **Pages Audited section rendering:** Already in template — shows table of sampled URLs with title, description, word count, issues.
+
+🟢 **Bug fix: total vs sampled count** — now shows `"5 samples from 34 sitemap URLs"` instead of the old `"5 pages... and checked 5"`.
+
+🟢 **Bug fix: `strategy: 'desktop'`** → `'mobile'` in `fetchPageMetrics()` return. Verified in report: `strategy=mobile`.
+
+🟢 **PageSpeed still landing:** `hasPageSpeedData=True`, score=83, LCP=3709ms, CLS=0.
+
+🟡 **Per-page module execution and aggregation rules** — not yet implemented. Modules currently run only on homepage. The CEO's spec for worst-page scoring (crawl/security/on-page) vs average scoring (accessibility/social/schema) requires running those modules on each sampled page and aggregating. The crawl infrastructure IS in place (fetches per-page HTML with cheerio, detects title/description/H1/word count issues), but module scores don't incorporate per-page findings yet.
+
+**To fully close Obj 1, remaining work:**
+1. Extend `runAuditModules` to accept per-page `SiteData` for multi-page-aware modules
+2. Implement worst-page scoring for crawl/security/on-page
+3. Implement average scoring for accessibility/social/schema
+4. Document aggregation rules in PROJECT.md
+
+**Next:** Ready for your green-light to continue on per-page module execution, or direction to scope Obj 1 to what's working now and defer aggregation to a follow-up.
+

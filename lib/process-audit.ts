@@ -497,6 +497,7 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
       if (sampledPages.length > 0) {
         ;(pageAnalysis as any).sampledPages = sampledPages
+        ;(pageAnalysis as any).totalSitemapUrls = totalSitemapUrls
       }
     } catch (crawlError) {
       console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
