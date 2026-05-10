@@ -37,7 +37,8 @@ export async function GET() {
 
   // Use the EXACT same function the audit uses
   try {
-    const data = await fetchPageSpeedMetrics('https://seochecksite.net')
+    const result = await fetchPageSpeedMetrics('https://seochecksite.net')
+    const data = result.data
     results.via_function_worked = data !== null
     if (data) {
       results.score = data.performanceScore
