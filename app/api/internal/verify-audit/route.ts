@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         customer_id: customer.id,
         url,
         status: 'pending',
-        total_price_cents: 0, // free — no paywall needed for internal verify
+        total_price_cents: 1499, // matches test-audit price — non-zero avoids teaser path
       })
       .select()
       .single()
