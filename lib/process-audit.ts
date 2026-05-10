@@ -49,7 +49,7 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
       const response = await fetch(sitemapUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
         signal: controller.signal,
       })
       clearTimeout(timeout)
@@ -155,7 +155,7 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 8000)
       const response = await fetch(pageUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
         redirect: 'follow',
         signal: controller.signal,
       })

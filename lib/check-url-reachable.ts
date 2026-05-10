@@ -40,7 +40,7 @@ export async function checkUrlReachable(normalizedUrl: string): Promise<Reachabi
       const timeoutId = setTimeout(() => controller.abort(), REACHABILITY_TIMEOUT_MS)
       let response = await fetch(url, {
         method: 'HEAD',
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
         redirect: 'follow',
         signal: controller.signal,
       })
@@ -50,7 +50,7 @@ export async function checkUrlReachable(normalizedUrl: string): Promise<Reachabi
         const t2 = setTimeout(() => c2.abort(), REACHABILITY_TIMEOUT_MS)
         response = await fetch(url, {
           method: 'GET',
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
           redirect: 'follow',
           signal: c2.signal,
         })
