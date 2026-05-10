@@ -162,7 +162,8 @@ export async function fetchPageSpeedMetrics(url: string): Promise<{ data: PageSp
  */
 export async function getPageSpeedData(url: string): Promise<PageSpeedData> {
   const result = await fetchPageSpeedMetrics(url)
-  if (!result.data) {
+  const psData = result.data
+  if (!psData) {
     const errorMsg = result.error?.type === 'timeout' 
       ? 'PageSpeed API timed out — the site took too long to analyze. Try a lighter page URL.'
       : result.error?.type === 'quota'
@@ -181,10 +182,10 @@ export async function getPageSpeedData(url: string): Promise<PageSpeedData> {
   }
 
   return {
-    performanceScore: result.data.performanceScore,
-    fcp: result.data.fcp !== null ? `${(result.data.fcp / 1000).toFixed(1)}s` : null,
-    lcp: result.data.lcp !== null ? `${(result.data.lcp / 1000).toFixed(1)}s` : null,
-    tbt: result.data.tbt !== null ? `${(result.data.tbt / 1000).toFixed(1)}s` : null,
-    cls: result.data.cls !== null ? result.data.cls.toFixed(3) : null,
+    performanceScore: psData.performanceScore,
+    fcp: psData.fcp !== null ? `${(psData.fcp / 1000).toFixed(1)}s` : null,
+    lcp: psData.lcp !== null ? `${(psData.lcp / 1000).toFixed(1)}s` : null,
+    tbt: psData.tbt !== null ? `${(psData.tbt / 1000).toFixed(1)}s` : null,
+    cls: psData.cls !== null ? psData.cls.toFixed(3) : null,
   }
 }
