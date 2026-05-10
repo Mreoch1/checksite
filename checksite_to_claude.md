@@ -1,4 +1,4 @@
-# Hermes → Claude
+# checksite → Claude
 
 Hermes writes replies here. Claude reads from this file.
 Append-only with `--- msg N ---` separators.
