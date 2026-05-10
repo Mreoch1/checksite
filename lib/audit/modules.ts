@@ -221,9 +221,12 @@ export async function runPerformanceModule(siteData: SiteData): Promise<ModuleRe
 
   // Try to fetch real PageSpeed Insights data (non-blocking - gracefully falls back)
   try {
-    pageSpeedData = await fetchPageSpeedMetrics(siteData.url)
-    if (pageSpeedData) {
-      console.log(`✅ PageSpeed Insights data fetched: score=${pageSpeedData.performanceScore}, LCP=${pageSpeedData.lcp}, CLS=${pageSpeedData.cls}`)
+    const psResult = await fetchPageSpeedMetrics(siteData.url)
+    if (psResult.data) {
+      pageSpeedData = psResult.data
+      console.log(`✅ PageSpeed Insights data fetched: score=${psResult.data.performanceScore}, LCP=${psResult.data.lcp}, CLS=${psResult.data.cls}`)
+    } else {
+      console.warn(`PageSpeed Insights fetch failed: ${psResult.error?.type || 'unknown'} — ${psResult.error?.message || 'no error details'}`)
     }
   } catch {
     console.warn('PageSpeed Insights fetch failed (continuing with static analysis)')
@@ -666,9 +669,17 @@ export async function runOnPageModule(siteData: SiteData): Promise<ModuleResult>
     score -= 5 // Reduced penalty since multiple H1s are acceptable
   }
 
-  // Check content length
-  const textContent = siteData.$('body').text().replace(/\s+/g, ' ').trim()
-  const wordCount = textContent.split(' ').filter(w => w.length > 0).length
+  // Check content length — extract from main content area, exclude nav/footer/header/script
+  const mainContent = siteData.$('main, article, [role="main"]')
+  let mainText
+  if (mainContent.length > 0) {
+    mainText = mainContent.text().replace(/\s+/g, ' ').trim()
+  } else {
+    const bodyClone = siteData.$('body').clone()
+    bodyClone.find('script, style, nav, footer, header, aside').remove()
+    mainText = bodyClone.text().replace(/\s+/g, ' ').trim()
+  }
+  const wordCount = mainText.split(' ').filter(w => w.length > 0).length
 
   if (wordCount < 300) {
     issues.push({
@@ -1817,7 +1828,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     const robotsController = new AbortController()
     const robotsTimeout = setTimeout(() => robotsController.abort(), 5000)
     const robotsResponse = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       signal: robotsController.signal,
     })
     clearTimeout(robotsTimeout)
@@ -1854,7 +1865,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     const sitemapController = new AbortController()
     const sitemapTimeout = setTimeout(() => sitemapController.abort(), 5000)
     const sitemapResponse = await fetch(sitemapUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       signal: sitemapController.signal,
     })
     clearTimeout(sitemapTimeout)
@@ -1869,7 +1880,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
           const indexController = new AbortController()
           const indexTimeout = setTimeout(() => indexController.abort(), 5000)
           const indexResponse = await fetch(sitemapIndexUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
             signal: indexController.signal,
           })
           clearTimeout(indexTimeout)
@@ -1903,7 +1914,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     const robotsController = new AbortController()
     const robotsTimeout = setTimeout(() => robotsController.abort(), 5000)
     const robotsResponse = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
       signal: robotsController.signal,
     })
     clearTimeout(robotsTimeout)
@@ -2023,7 +2034,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
             },
           },
         })
-        score -= 30
+        score = Math.max(0, Math.min(score, 49)) // Critical finding caps score at 49 regardless of other signals
       } else {
         // Even if not blocking, provide interpretive summary
         const disallowedPaths: string[] = []
@@ -2234,7 +2245,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       
       try {
         const response = await fetch(linkUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
           signal: controller.signal,
           method: 'HEAD', // Use HEAD to check without downloading
           redirect: 'follow',
@@ -2294,7 +2305,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
     const robotsResponse = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO CheckSite/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
     })
     if (robotsResponse.ok) {
       const robotsContent = await robotsResponse.text()

@@ -174,8 +174,17 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
       const title = $('title').first().text().trim() || undefined
       const metaDescription = $('meta[name="description"]').attr('content') || 
                               $('meta[property="og:description"]').attr('content') || undefined
-      const bodyText = $('body').text().replace(/\s+/g, ' ').trim()
-      const wordCount = bodyText.split(' ').filter(w => w.length > 0).length
+      // Extract word count from main content, excluding nav/footer/header/script
+      const mainContent = $('main, article, [role="main"]')
+      let cleanText
+      if (mainContent.length > 0) {
+        cleanText = mainContent.text().replace(/\s+/g, ' ').trim()
+      } else {
+        const bodyClone = $('body').clone()
+        bodyClone.find('script, style, nav, footer, header, aside').remove()
+        cleanText = bodyClone.text().replace(/\s+/g, ' ').trim()
+      }
+      const wordCount = cleanText.split(' ').filter(w => w.length > 0).length
       const h1Count = $('h1').length
 
       // Detect any issues on this sampled page
@@ -427,8 +436,17 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
     }
     const h1Count = siteData.$('h1').length
     const h2Count = siteData.$('h2').length
-    const textContent = siteData.$('body').text().replace(/\s+/g, ' ').trim()
-    const wordCount = textContent.split(' ').filter(w => w.length > 0).length
+    // Extract word count from main content area, excluding nav/footer/header/script
+    const mainContent = siteData.$('main, article, [role="main"]')
+    let mainText
+    if (mainContent.length > 0) {
+      mainText = mainContent.text().replace(/\s+/g, ' ').trim()
+    } else {
+      const bodyClone = siteData.$('body').clone()
+      bodyClone.find('script, style, nav, footer, header, aside').remove()
+      mainText = bodyClone.text().replace(/\s+/g, ' ').trim()
+    }
+    const wordCount = mainText.split(' ').filter(w => w.length > 0).length
     // Count images - include both img tags and Next.js Image components (which may use different attributes)
     const images = siteData.$('img')
     const nextImages = siteData.$('[data-next-image], [class*="next-image"]') // Next.js Image components

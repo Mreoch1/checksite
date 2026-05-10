@@ -56,7 +56,7 @@ interface SimpleReportData {
 }
 
 const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  performance: 'Page Structure & Efficiency',
+  performance: 'Performance',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',

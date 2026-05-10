@@ -95,7 +95,7 @@ export const CORE_MODULES: ModuleKey[] = [
 ]
 
 export const MODULE_DISPLAY_NAMES: Record<ModuleKey, string> = {
-  performance: 'Page Structure & Efficiency',
+  performance: 'Performance',
   crawl_health: 'Crawl Health',
   on_page: 'On-Page SEO',
   mobile: 'Mobile Optimization',

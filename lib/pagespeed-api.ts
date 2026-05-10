@@ -29,36 +29,62 @@ export interface PageSpeedRawData {
 // Google PageSpeed Insights API key.
 // Env var takes priority. Embedded fallback handles Netlify runtime scope issue.
 // API keys are designed for client-side embedding and are rate-limited (25K queries/day).
-const PAGESPEED_API_KEY_FALLBACK = 'AIzaSyAw8wYErbnaGqIZQfTpQc1u4FmTMykbON0'
+const PAGESPEED_API_KEY_FALLBACK = 'AIzaSy...bON0'
 
 /**
  * Call Google PageSpeed Insights API for a single strategy
+ * Includes retry-on-timeout and specific error type reporting
  */
 async function callPageSpeedAPI(
   url: string,
   strategy: 'mobile' | 'desktop'
-): Promise<any | null> {
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
+): Promise<{ data: any | null; error?: { type: 'timeout' | 'quota' | 'auth' | 'http' | 'unknown'; message: string } }> {
+  const MAX_ATTEMPTS = 2
+  let lastError: any = null
+  
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutMs = attempt === 1 ? 30000 : 45000
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-    const apiKey = process.env.PAGESPEED_API_KEY || PAGESPEED_API_KEY_FALLBACK
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
-    const response = await fetch(apiUrl, {
-      headers: { 'User-Agent': 'SEO CheckSite/1.0' },
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-    if (!response.ok) {
-      const body = await response.text().catch(() => '')
-      console.warn(`PageSpeed API returned ${response.status}: ${body.substring(0,200)}`)
-      return null
+      const apiKey = process.env.PAGESPEED_API_KEY || PAGESPEED_API_KEY_FALLBACK
+      const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}${apiKey ? `&key=${apiKey}` : ''}`
+      const response = await fetch(apiUrl, {
+        headers: { 'User-Agent': 'SEO CheckSite/1.0' },
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '')
+        console.warn(`PageSpeed API returned ${response.status}: ${body.substring(0,200)}`)
+        
+        if (response.status === 429) {
+          return { data: null, error: { type: 'quota', message: `API quota exhausted (HTTP 429) for ${strategy}` } }
+        }
+        if (response.status === 403) {
+          return { data: null, error: { type: 'auth', message: `API key invalid or expired (HTTP 403) for ${strategy}` } }
+        }
+        return { data: null, error: { type: 'http', message: `HTTP ${response.status} for ${strategy}` } }
+      }
+      return { data: await response.json() }
+    } catch (error: any) {
+      lastError = error
+      if (error?.name === 'AbortError') {
+        console.warn(`PageSpeed API timeout on attempt ${attempt}/${MAX_ATTEMPTS} for ${strategy} (${attempt === 1 ? '30s' : '45s'})`)
+        if (attempt < MAX_ATTEMPTS) {
+          console.log(`🔄 Retrying PageSpeed API for ${strategy} with longer timeout (45s)...`)
+          continue
+        }
+        return { data: null, error: { type: 'timeout', message: `API timed out after ${MAX_ATTEMPTS} attempts (last: ${attempt === 1 ? '30s' : '45s'}) for ${strategy}` } }
+      }
+      console.warn(`PageSpeed API call failed for ${strategy}:`, error)
+      return { data: null, error: { type: 'unknown', message: `${error instanceof Error ? error.message : String(error)} for ${strategy}` } }
     }
-    return await response.json()
-  } catch (error) {
-    console.warn(`PageSpeed API call failed for ${strategy}:`, error)
-    return null
   }
+  
+  return { data: null, error: { type: 'unknown', message: `Exhausted ${MAX_ATTEMPTS} attempts for ${strategy}` } }
 }
 
 /**
@@ -104,23 +130,29 @@ function parseLighthouseResult(data: any): {
  * Uses mobile strategy (real-user metrics are more actionable for SMB audits).
  * Returns null if the API call fails entirely.
  */
-export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawData | null> {
-  const data = await callPageSpeedAPI(url, 'mobile')
-  if (!data) return null
+export async function fetchPageSpeedMetrics(url: string): Promise<{ data: PageSpeedRawData | null; error?: { type: string; message: string } }> {
+  const result = await callPageSpeedAPI(url, 'mobile')
+  if (!result.data) {
+    return { data: null, error: result.error }
+  }
 
-  const parsed = parseLighthouseResult(data)
-  if (!parsed) return null
+  const parsed = parseLighthouseResult(result.data)
+  if (!parsed) {
+    return { data: null, error: { type: 'parse', message: 'Failed to parse Lighthouse result' } }
+  }
 
   return {
-    performanceScore: parsed.score,
-    fcp: parsed.fcp,
-    lcp: parsed.lcp,
-    tbt: parsed.tbt,
-    cls: parsed.cls,
-    inp: parsed.inp,
-    si: parsed.si,
-    recommendations: parsed.recommendations,
-    strategy: 'mobile',
+    data: {
+      performanceScore: parsed.score,
+      fcp: parsed.fcp,
+      lcp: parsed.lcp,
+      tbt: parsed.tbt,
+      cls: parsed.cls,
+      inp: parsed.inp,
+      si: parsed.si,
+      recommendations: parsed.recommendations,
+      strategy: 'mobile',
+    },
   }
 }
 
@@ -129,23 +161,30 @@ export async function fetchPageSpeedMetrics(url: string): Promise<PageSpeedRawDa
  * This is the high-level convenience function for report consumers.
  */
 export async function getPageSpeedData(url: string): Promise<PageSpeedData> {
-  const raw = await fetchPageSpeedMetrics(url)
-  if (!raw) {
+  const result = await fetchPageSpeedMetrics(url)
+  if (!result.data) {
+    const errorMsg = result.error?.type === 'timeout' 
+      ? 'PageSpeed API timed out — the site took too long to analyze. Try a lighter page URL.'
+      : result.error?.type === 'quota'
+      ? 'PageSpeed API quota exceeded. Try again tomorrow.'
+      : result.error?.type === 'auth'
+      ? 'PageSpeed API key invalid. Check PAGESPEED_API_KEY.'
+      : 'PageSpeed data unavailable (check PAGESPEED_API_KEY or try again later)'
     return {
       performanceScore: null,
       fcp: null,
       lcp: null,
       tbt: null,
       cls: null,
-      error: 'PageSpeed data unavailable (check PAGESPEED_API_KEY or try again later)',
+      error: errorMsg,
     }
   }
 
   return {
-    performanceScore: raw.performanceScore,
-    fcp: raw.fcp !== null ? `${(raw.fcp / 1000).toFixed(1)}s` : null,
-    lcp: raw.lcp !== null ? `${(raw.lcp / 1000).toFixed(1)}s` : null,
-    tbt: raw.tbt !== null ? `${(raw.tbt / 1000).toFixed(1)}s` : null,
-    cls: raw.cls !== null ? raw.cls.toFixed(3) : null,
+    performanceScore: result.data.performanceScore,
+    fcp: result.data.fcp !== null ? `${(result.data.fcp / 1000).toFixed(1)}s` : null,
+    lcp: result.data.lcp !== null ? `${(result.data.lcp / 1000).toFixed(1)}s` : null,
+    tbt: result.data.tbt !== null ? `${(result.data.tbt / 1000).toFixed(1)}s` : null,
+    cls: result.data.cls !== null ? result.data.cls.toFixed(3) : null,
   }
 }
