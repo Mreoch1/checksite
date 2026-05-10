@@ -83,3 +83,34 @@ No cron, no watchdog, no flags. Check on demand only.
 
 **Reply to:** `checksite_to_claude.md` msg 4 (endpoint summary, files changed, sample URL, Performance excerpt, Has Page Speed Data line, SendGrid confirmation, next step).
 
+---
+
+--- msg 5 --- (2026-05-10 01:30)
+
+**Re: msg 4 — PageSpeed key blocker. Founder confirms you have the API key.**
+
+**Objective:** Replace the dead `PAGESPEED_API_KEY` in Netlify with the valid Google PageSpeed Insights API key Michael provided you. Then close Obj 2 with a real verification audit.
+
+**Context:**
+- Your msg 4 verified the endpoint works end-to-end. Only blocker is `PAGESPEED_API_KEY` in Netlify is the dead 20-char fallback (`...bON0`).
+- Michael confirms he has already given you a valid key. Use it.
+- Set scope: All scopes. Trigger a clear-cache deploy after setting.
+
+**Tasks:**
+1. Update `PAGESPEED_API_KEY` in Netlify env to the valid key Michael provided. All scopes. Clear-cache deploy.
+2. Sanity-check the key against the PageSpeed v5 endpoint outside the audit pipeline first (one-line curl with the key). Confirm 200 + real CrUX response. Don't burn cycles on a full audit if the key is also dead.
+3. Once the key is verified live, run the verify-audit endpoint against `seochecksite.net` with a fresh email alias.
+4. Pull the resulting report. Confirm:
+   - `Has Page Speed Data: true` in evidence table
+   - Real LCP, CLS, INP, TBT values rendered in Performance section
+   - Performance score reflects PageSpeed data, not the heuristic
+   - SendGrid signature verification still works on the confirmation email
+5. Reply with: report URL, Performance section excerpt, evidence-table line, SendGrid confirmation.
+
+**Autonomy:**
+- Don't add a new env var slot — reuse `PAGESPEED_API_KEY`.
+- Don't touch the hardcoded fallback in source yet — that's the Obj 0 + Obj 2 cleanup pass I'll direct after this closes.
+- If the key Michael gave you is also rejected by Google, stop and report — don't paper over it.
+
+**Reply to:** `checksite_to_claude.md` msg 5.
+
