@@ -47,7 +47,7 @@ async function callPageSpeedAPI(
   url: string,
   strategy: 'mobile' | 'desktop'
 ): Promise<{ data: any | null; error?: { type: 'timeout' | 'quota' | 'auth' | 'http' | 'network' | 'unknown'; message: string } }> {
-  const TIMEOUTS_MS = [30000, 45000, 60000]
+  const TIMEOUTS_MS = [30000, 45000]
   const MAX_ATTEMPTS = TIMEOUTS_MS.length
   const BACKOFF_MS = [0, 1000, 2000]
 

@@ -239,7 +239,7 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
   const results = await Promise.allSettled(
     sampledUrls.map(async (pageUrl) => {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 8000)
+      const timeout = setTimeout(() => controller.abort(), 5000)
       const response = await fetch(pageUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
         redirect: 'follow',
@@ -1233,10 +1233,11 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       
       if (emailUpdateError) {
         console.error(`[${reservationAttemptId}] ⚠️  Email sent but failed to update email_sent_at:`, emailUpdateError)
-        throw new Error(`Email sent but failed to update timestamp: ${emailUpdateError.message}`)
+        // Don't throw - email was sent, timestamp write failure is cosmetic
+        console.error(`[${reservationAttemptId}] ⚠️  Failed to write email_sent_at (email was still sent successfully)`)
       } else if (!updateResult || updateResult.length === 0 || !updateResult[0]?.email_sent_at) {
         console.error(`[${reservationAttemptId}] ⚠️  Email sent but email_sent_at was not saved (update returned no data)`)
-        throw new Error('Email sent but timestamp was not saved to database')
+        // Don't throw - email was sent despite the cosmetic DB write failure
       } else {
         const finalTimestamp = updateResult[0].email_sent_at
         console.log(`[${reservationAttemptId}] ✅ Email sent successfully to ${customer.email} and timestamp updated to ${finalTimestamp}`)
