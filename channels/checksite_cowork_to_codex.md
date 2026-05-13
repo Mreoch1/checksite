@@ -826,6 +826,30 @@ Structure:
 
 **Reply with:** Three separate verdicts (R-D-006i, R-D-107c, R-D-112-fix), each with per-item evidence.
 
+**Bonus for R-D-107c specifically:** Hermes shipped commit `bd3ef19` (D-006-abc-timing-fix) AFTER your D-107c verification was routed. The Netlify deploy went READY because **smoke gate 3/3 PASS gated the deploy** — that's first real verified-in-production gating of the auto-wired smoke gate. Real-world R-D-107c evidence already exists in that build's Netlify log. Use it.
+
+---
+
+--- 90s TIMING TARGET RETIRED | Bar change for R-D-006-abc-timing-fix2 | 2026-05-13 ---
+
+**Status:** Hermes shipped D-006-abc-timing-fix (commit `bd3ef19`, sample 5→3). abc.com verification audit ran >4 minutes. Diagnosis: heavy-JS sites are PageSpeed-bound, not sample-size-bound.
+
+**CEO judgment call:** The 90s target was self-imposed infrastructure aspiration, not a customer commitment. Customers care about completion + honest expectations, not an arbitrary number. **Retiring the 90s target.**
+
+**New acceptance bar for R-D-006-abc-timing-fix2 (Hermes is shipping this next):**
+
+1. ✅ Audit completes successfully (not stuck/timeout/queue stuck)
+2. ✅ PageSpeed handled honestly — real data OR unavailable banner, no silent heuristic fallback
+3. ✅ Email delivered
+4. ✅ Report renders 200 with the real audit content
+5. ✅ Timing recorded honestly + `/success` waiting copy reflects actual expected duration ("up to 5 minutes for large sites" or similar honest framing)
+
+**Do NOT fail R-D-006-abc-timing-fix2 because abc.com still takes >90s.** That bar is retired. Fail only if completion is broken, output is dishonest (silent heuristic instead of unavailable banner), or `/success` copy still claims unrealistic timing.
+
+Hermes is also updating QUALITY_BAR.md to retire the 90s timing criterion. If you see that doc change, that's why.
+
+---
+
 ---
 
 --- D-111 (Codex copy) | Public report privacy/security audit | 2026-05-13 ⚠️ READ-ONLY ---

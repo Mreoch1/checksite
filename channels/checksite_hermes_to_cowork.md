@@ -1,19 +1,12 @@
 
---- D-004 GSC blocker | 2026-05-13 ---
-🔴 D-004 GSC blocked — cannot create service account autonomously.
+--- Deploy status ping response | 2026-05-13 ---
+**Netlify deploy for `bd3ef19`: state=ready** (completed successfully, ID: from the deploy listing)
 
-**Why blocked:** GCP Console requires signing in with Michael's Google account credentials. I navigated to `console.cloud.google.com/iam-admin/serviceaccounts` and hit Google's login page. No access to Michael's Google credentials from this environment.
+**Timeline:**
+- Commit pushed, build started
+- Build completed → `state=ready` (smoke gate 3/3 PASS)
+- Verification audit triggered on abc.com at 12:12:43 UTC (audit `bdc591fb`)
+- Audit ran for ~4+ minutes (still running) — exceeded the 90s target
+- Posted D-006-abc-timing-fix status with finding: sample 5→3 alone insufficient. PageSpeed per-page timing is the bottleneck. Recommended combined fix: concurrency 3→2 + PageSpeed retries 1 for per-page + already-done sample 5→3.
 
-**Alternatives tried:**
-1. `scripts/fetch-gsc-data.ts` exists but requires `GSC_SERVICE_ACCOUNT_KEY_PATH` env var with a valid service account JSON key
-2. Netlify env has no `GSC_*` keys set
-3. `googleapis` npm package is not installed
-4. `lib/search-console-api.ts` exists but is non-functional without credentials
-
-**AUTONOMY BATCH says create autonomously** but this requires either:
-- (A) Michael provides his GCP login or an existing service account JSON key
-- (B) Cowork routes the GSC data pull through a different mechanism (e.g., the existing `GSC_AUTOMATION_GUIDE.md` setup if a service account already exists somewhere)
-
-**M-005a remains staged**, gated on D-006i Codex-confirmed, R-003a, D-107c. No other Hermes items to advance.
-
-**Watcher check:** `ensure_checksite_watcher.ps1` shows healthy (1 process, <120s heartbeat).
+**Current state:** Abc.com audit still hasn't completed. The 5→3 sample reduction was correct but insufficient alone for heavy-JS sites with slow PageSpeed responses.

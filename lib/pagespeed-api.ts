@@ -45,11 +45,12 @@ const PAGESPEED_API_KEY_FALLBACK = 'AIzaSy...bON0'
  */
 async function callPageSpeedAPI(
   url: string,
-  strategy: 'mobile' | 'desktop'
+  strategy: 'mobile' | 'desktop',
+  maxAttempts?: number
 ): Promise<{ data: any | null; error?: { type: 'timeout' | 'quota' | 'auth' | 'http' | 'network' | 'unknown'; message: string } }> {
-  const TIMEOUTS_MS = [30000, 45000]
-  const MAX_ATTEMPTS = TIMEOUTS_MS.length
-  const BACKOFF_MS = [0, 1000, 2000]
+  const TIMEOUTS_MS = [30000]
+  const MAX_ATTEMPTS = maxAttempts ?? TIMEOUTS_MS.length
+  const BACKOFF_MS = [0]
 
   let lastError: { type: 'timeout' | 'quota' | 'auth' | 'http' | 'network' | 'unknown'; message: string } | null = null
 
@@ -164,8 +165,8 @@ function parseLighthouseResult(data: any): {
  * Uses mobile strategy (real-user metrics are more actionable for SMB audits).
  * Returns null if the API call fails entirely.
  */
-export async function fetchPageSpeedMetrics(url: string): Promise<{ data: PageSpeedRawData | null; error?: { type: string; message: string } }> {
-  const result = await callPageSpeedAPI(url, 'mobile')
+export async function fetchPageSpeedMetrics(url: string, maxAttempts?: number): Promise<{ data: PageSpeedRawData | null; error?: { type: string; message: string } }> {
+  const result = await callPageSpeedAPI(url, 'mobile', maxAttempts)
   if (!result.data) {
     return { data: null, error: result.error }
   }

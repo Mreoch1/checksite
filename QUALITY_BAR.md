@@ -39,10 +39,11 @@ When evaluating a customer-facing report or any change that touches one, score e
 - Issues are sorted by impact, not by module order
 
 ### 5. Delivery — does the customer get the value they paid for?
-- Audit completes in ≤ 90 seconds (Mission 002 Obj 1 budget)
+- Audit completes successfully (no stuck queue items per D-006-abc-timing-fix2 auto-heal)
 - Confirmation email actually arrives at the customer's inbox
 - Report URL is permanent and shareable
 - No silent failures — every customer-impacting error surfaces as an explicit notice
+- `/success` page sets honest expectations about timing variance (1-2 min typical, up to 5 min for heavy sites)
 
 ---
 

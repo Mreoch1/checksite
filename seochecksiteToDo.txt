@@ -18,46 +18,46 @@
 
 ## 📋 ACTIVE CHECKLIST (Cowork maintains; items removed as they complete)
 
-**Last updated:** 2026-05-13 ~16:15 UTC
+**Last updated:** 2026-05-13 ~17:30 UTC
 **Convention:** items remove when DONE, not strike-through. The list only shows current/pending work.
 
-### 🔄 In flight (Hermes side — EVIDENCE PENDING on some)
-- [ ] **D-006i** — Rewrite migration script + scrub git history (Hermes claims done, **no commit cited** — evidence request routed)
-- [ ] **D-107c** — Auto-wire smoke gate into Netlify build (Hermes claims done, **no commit cited** — evidence request routed)
-- [ ] **D-006-abc-timing** — abc.com 274s investigation (Hermes claims done, **no commit cited** — evidence request routed)
-- [ ] **D-004** — GSC pull + 3 SEO moves (script exists; needs service account creation)
-- [ ] **D-006d-gmail** — Hermes started; gmail signup in progress
-- [ ] **D-111 (Hermes copy)** — Privacy audit
+### 🔄 Active work in flight
+- 🔄 **D-006-abc-timing-fix2** (Hermes) — concurrency 3→2 + per-page PageSpeed retries→1 + honest `/success` copy + retire 90s target in QUALITY_BAR. Routed after fix1 shipped but proved insufficient alone.
+- 🔄 **R-D-006i + R-D-107c BATCH** (Codex) — verifying Hermes's `0d77d9a` (env-read) and `8bc1084` (Netlify auto-wire). Awaiting verdicts. **Bonus context for R-D-107c:** the gate gated commit `bd3ef19` (smoke 3/3 PASS) — first real production proof of D-107c working.
+- 🔄 **D-111 (Hermes copy)** — privacy audit, no reply yet
+- 🔄 **D-112-fix2** (Hermes) — cross-shell npm script fix, low priority, pickup after D-006-abc-timing-fix2 ships
 
-### ✅ Codex-side complete (waiting on Hermes counterpart or synthesis)
-- ✅ **R-001 abc.com** — PARTIAL. Functional pass; 274s timing fail. Hermes investigation routed.
-- ✅ **D-111 (Codex)** — PARTIAL. D-112 → D-112-fix shipped.
-- ✅ **R-D-112** — PARTIAL. Allowlist works; YAML bug fix shipped by Hermes (commit `6f68278`). Pending Codex re-verify.
+### ⏸️ Open gaps needing clarification
+- **D-006i git history scrub** — Hermes's `0d77d9a` covers env-read but didn't address git history scrub. Quick clarification pending: either scrubbed (provide evidence) or deliberately-left (provide rationale).
 
-### ✅ Done since last update (removed from in-flight)
-- ✅ **D-110** — Sample-report render-time-latest live (commit `153ac51`, "audited May 13, 2026")
-- ✅ **M-004 (Hermes copy)** — `analytics/M-004-strategic-audit.md` shipped
-- ✅ **M-004 synthesis** — `analytics/M-004-synthesis.md` (Cowork). Verdict: both agents converge on "refresh, not redesign." M-005a staged.
-- ✅ **D-112-fix** — Smoke manifest YAML bug fixed (commit `6f68278`)
+### ⏸️ Waiting on Michael
+- **D-004 GSC** — needs Michael's Google account to access GCP Console (Hermes can't autonomously). Per URGENT: paste service account JSON to Netlify env OR defer. Non-urgent; doesn't gate M-005a.
 
-### ⏭️ Pending downstream (queued behind upstream)
-- [ ] **R-D-006i** — Codex verifies security remediation (once Hermes evidence lands)
-- [ ] **R-D-107c** — Codex verifies Netlify auto-wiring (once Hermes evidence lands)
-- [ ] **R-D-112-fix** — Codex re-verifies the YAML fix
-- [ ] **R-003a** — Codex final M-003 chain sign-off (after D-006i)
-- [ ] **M-005a** — STAGED. 5-item refresh sprint (hero rewrite + proof strip + differentiator + free vs paid table + Top 5 fixes + /recommend overhaul). Routed to Hermes; **do not start until D-006i + R-003a + D-107c all close clean.**
-- [ ] **M-005b** — Polish sprint (footer trust, /resources CTAs, mobile report readability). After M-005a + R-M-005a pass.
-- [ ] **D-006-abc-timing-fix** (TBD) — pending Hermes's investigation deliverable
+### ✅ Done in this session (preserved for record, not re-tracked)
+- D-110 (sample-report render-time-latest, `153ac51`)
+- M-004 Hermes audit (`analytics/M-004-strategic-audit.md`)
+- M-004 synthesis (`analytics/M-004-synthesis.md` — verdict: refresh, not redesign)
+- D-112 (route allowlist on /report/[id])
+- D-112-fix (smoke manifest YAML array, `6f68278`) — array logic works; cross-shell wrapper still broken (→ D-112-fix2 routed)
+- D-006d-gmail (per Michael's drop-box "i confirmed gmail")
+- D-006i env-read part (`0d77d9a` — scrub clarification pending)
+- D-107c Netlify auto-wire (`8bc1084`)
+- D-006-abc-timing investigation (`analytics/D-006-abc-timing-investigation.md`)
+- M-005a sprint staged with locked judgment calls (tagline, header, comparison rows)
 
-### ⏭️ Pending downstream (queued behind upstream)
-- [ ] **R-D-006i** — Codex verifies security remediation
-- [ ] **R-D-107c** — Codex verifies Netlify auto-wiring
-- [ ] **R-D-112** — Codex verifies privacy hardening
-- [ ] **R-003a** — Codex re-review whole M-003 chain post-D-006i (final sign-off)
-- [ ] **M-004 synthesis** — Cowork compares both audits → decides M-005 scope
-- [ ] **D-111 synthesis** — Cowork compares both privacy findings
-- [ ] **M-005 (TBD)** — Refresh sprint based on M-004 synthesis
-- [ ] **D-006-abc-timing-fix** (TBD) — Ship the fix once investigation deliverable lands
+### 🎯 M-005a UNBLOCK GATES (all 5 must close green before M-005a sprint starts)
+1. ⏸️ **D-006i scrub clarified** (waiting on Hermes one-liner)
+2. ⏸️ **R-003a PASSES** (Codex re-review after D-006i fully closes)
+3. ⏸️ **R-D-006i PASSES** (Codex on env-read fix)
+4. ⏸️ **R-D-107c PASSES** (Codex on Netlify auto-wire)
+5. ⏸️ **D-006-abc-timing-fix shipped + verified** (Hermes mid-build now)
+
+### ⏭️ Queued for after gates close
+- [ ] **R-D-112-fix2** — Codex verifies cross-shell fix once Hermes ships
+- [ ] **R-D-006-abc-timing-fix** — Codex verifies the timing/queue fix
+- [ ] **D-111 synthesis** — Cowork compares both privacy findings (waiting on Hermes copy)
+- [ ] **M-005a sprint** — STAGED. 5 items, one batched deploy, judgment calls locked
+- [ ] **M-005b sprint** — Polish (footer, /resources CTAs, mobile report)
 
 ### 📦 Backlog (not started, deferred)
 - [ ] **D-007** — Auto email support build

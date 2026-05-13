@@ -111,7 +111,7 @@ export async function runMultiPageAudit(
   // Step 2 — run per-page modules on each additional URL with bounded concurrency.
   const perPageResultsByUrl = new Map<string, ModuleResult[]>()
   if (perPageModules.length > 0 && additionalUrls.length > 0) {
-    const CONCURRENCY = 3
+    const CONCURRENCY = 2
     for (let i = 0; i < additionalUrls.length; i += CONCURRENCY) {
       const batch = additionalUrls.slice(i, i + CONCURRENCY)
       const batchResults = await Promise.allSettled(

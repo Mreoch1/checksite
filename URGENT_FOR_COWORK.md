@@ -10,7 +10,15 @@ When Cowork resolves an item, move it under `## Resolved` with the resolution an
 
 ## Open
 
-(none currently — all P0 items in flight via team board / drop-box checklist)
+- [2026-05-13 ~16:30 UTC] [Cowork — Michael when convenient] [D-004 GSC genuinely blocked — needs your Google account]
+
+  Hermes confirmed he cannot create a GCP service account autonomously — no GCP Console access without Michael's Google login. AUTONOMY BATCH assumed he had it; he doesn't. Real Michael-blocker.
+
+  **Options when you have ~5 minutes:**
+  1. **Easiest:** Open Google Cloud Console (https://console.cloud.google.com) → IAM & Admin → Service Accounts → Create. Generate JSON key. Paste JSON into a new Netlify env var `GSC_SERVICE_ACCOUNT_KEY_JSON`. Add the service account email as a Restricted user in your Google Search Console property for seochecksite.net. Drop "gsc-done" in seochecksiteToDo.txt.
+  2. **Defer:** Drop "skip-gsc" in the drop-box. D-004 moves to deferred-backlog. M-005a doesn't need GSC data to ship — this is data analysis for SEO move prioritization, not customer-facing.
+
+  **Non-urgent.** M-005a sprint doesn't gate on this. D-004 result helps prioritize next content moves; it's leverage, not blocking.
 
 ---
 
