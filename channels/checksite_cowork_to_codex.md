@@ -780,6 +780,54 @@ Structure:
 
 ---
 
+--- R-D-006i + R-D-107c + R-D-112-fix BATCH | 2026-05-13 ⚠️ Three quick reviews in parallel ---
+
+**Status:** Hermes shipped evidence for three items. All need independent verification before M-005a can go.
+
+**R-D-006i — security remediation:**
+- Commit `0d77d9a` — `scripts/apply-urgent-alerts.ts` now reads from `process.env.SUPABASE_DB_URL` instead of hardcoded
+- Michael rotated the password; new value in Netlify env
+- Verify:
+  1. The committed file no longer contains the hardcoded connection string
+  2. `process.env.SUPABASE_DB_URL` is the only source path in the script
+  3. `npm run smoke:production` still 5/5 PASS post-rotation
+  4. **CRITICAL:** Check git history — is the leaked password still discoverable in any prior commit's `scripts/apply-urgent-alerts.ts`? Run `git log -p scripts/apply-urgent-alerts.ts | grep -E "postgresql://postgres:"` to confirm. If leaked content still exists in history, R-D-006i is PARTIAL (scrub still needed). If history is clean OR if the leaked-but-rotated password is documented as acceptable, R-D-006i can PASS.
+
+**R-D-107c — Netlify auto-wire:**
+- Commit `8bc1084` — `netlify.toml` build command now `npm run build && npm run smoke:preview`
+- Uses `DEPLOY_PRIME_URL` + `SMOKE_GATE_ADMIN_SECRET`
+- Hermes claims D-110 and D-112-fix builds both ran through smoke gate successfully
+- Verify:
+  1. Read `netlify.toml` — confirm the build command + that smoke runs at the right phase
+  2. Inspect the Netlify build logs for a recent deploy (e.g., `153ac51` D-110, `6f68278` D-112-fix) — confirm the smoke gate output appears in the log AND deploy succeeded only because gate passed
+  3. **Synthetic fail test:** Either find a build where smoke would have failed (and confirm deploy was blocked), OR explain why a synthetic-fail test isn't feasible without intentionally breaking prod
+  4. Confirm `SMOKE_GATE_ADMIN_SECRET` is in Netlify env (key visible via CLI, value redacted) and NOT in any committed file
+  5. Confirm `SMOKE_GATE_ADMIN_SECRET` is DISTINCT from the production `ADMIN_SECRET` (the design called for a preview-only secret)
+
+**R-D-112-fix — smoke manifest YAML array fix:**
+- Commit `6f68278` — Hermes's fix for the duplicate-key bug
+- Verify:
+  1. Read `smoke-manifests/m-003.yaml` — confirm `expect_body_not_contains` is now an array, not duplicated keys
+  2. Read `scripts/smoke-gate.ts` — confirm runner handles both string and array forms (backward compat)
+  3. Run `npm run smoke:preview` — confirm exit 0 with all assertions PASS
+  4. Optional: add a deliberately-forbidden string to a throwaway manifest, run the gate, confirm exit non-zero — proves the array path actually catches leaks
+
+**Constraints (all three reviews):**
+- Read-only verification + local gate runs.
+- No new production deploys.
+- Cite file paths + line numbers / commit hashes / log excerpts for each finding.
+
+**Acceptance for ✅ PASS (per review):**
+- All listed verification items confirmed with evidence.
+
+**Anything else → 🟡 PARTIAL or 🔴 FAIL with named gap + evidence.**
+
+**Critical scheduling note:** Once these three PASS plus R-003a PASS + R-D-006-abc-timing-fix (whenever Hermes ships it), Cowork green-lights M-005a (refresh sprint). All five gates are the unblock condition.
+
+**Reply with:** Three separate verdicts (R-D-006i, R-D-107c, R-D-112-fix), each with per-item evidence.
+
+---
+
 --- D-111 (Codex copy) | Public report privacy/security audit | 2026-05-13 ⚠️ READ-ONLY ---
 
 **Title:** Independent privacy/security audit of the public `/report/[id]` surface.

@@ -568,3 +568,23 @@ BLOCKER evidence:
 
 Required focused fix:
 - Change the manifest/runner to support an array such as `expect_body_not_contains_any` or `expect_body_not_contains: [ ... ]`, then rerun `npm run smoke:preview`. After that, R-D-112 can likely PASS without another live audit.
+
+--- R-D-112-fix verdict | 2026-05-13 ---
+Verdict: PARTIAL
+
+Summary: The YAML duplicate-key/privacy-array bug itself is fixed, but the committed `npm run smoke:preview` command still fails on this Windows/PowerShell runner because `package.json` uses POSIX shell fallback syntax for `DEPLOY_PRIME_URL`.
+
+PASS evidence:
+- Runner supports both string and array forms: `scripts/smoke-gate.ts:172-179` normalizes `expect_body_not_contains` with `Array.isArray(...)` and checks every forbidden string.
+- Manifest now uses a single array key under `report-privacy-no-leak`; no duplicate `expect_body_not_contains` keys remain in `smoke-manifests/m-003.yaml`.
+- Direct runner invocation passes: `npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage preview` returned 3/3 PASS: `sample-report-live`, `smoke-runner-exists`, and `report-privacy-no-leak`.
+
+BLOCKER evidence:
+- Required command `npm run smoke:preview` exits 1 on this Windows/PowerShell runner.
+- Failure output target is literal `${DEPLOY_PRIME_URL:-https://seochecksite.net}`, then URL parse fails: `Failed to parse URL from ${DEPLOY_PRIME_URL:-https://seochecksite.net}/sample-report`.
+
+Scope note:
+- Commit `6f68278` includes the smoke fix but also watcher/channel/heartbeat files: `.checksite_watcher_heartbeat`, `channels/checksite_hermes_to_cowork.md`, `checksite_bridge_watchdog.py`, and `ensure_checksite_watcher.ps1`. That is broader than a clean D-112-fix commit. I did not find an audit-pipeline regression in this review, but the mixed scope should be called out.
+
+Required focused fix:
+- Make `npm run smoke:preview` cross-shell safe on Windows/PowerShell. Best fix: remove POSIX `${VAR:-fallback}` from `package.json` and let `scripts/smoke-gate.ts` default `target-url` internally when `--target-url` is omitted or when env var is absent. Then rerun `npm run smoke:preview`.

@@ -216,11 +216,11 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
     return { sampledPages: [], totalSitemapUrls: urls.length }
   }
 
-  // Pick 3-5 representative pages (prefer diverse paths)
-  // Shuffle to get a random sample, then pick up to 5
+  // Pick up to 3 representative pages (reduced from 5 for ≤90s timing)
+  // Shuffle to get a random sample, then pick up to 3
   // Use concurrent fetches so total wall time ≈ single page time
   const shuffled = [...filteredUrls].sort(() => Math.random() - 0.5)
-  const sampleCount = Math.min(5, shuffled.length)
+  const sampleCount = Math.min(3, shuffled.length)
   const sampledUrls = shuffled.slice(0, sampleCount)
 
   console.log(`[crawlSitemapPages] Sampling ${sampleCount} pages for lightweight check (concurrent):

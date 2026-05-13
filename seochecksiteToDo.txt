@@ -18,23 +18,36 @@
 
 ## 📋 ACTIVE CHECKLIST (Cowork maintains; items removed as they complete)
 
-**Last updated:** 2026-05-13 ~15:45 UTC
+**Last updated:** 2026-05-13 ~16:15 UTC
 **Convention:** items remove when DONE, not strike-through. The list only shows current/pending work.
 
-### 🔄 In flight (Hermes side)
-- [ ] **D-006i** — Rewrite migration script to read DB password from env + scrub git history
-- [ ] **D-004** — Pull Google Search Console 90-day data + 3 SEO moves
-- [ ] **D-107c** — Auto-wire smoke gate into Netlify build
-- [ ] **D-111 (Hermes copy)** — Privacy audit (Codex side ✅ done)
-- [ ] **M-004 (Hermes copy)** — Strategic UX/copy/competitive audit (Codex side ✅ done)
-- [ ] **D-112-fix** — Smoke manifest YAML fix: support `expect_body_not_contains: [array]` (current manifest has duplicate keys, gate exits 1)
-- [ ] **D-006-abc-timing** — Investigate abc.com 274s timing + queue row anomaly
+### 🔄 In flight (Hermes side — EVIDENCE PENDING on some)
+- [ ] **D-006i** — Rewrite migration script + scrub git history (Hermes claims done, **no commit cited** — evidence request routed)
+- [ ] **D-107c** — Auto-wire smoke gate into Netlify build (Hermes claims done, **no commit cited** — evidence request routed)
+- [ ] **D-006-abc-timing** — abc.com 274s investigation (Hermes claims done, **no commit cited** — evidence request routed)
+- [ ] **D-004** — GSC pull + 3 SEO moves (script exists; needs service account creation)
+- [ ] **D-006d-gmail** — Hermes started; gmail signup in progress
+- [ ] **D-111 (Hermes copy)** — Privacy audit
 
 ### ✅ Codex-side complete (waiting on Hermes counterpart or synthesis)
-- ✅ **R-001 abc.com** — PARTIAL. Functional pass; 274s vs 90s timing fail. D-006-abc-timing routed.
-- ✅ **M-004 (Codex)** — Verdict: **"Refresh, not full redesign."** 5 fixes named. Awaiting Hermes counterpart for synthesis.
-- ✅ **D-111 (Codex)** — PARTIAL. Server-side over-fetching flagged. D-112 routed → shipped (allowlist) → D-112-fix for the smoke manifest YAML bug.
-- ✅ **R-D-112** — Codex PARTIAL: route allowlist works (live report clean), but smoke manifest YAML invalid. D-112-fix routed.
+- ✅ **R-001 abc.com** — PARTIAL. Functional pass; 274s timing fail. Hermes investigation routed.
+- ✅ **D-111 (Codex)** — PARTIAL. D-112 → D-112-fix shipped.
+- ✅ **R-D-112** — PARTIAL. Allowlist works; YAML bug fix shipped by Hermes (commit `6f68278`). Pending Codex re-verify.
+
+### ✅ Done since last update (removed from in-flight)
+- ✅ **D-110** — Sample-report render-time-latest live (commit `153ac51`, "audited May 13, 2026")
+- ✅ **M-004 (Hermes copy)** — `analytics/M-004-strategic-audit.md` shipped
+- ✅ **M-004 synthesis** — `analytics/M-004-synthesis.md` (Cowork). Verdict: both agents converge on "refresh, not redesign." M-005a staged.
+- ✅ **D-112-fix** — Smoke manifest YAML bug fixed (commit `6f68278`)
+
+### ⏭️ Pending downstream (queued behind upstream)
+- [ ] **R-D-006i** — Codex verifies security remediation (once Hermes evidence lands)
+- [ ] **R-D-107c** — Codex verifies Netlify auto-wiring (once Hermes evidence lands)
+- [ ] **R-D-112-fix** — Codex re-verifies the YAML fix
+- [ ] **R-003a** — Codex final M-003 chain sign-off (after D-006i)
+- [ ] **M-005a** — STAGED. 5-item refresh sprint (hero rewrite + proof strip + differentiator + free vs paid table + Top 5 fixes + /recommend overhaul). Routed to Hermes; **do not start until D-006i + R-003a + D-107c all close clean.**
+- [ ] **M-005b** — Polish sprint (footer trust, /resources CTAs, mobile report readability). After M-005a + R-M-005a pass.
+- [ ] **D-006-abc-timing-fix** (TBD) — pending Hermes's investigation deliverable
 
 ### ⏭️ Pending downstream (queued behind upstream)
 - [ ] **R-D-006i** — Codex verifies security remediation

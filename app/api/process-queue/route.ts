@@ -250,6 +250,7 @@ async function resetStuckAudits(requestId: string) {
   
   try {
     // 1. Clean up queue items pointing to already-completed audits
+    // First: pending queue items with completed audits (email_sent_at set)
     const { data: completedAuditQueueItems, error: findCompletedError } = await supabasePrimary
       .from('audit_queue')
       .select('id, audit_id, audits!inner(id, status, email_sent_at, formatted_report_html)')
@@ -270,6 +271,31 @@ async function resetStuckAudits(requestId: string) {
       
       if (!markCompletedError) {
         console.log(`[${requestId}] [auto-heal] ✅ Marked ${completedQueueIds.length} queue items as completed`)
+      }
+    }
+
+    // 1b. Also clean up processing queue items where the audit has already completed
+    // This fixes the abc.com pattern: queue row stayed 'processing' after audit completed
+    const { data: processingCompletedAuditItems, error: findProcessingCompletedError } = await supabasePrimary
+      .from('audit_queue')
+      .select('id, audit_id, audits!inner(id, completed_at)')
+      .eq('status', 'processing')
+      .not('audits.completed_at', 'is', null)
+    
+    if (!findProcessingCompletedError && processingCompletedAuditItems && processingCompletedAuditItems.length > 0) {
+      console.log(`[${requestId}] [auto-heal] Found ${processingCompletedAuditItems.length} processing queue items where audit already completed, marking as completed...`)
+      
+      const processingCompletedIds = processingCompletedAuditItems.map(item => item.id)
+      const { error: markProcCompletedError } = await supabasePrimary
+        .from('audit_queue')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .in('id', processingCompletedIds)
+      
+      if (!markProcCompletedError) {
+        console.log(`[${requestId}] [auto-heal] ✅ Marked ${processingCompletedIds.length} processing queue items as completed`)
       }
     }
     

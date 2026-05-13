@@ -30,6 +30,9 @@ yarn-error.log*
 .env
 .env.*.local
 
+# GCP service account keys
+/secrets/
+
 # vercel
 .vercel
 
@@ -50,3 +53,4 @@ IDENTITY.md
 SOUL.md
 TOOLS.md
 USER.md
+secrets/
