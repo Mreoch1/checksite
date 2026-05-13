@@ -58,3 +58,15 @@ items:
     stage: "both"
     assertion_type: "file_exists"
     path: "scripts/smoke-gate.ts"
+
+  # Privacy: no sensitive fields in report page HTML
+  - id: "report-privacy-no-leak"
+    description: "Report page does not contain customer email or internal fields in rendered HTML"
+    stage: "both"
+    assertion_type: "http_get"
+    url: "/report/c62829fb-54cb-481c-a051-89c6f02aebef"
+    expect_status: 200
+    expect_body_not_contains: "seochecksite.test.email@gmail.com"
+    expect_body_not_contains: "stripe_session_id"
+    expect_body_not_contains: "error_log"
+    expect_body_not_contains: "raw_result_json"

@@ -94,7 +94,7 @@ export default async function ReportPage({ params }: { params: { id: string } })
   const db = getSupabaseServiceClient()
   const { data: audit, error } = await db
     .from('audits')
-    .select('*, customers(email)')
+    .select('id, url, completed_at, status, formatted_report_html, total_price_cents, customers(email)')
     .eq('id', id)
     .single()
 
