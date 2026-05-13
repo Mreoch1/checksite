@@ -178,15 +178,26 @@ export async function POST(request: NextRequest) {
         const isFailure = ['bounce', 'dropped', 'deferred'].includes(ev)
 
         if (isFailure) {
-          // P0 alert: write to URGENT_FOR_COWORK.md via a service
+          // P0 alert: write to durable urgent_alerts table (NOT /tmp — ephemeral on Netlify)
           console.error(`[sendgrid-webhook] 🚨 P0 DELIVERY FAILURE for customer email ${email}: event=${ev}, sg_message_id=${evt.sg_message_id}`)
-          // Try to write alert — non-blocking; don't crash the webhook
           try {
-            const fs = require('fs')
-            const urgPath = '/tmp/seochecksite-urgent-alert.txt'
-            const alert = `🚨 P0 DELIVERY FAILURE\nTime: ${new Date().toISOString()}\nEmail: ${email}\nEvent: ${ev}\nSG Message ID: ${evt.sg_message_id || 'N/A'}\nCategory: ${cat}\n`
-            fs.writeFileSync(urgPath, alert, 'utf8')
-          } catch { /* silent */ }
+            await db.from('urgent_alerts').insert({
+              severity: 'p0',
+              source: 'm003_delivery_monitor',
+              category: `report_delivery_${ev}`,
+              message: `Delivery ${ev} for customer email ${email} (category: ${cat})`,
+              metadata: {
+                email,
+                event: ev,
+                sg_message_id: evt.sg_message_id || null,
+                category: cat,
+                audit_id: evt.audit_id || null,
+              },
+            })
+            console.log(`[sendgrid-webhook] ✅ P0 alert written to urgent_alerts for ${email}`)
+          } catch (alertErr) {
+            console.error('[sendgrid-webhook] ❌ Failed to write urgent_alert:', alertErr)
+          }
         }
 
         // Increment the counter for both success and failure (failure counts as attempted)

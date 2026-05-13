@@ -79,6 +79,19 @@ export async function GET(request: NextRequest) {
     .eq('status', 'completed')
     .is('email_sent_at', null)
 
+  // Urgent alerts — unresolved count + latest 5
+  const { count: urgentCount, error: ucError } = await supabase
+    .from('urgent_alerts')
+    .select('id', { count: 'exact', head: true })
+    .is('resolved_at', null)
+
+  const { data: latestAlerts } = await supabase
+    .from('urgent_alerts')
+    .select('id, created_at, severity, source, category, message, resolved_at')
+    .is('resolved_at', null)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
   return NextResponse.json({
     generated_at: now,
     latest_audit: latestAudit || null,
@@ -90,7 +103,10 @@ export async function GET(request: NextRequest) {
       recent_delivery_events: emailCounts,
       completed_without_email: missingEmailCount || 0,
     },
-    healthy: !!latestAudit?.email_sent_at,
+    urgent_alerts: {
+      unresolved_count: urgentCount || 0,
+      latest: latestAlerts || [],
+    },
     overall_score: auditScore,
     report_url: latestAudit?.id
       ? `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'}/report/${latestAudit.id}`
