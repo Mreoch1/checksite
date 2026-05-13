@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   // Latest audit
   const { data: latestAudit } = await supabase
     .from('audits')
-    .select('id, url, status, created_at, completed_at, email_sent_at, duration_minutes')
+    .select('id, url, status, created_at, completed_at, email_sent_at')
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
