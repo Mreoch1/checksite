@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import json
 import logging
 import sys
 import time
@@ -53,9 +54,10 @@ CHANNELS = ROOT / "channels"
 LOG_PATH = ROOT / "checksite_bridge_watchdog.log"
 PAUSE_FILE = ROOT / ".checksite_watcher_pause"
 HEARTBEAT_PATH = ROOT / ".checksite_watcher_heartbeat"
+LAST_SENT_PATH = ROOT / ".checksite_watcher_last_sent.json"
 
 DEBOUNCE_SECONDS = 8
-TARGET_COOLDOWN_SECONDS = 12
+TARGET_COOLDOWN_SECONDS = 60
 WATCHER_HEARTBEAT_SECONDS = 30
 IDLE_CHECK_SECONDS = 120
 MOMENTUM_SWEEP_SECONDS = 180
@@ -373,12 +375,36 @@ class Handler(FileSystemEventHandler):
         log.info("%s changed -> waking %s", path.name, label)
         if target_on_cooldown(label):
             return
-        tap_window(label, hints, path)
+        if tap_window(label, hints, path):
+            mark_target_tapped(label)
 
 
 last_activity = time.time()
 last_tap_by_label: dict[str, float] = {}
 last_momentum_sweep = 0.0
+
+
+def load_last_sent() -> dict[str, float]:
+    try:
+        raw = json.loads(LAST_SENT_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    loaded: dict[str, float] = {}
+    for label, value in raw.items():
+        try:
+            loaded[str(label)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return loaded
+
+
+def save_last_sent() -> None:
+    try:
+        LAST_SENT_PATH.write_text(json.dumps(last_tap_by_label, indent=2), encoding="utf-8")
+    except OSError:
+        log.exception("Failed to write target cooldown state")
 
 
 def note_activity() -> None:
@@ -396,8 +422,12 @@ def target_on_cooldown(label: str) -> bool:
             TARGET_COOLDOWN_SECONDS - (now - previous),
         )
         return True
-    last_tap_by_label[label] = now
     return False
+
+
+def mark_target_tapped(label: str) -> None:
+    last_tap_by_label[label] = time.time()
+    save_last_sent()
 
 
 def kick_all() -> None:
@@ -406,8 +436,10 @@ def kick_all() -> None:
     note_activity()
     last_momentum_sweep = time.time()
     for label, hints in KICK_TARGETS.items():
-        last_tap_by_label[label] = time.time()
-        tap_window(label, hints)
+        if target_on_cooldown(label):
+            continue
+        if tap_window(label, hints):
+            mark_target_tapped(label)
         time.sleep(0.25)
 
 
@@ -415,8 +447,10 @@ def idle_check_all() -> None:
     log.info("Idle check: no bridge activity for %ss; waking Hermes, Cowork, and Codex", IDLE_CHECK_SECONDS)
     note_activity()
     for label, hints in KICK_TARGETS.items():
-        last_tap_by_label[label] = time.time()
-        tap_window(label, hints, message=idle_message_for(label))
+        if target_on_cooldown(label):
+            continue
+        if tap_window(label, hints, message=idle_message_for(label)):
+            mark_target_tapped(label)
         time.sleep(0.25)
 
 
@@ -453,8 +487,10 @@ def momentum_sweep_all() -> None:
     )
     last_momentum_sweep = time.time()
     for label, hints in KICK_TARGETS.items():
-        last_tap_by_label[label] = time.time()
-        tap_window(label, hints, message=momentum_message_for(label))
+        if target_on_cooldown(label):
+            continue
+        if tap_window(label, hints, message=momentum_message_for(label)):
+            mark_target_tapped(label)
         time.sleep(0.25)
 
 
@@ -479,6 +515,8 @@ def main() -> None:
     log.info("pre-inject ping: %s (%sHz x %sms, %.1fs lead)", PRE_INJECT_PING, PING_FREQ_HZ, PING_DURATION_MS, PING_LEAD_SECONDS)
     log.info("pause file: %s", PAUSE_FILE)
     log.info("heartbeat file: %s", HEARTBEAT_PATH)
+    log.info("last-sent cooldown file: %s", LAST_SENT_PATH)
+    log.info("target cooldown: %ss", TARGET_COOLDOWN_SECONDS)
     log.info("idle check: every %ss without bridge activity", IDLE_CHECK_SECONDS)
     log.info("momentum sweep: every %ss while open work remains", MOMENTUM_SWEEP_SECONDS)
     log.info("startup kick: %s", args.kick)
@@ -490,6 +528,7 @@ def main() -> None:
     observer.schedule(handler, str(ROOT), recursive=False)
     observer.start()
     write_heartbeat()
+    last_tap_by_label.update(load_last_sent())
     if args.kick:
         kick_all()
     try:

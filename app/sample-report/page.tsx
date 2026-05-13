@@ -239,15 +239,13 @@ async function getLatestSelfAudit() {
       .from('audits')
       .select('id, created_at, formatted_report_html')
       .eq('status', 'completed')
-      .or('url.ilike.%seochecksite.net%,url.ilike.%checksite.net%')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
 
-    if (error || !data || !data.formatted_report_html) {
+    if (error || !data || data.length === 0 || !data[0].formatted_report_html) {
       return null
     }
-    return data
+    return data[0]
   } catch {
     return null
   }

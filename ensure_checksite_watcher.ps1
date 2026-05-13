@@ -1,3 +1,7 @@
+param(
+  [switch]$Force
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = "C:\Users\Mreoc\checksite"
@@ -42,12 +46,13 @@ if (Test-Path -LiteralPath $heartbeat) {
   $ageSeconds = [double]::PositiveInfinity
 }
 
-if ($processes.Count -gt 0 -and $heartbeatFresh) {
+if ($Force) {
+  Write-Output "Force restart requested; closing watcher processes before start. process_count=$($processes.Count)"
+  Stop-WatcherProcessTree
+} elseif ($processes.Count -gt 0 -and $heartbeatFresh) {
   Write-Output "Watcher healthy: process_count=$($processes.Count), heartbeat_age_seconds=$([math]::Round($ageSeconds, 1))"
   exit 0
-}
-
-if ($processes.Count -gt 0) {
+} elseif ($processes.Count -gt 0) {
   Write-Output "Watcher process exists but heartbeat is stale/missing; restarting. process_count=$($processes.Count), heartbeat_age_seconds=$ageSeconds"
   Stop-WatcherProcessTree
 } else {
