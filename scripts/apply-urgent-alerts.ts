@@ -1,7 +1,29 @@
+/**
+ * apply-urgent-alerts.ts — Creates the urgent_alerts table if it doesn't exist.
+ *
+ * Reads connection string from env — NO hardcoded secrets.
+ *
+ * Usage:
+ *   SUPABASE_DB_URL="postgresql://..." npx tsx scripts/apply-urgent-alerts.ts
+ *
+ * Or if SUPABASE_DB_URL is set in the environment (Netlify, .env, etc.):
+ *   npx tsx scripts/apply-urgent-alerts.ts
+ */
+
 const { Pool } = require("pg");
 
+const connectionString = process.env.SUPABASE_DB_URL;
+
+if (!connectionString) {
+  console.error("❌ SUPABASE_DB_URL environment variable is required.");
+  console.error("   Set it to your Supabase database connection string.");
+  console.error("   Example:");
+  console.error("     SUPABASE_DB_URL=\"postgresql://postgres:password@db.example.supabase.co:5432/postgres\" npx tsx scripts/apply-urgent-alerts.ts");
+  process.exit(1);
+}
+
 const pool = new Pool({
-  connectionString: "postgresql://postgres:SKfsS4aZwuATZDdl@db.ybliuezkxrlgiydbfzqy.supabase.co:5432/postgres",
+  connectionString,
   ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
 });
@@ -22,5 +44,11 @@ CREATE INDEX IF NOT EXISTS idx_urgent_alerts_unresolved ON public.urgent_alerts 
 `;
 
 pool.query(sql)
-  .then(r => { console.log("OK:", r.command); process.exit(0); })
-  .catch(e => { console.log("FAIL:", e.message); process.exit(1); });
+  .then(r => {
+    console.log("✅ urgent_alerts table ready.");
+    process.exit(0);
+  })
+  .catch(e => {
+    console.error("❌ Failed to create urgent_alerts:", e.message);
+    process.exit(1);
+  });
