@@ -1,0 +1,61 @@
+sprint: "M-003a"
+deploy: "2026-05-13"
+items:
+  # Would have caught M-003 #6: stub delivery monitor
+  - id: "m003-delivery-monitor"
+    description: "SendGrid bounce monitor writes to urgent_alerts table (not /tmp)"
+    stage: "production_promote"
+    assertion_type: "admin_api_post"
+    url: "/api/admin/test-urgent-alert"
+    body: {}
+    expect_body_json:
+      success: true
+      test_row_inserted: true
+      unresolved_count_after_cleanup: 0
+
+  # Would have caught M-003a #3: /tmp alert write
+  - id: "m003a-alert-persistence"
+    description: "Alert row exists in urgent_alerts before cleanup"
+    stage: "production_promote"
+    assertion_type: "admin_api_post"
+    url: "/api/admin/test-urgent-alert"
+    body: {}
+    expect_body_json:
+      success: true
+      test_row_inserted: true
+      unresolved_count_before_delete: 1
+
+  # Would have caught D-006e: missing migration
+  - id: "d006e-urgent-alerts-table"
+    description: "urgent_alerts table exists in production schema"
+    stage: "production_promote"
+    assertion_type: "admin_api_post"
+    url: "/api/admin/schema-probe?table=urgent_alerts"
+    expect_body_json:
+      exists: true
+
+  # Sample report score (preview-verifyable)
+  - id: "sample-report-score"
+    description: "Sample report no longer shows stale 98/100 score"
+    stage: "preview"
+    assertion_type: "http_get"
+    url: "/sample-report"
+    expect_status: 200
+    expect_body_not_contains: "98/100"
+
+  # Snapshot endpoint availability
+  - id: "snapshot-endpoint"
+    description: "Admin snapshot endpoint returns valid data"
+    stage: "preview"
+    assertion_type: "admin_api_post"
+    url: "/api/admin/snapshot"
+    body: {}
+    expect_body_json:
+      overall_score: 79
+
+  # Runner script exists
+  - id: "smoke-runner-exists"
+    description: "Smoke gate runner script is present"
+    stage: "both"
+    assertion_type: "file_exists"
+    path: "scripts/smoke-gate.ts"

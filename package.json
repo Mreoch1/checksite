@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "setup": "./setup.sh",
-    "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe"
+    "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
+    "smoke:preview": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage preview",
+    "smoke:production": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage production_promote"
   },
   "dependencies": {
     "@netlify/functions": "^5.1.0",
