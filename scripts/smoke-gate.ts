@@ -46,7 +46,8 @@ for (let i = 2; i < process.argv.length; i += 2) {
 }
 
 const manifestPath = args['manifest']
-const targetUrl = args['target-url']?.replace(/\/$/, '')
+// Support DEPLOY_PRIME_URL env var for Netlify build context (cross-shell safe)
+const targetUrl = (args['target-url'] || process.env.DEPLOY_PRIME_URL || 'https://seochecksite.net').replace(/\/$/, '')
 const adminSecret = args['admin-secret']
 const stage = args['stage'] || 'both'
 const reportToBridge = !!args['report-to-bridge']
@@ -54,8 +55,12 @@ const reportToBridge = !!args['report-to-bridge']
 // Support ADMIN_SECRET env var as fallback (Windows/PowerShell workaround)
 const effectiveAdminSecret = adminSecret || process.env.ADMIN_SECRET
 
-if (!manifestPath || !targetUrl) {
-  console.error('❌ Required: --manifest <path> --target-url <url>')
+if (!manifestPath) {
+  console.error('❌ Required: --manifest <path>')
+  process.exit(1)
+}
+if (!targetUrl) {
+  console.error('❌ Could not determine target URL. Provide --target-url or set DEPLOY_PRIME_URL.')
   process.exit(1)
 }
 

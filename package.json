@@ -9,9 +9,9 @@
     "lint": "next lint",
     "setup": "./setup.sh",
     "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
-    "smoke:preview": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url ${DEPLOY_PRIME_URL:-https://seochecksite.net} --stage preview",
+    "smoke:preview": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --stage preview",
     "smoke:production": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage production_promote",
-    "smoke:all": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url ${DEPLOY_PRIME_URL:-https://seochecksite.net} --stage both"
+    "smoke:all": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --stage both"
   },
   "dependencies": {
     "@netlify/functions": "^5.1.0",
