@@ -11,6 +11,27 @@ function Get-WatcherProcess {
     Where-Object { $_.ProcessName -like "python*" -and $_.CommandLine -like "*checksite_bridge_watchdog.py*" }
 }
 
+function Get-WatcherShellProcess {
+  Get-CimInstance Win32_Process |
+    Where-Object {
+      $_.ProcessName -like "*powershell*" -and
+      $_.CommandLine -like "*checksite_bridge_watchdog.py*" -and
+      $_.ProcessId -ne $PID
+    }
+}
+
+function Stop-WatcherProcessTree {
+  $watchers = @(Get-WatcherProcess)
+  foreach ($process in $watchers) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+
+  $shells = @(Get-WatcherShellProcess)
+  foreach ($process in $shells) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+}
+
 $processes = @(Get-WatcherProcess)
 $heartbeatFresh = $false
 
@@ -28,20 +49,23 @@ if ($processes.Count -gt 0 -and $heartbeatFresh) {
 
 if ($processes.Count -gt 0) {
   Write-Output "Watcher process exists but heartbeat is stale/missing; restarting. process_count=$($processes.Count), heartbeat_age_seconds=$ageSeconds"
-  foreach ($process in $processes) {
-    Stop-Process -Id $process.ProcessId -Force
-  }
+  Stop-WatcherProcessTree
 } else {
   Write-Output "Watcher process missing; starting."
+  $staleShells = @(Get-WatcherShellProcess)
+  if ($staleShells.Count -gt 0) {
+    Write-Output "Closing stale watcher shell windows: count=$($staleShells.Count)"
+    Stop-WatcherProcessTree
+  }
 }
 
 Start-Process -FilePath "powershell.exe" -ArgumentList @(
-  "-NoExit",
+  "-NoProfile",
   "-ExecutionPolicy",
   "Bypass",
   "-Command",
   "Set-Location -LiteralPath '$root'; python .\checksite_bridge_watchdog.py --kick"
-) -WorkingDirectory $root
+) -WorkingDirectory $root -WindowStyle Hidden
 Start-Sleep -Seconds 3
 
 $newProcesses = @(Get-WatcherProcess)

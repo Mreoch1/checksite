@@ -67,10 +67,12 @@ PING_LEAD_SECONDS = 2
 INPUT_CLICK_ENABLED = True
 
 INPUT_CLICK_RULES = {
-    "Cowork": (0.55, 0.94),
+    "Cowork": (0.38, 0.93),
     "Codex": (0.55, 0.94),
     "Hermes": (0.50, 0.90),
 }
+
+COWORK_POPUP_DISMISS_RULE = (0.50, 0.70)
 
 COWORK_WINDOW_HINTS = ["Claude", "Cowork", "Anthropic"]
 HERMES_WINDOW_HINTS = ["Hermes"]
@@ -271,6 +273,18 @@ def focus_input(label: str, win) -> None:
         return
     rel_x, rel_y = INPUT_CLICK_RULES.get(label, (0.5, 0.92))
     try:
+        if label == "Cowork":
+            log.info("Dismissing possible Cowork popup before input click")
+            for _ in range(2):
+                pyautogui.press("escape")
+                time.sleep(0.15)
+            dismiss_x = int(win.left + max(10, win.width * COWORK_POPUP_DISMISS_RULE[0]))
+            dismiss_y = int(win.top + max(10, win.height * COWORK_POPUP_DISMISS_RULE[1]))
+            log.info("Clicking neutral Cowork area at (%s, %s) to dismiss overlays", dismiss_x, dismiss_y)
+            pyautogui.click(x=dismiss_x, y=dismiss_y)
+            time.sleep(0.2)
+            pyautogui.press("escape")
+            time.sleep(0.15)
         x = int(win.left + max(10, win.width * rel_x))
         y = int(win.top + max(10, win.height * rel_y))
         log.info("Clicking %s input area at (%s, %s)", label, x, y)

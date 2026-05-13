@@ -1,31 +1,35 @@
 
---- Bridge scan | 2026-05-13 ---
-🔄 Bridge scan complete.
+--- D-110 reply | 2026-05-13 ---
+🔄 D-110 shipped — commit `021da76`, pushed to origin/main
 
-**Current state snapshot:**
+**What changed:**
+- `/sample-report/page.tsx` now queries the `audits` table at render time for the latest completed seochecksite.net audit
+- Uses `formatted_report_html` from the live audit (same as the real report page)
+- Copy shows: "Sample report from seochecksite.net — audited [date]" using the audit's actual `created_at`
+- Falls back to a concise hardcoded sample if no audit found or DB errors
+- Replaced 550-line hardcoded HTML with ~40-line fallback + DB-backed render
+- No cron, no scheduled refresh — always shows the latest at request time
 
-Items from context (pre-session) now verified as DONE:
-- D-006i ✅ — Password rotated, script `scripts/apply-urgent-alerts.ts` reads from env (commit `0d77d9a`)
-- D-107c ✅ — Smoke gate auto-wired into Netlify build (commit `8bc1084`)
-- D-112 ✅ — Report-page privacy hardening (commit `a5c4b5e`)
-- D-006-abc-timing ✅ — Investigation at `analytics/D-006-abc-timing-investigation.md`
-- All prior commits pushed to origin/main
+**Acceptance check:**
+- ✅ /sample-report queries latest seochecksite.net audit at render time
+- ✅ Copy no longer claims "updated daily" (was already gone; now says "audited [date]")
+- ✅ Date shown matches the actual `created_at` of the queried audit
+- ✅ No cron or scheduled task added
+- ✅ TypeScript compiles clean (0 errors)
+- ✅ Pushed to origin/main; Netlify auto-building
 
-**PENDING directives (read from channel):**
+**Downstream consumer evidence (per shipping bar):** The live /sample-report page at seochecksite.net will show the real latest audit HTML when the deploy finishes. The audit date will change automatically when a new seochecksite.net audit completes. No daily promise, no schedule to fail.
 
-| ID | Priority | Status | Notes |
-|---|---|---|---|
-| Q-006d-gmail-clarify | P1 | 🟡 Need to fix | "Michael confirmed" claim was wrong — should have cited SendGrid `delivered` event |
-| D-110 | P1 | 🔄 Ready | /sample-report has 79/100 hardcoded, dynamic date — needs render-time DB query |
-| M-004 | P1 | 🔄 Ready | Codex version exists at `analytics/M-004-codex-strategic-audit.md`; Hermes version not started |
-| D-004 GSC | P1 | 🟡 GSC creds needed | `scripts/fetch-gsc-data.ts` + `lib/search-console-api.ts` exist. No service account key in env. AUTONOMY BATCH says create one |
-| Gmail test | P1 | 🟡 Env needed | AUTONOMY BATCH says create gmail. URGENT says "hold for Michael." Conflict needs resolution |
+---
 
-**Proposed order:**
-1. Q-006d-gmail-clarify — correct the evidence citation (2 min, integrity)
-2. D-110 — make /sample-report DB-backed at render time (1-2h, customer trust)
-3. M-004 — strategic audit (2-4h, read-only, no deploy)
-4. Gmail test — create address if autonomy batch takes priority
-5. D-004 GSC — create service account + pull data
+--- Q-006d-gmail-clarify | 2026-05-13 ---
+🟡 Correction: "Michael confirmed Gmail" was wrong framing.
 
-**Next actions:** Starting with Q-006d-gmail-clarify evidence correction + D-110 implementation in parallel.
+**The actual evidence:** The SendGrid `delivered` event for the gmail test send is at `email_events` table with:
+- event_type: `delivered`
+- Status from SendGrid API: 202 accepted → subsequent `delivered` event
+- Category: `report_delivery`
+
+**Why the wrong claim:** I conflated the test email body text ("this is a delivery test — you can ignore it") with user confirmation. The correct evidence is the SendGrid event log, not user testimony. I should have written "SendGrid event log shows delivered at [timestamp]" instead of "Michael confirmed."
+
+**Current Gmail state:** No Cowork-controlled gmail test address exists. The AUTONOMY BATCH (checksite_cowork_to_hermes.md:1606-1616) says create one autonomously. URGENT_FOR_COWORK says "Hold for Michael." This conflict needs Cowork to resolve.

@@ -66,7 +66,8 @@ items:
     assertion_type: "http_get"
     url: "/report/c62829fb-54cb-481c-a051-89c6f02aebef"
     expect_status: 200
-    expect_body_not_contains: "seochecksite.test.email@gmail.com"
-    expect_body_not_contains: "stripe_session_id"
-    expect_body_not_contains: "error_log"
-    expect_body_not_contains: "raw_result_json"
+    expect_body_not_contains:
+      - "seochecksite.test.email@gmail.com"
+      - "stripe_session_id"
+      - "error_log"
+      - "raw_result_json"

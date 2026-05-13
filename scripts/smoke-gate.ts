@@ -25,7 +25,7 @@ interface SmokeAssertion {
   url?: string
   expect_status?: number
   expect_body_contains?: string
-  expect_body_not_contains?: string
+  expect_body_not_contains?: string | string[]
   expect_body_json?: Record<string, unknown>
   cleanup?: { url: string; method?: string }
   query?: string
@@ -169,8 +169,15 @@ async function runAssertion(item: SmokeAssertion): Promise<{ pass: boolean; deta
       if (item.expect_body_contains && !body.includes(item.expect_body_contains)) {
         return { pass: false, detail: `Body missing expected content: "${item.expect_body_contains.substring(0, 50)}"` }
       }
-      if (item.expect_body_not_contains && body.includes(item.expect_body_not_contains)) {
-        return { pass: false, detail: `Body contains forbidden content: "${item.expect_body_not_contains.substring(0, 50)}"` }
+      const forbiddenStrings = Array.isArray(item.expect_body_not_contains)
+        ? item.expect_body_not_contains
+        : item.expect_body_not_contains
+          ? [item.expect_body_not_contains]
+          : []
+      for (const forbidden of forbiddenStrings) {
+        if (body.includes(forbidden)) {
+          return { pass: false, detail: `Body contains forbidden content: "${forbidden.substring(0, 50)}"` }
+        }
       }
       return { pass: true, detail: '' }
     }
