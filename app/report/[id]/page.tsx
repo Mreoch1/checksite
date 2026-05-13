@@ -152,7 +152,7 @@ export default async function ReportPage({ params }: { params: { id: string } })
             Your report is still being generated. Please check back shortly.
           </p>
           <p className="text-sm text-gray-500 mt-4 max-w-md mx-auto">
-            Reports typically complete within 2-5 minutes. If you don't receive your full report within 15 minutes, please contact us at{' '}
+            Reports typically complete within 1-2 minutes, and almost always within 5 minutes. If you don't receive your full report within 15 minutes, please contact us at{' '}
             <a href="mailto:admin@seochecksite.net" className="text-blue-600 hover:text-blue-800 underline">
               admin@seochecksite.net
             </a>

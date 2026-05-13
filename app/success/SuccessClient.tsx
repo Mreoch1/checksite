@@ -184,7 +184,7 @@ export default function SuccessClient() {
 
           {/* While You Wait section */}
           <section aria-labelledby="while-you-wait-heading" className="bg-gray-50 rounded-lg p-6 mt-6 text-left">
-            <h2 id="while-you-wait-heading" className="font-semibold text-gray-900 mb-3">While You Wait (About 60-90 Seconds)</h2>
+            <h2 id="while-you-wait-heading" className="font-semibold text-gray-900 mb-3">While You Wait (About 1-2 Minutes)</h2>
             <p className="text-gray-600 mb-3">Your free preview report includes:</p>
             <ul className="list-disc list-inside text-gray-600 space-y-1 mb-4">
               <li>Overall SEO score (0-100)</li>

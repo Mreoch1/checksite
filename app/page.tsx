@@ -85,7 +85,7 @@ export default function Home() {
   const faqs = [
     {
       question: 'How long does the audit take?',
-      answer: 'Your report will be delivered to your email within 5-10 minutes after you complete checkout. We analyze your site automatically and send you a complete report.',
+      answer: 'Your report is typically delivered to your email within 1-2 minutes after checkout, and almost always within 5 minutes. We analyze your site automatically and send you a complete report.',
     },
     {
       question: 'What if my site is down or has errors?',
@@ -281,7 +281,7 @@ export default function Home() {
                 <strong>One-time audit.</strong> Free preview first. <strong>No subscription.</strong>
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Delivered to your inbox in 5-10 minutes.
+                Delivered to your inbox in 1-2 minutes typical (up to 5).
               </p>
               <p className="text-xs text-gray-500 mt-2 max-w-md mx-auto leading-relaxed">
                 Free preview shows your site scores and issues. Full report with fix instructions is $14.99.
@@ -381,7 +381,7 @@ export default function Home() {
                   See a Real Sample Report →
                 </Link>
               </div>
-              <p className="text-xs text-center text-gray-500 mt-3">This is a live report from our own website — updated daily</p>
+              <p className="text-xs text-center text-gray-500 mt-3">A real report from our own website — generated on the same product you'll use.</p>
             </div>
           </div>
         </div>

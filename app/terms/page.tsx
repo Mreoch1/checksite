@@ -45,7 +45,7 @@ export default function TermsPage() {
 
           <h2 className="text-2xl font-semibold text-gray-900 mt-8 mb-4">Service Delivery</h2>
           <p className="text-gray-700 mb-4">
-            Upon payment confirmation, we will process your website audit. Reports are typically delivered via email within 2-5 minutes, though processing may take longer for complex websites. You will receive a link to access your report online.
+            Upon payment confirmation, we will process your website audit. Reports are typically delivered via email within 1-2 minutes, and almost always within 5 minutes. Processing may take longer for very large sites. You will receive a link to access your report online.
           </p>
           <p className="text-gray-700 mb-4">
             For your <strong>first free report</strong> (one per email), you must confirm consent on the checkout flow to receive a single follow-up email after delivery (feedback survey) and optional marketing email from SEO CheckSite. Instructions to opt out of marketing appear in those messages.
