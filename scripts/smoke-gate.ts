@@ -69,7 +69,9 @@ function validateManifest(item: SmokeAssertion, index: number): string | null {
   if (!VALID_TYPES.includes(item.assertion_type)) return `Item ${index} (${item.id}): invalid assertion_type '${item.assertion_type}'. Valid: ${VALID_TYPES.join(', ')}`
   if (item.assertion_type === 'http_get' && !item.url) return `Item ${index} (${item.id}): http_get requires 'url'`
   if (item.assertion_type === 'admin_api_post' && !item.url) return `Item ${index} (${item.id}): admin_api_post requires 'url'`
-  if (item.stage !== 'preview' && adminSecret === undefined && item.assertion_type === 'admin_api_post') {
+  // Stage-aware: only check admin_secret if this item would run in the current stage
+  const stageMatches = stage === 'both' || item.stage === stage || item.stage === 'both'
+  if (stageMatches && item.stage !== 'preview' && typeof adminSecret === 'undefined' && item.assertion_type === 'admin_api_post') {
     return `Item ${index} (${item.id}): admin_api_post assertions on production stage require --admin-secret`
   }
   return null

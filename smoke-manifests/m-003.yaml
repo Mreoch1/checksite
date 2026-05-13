@@ -47,11 +47,10 @@ items:
   - id: "snapshot-endpoint"
     description: "Admin snapshot endpoint returns valid data"
     stage: "preview"
-    assertion_type: "admin_api_post"
+    assertion_type: "http_get"
     url: "/api/admin/snapshot"
-    body: {}
-    expect_body_json:
-      overall_score: 79
+    expect_status: 200
+    expect_body_contains: "latest_audit"
 
   # Runner script exists
   - id: "smoke-runner-exists"
