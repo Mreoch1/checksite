@@ -1128,15 +1128,35 @@ Updated `moduleWeights` in `process-audit.ts` to include `llm_readiness: 1` (sta
 - **Processing Delay**: 2 minutes (matches schedule to ensure audits are fully set up before processing)
 - **Note**: Legacy `schedule()` wrapper from `@netlify/functions` doesn't work with modern runtime - causes Functions section to not appear in dashboard
 
-### Multi-Page Sitemap Sampling
-- **Decision**: Sample up to 5 pages from sitemap, fetched concurrently with 8s per-page timeout
-- **Rationale**: Provides broader site coverage than single-page audit without blowing Netlify's 26s function timeout. Concurrent fetches keep wall time ≈ 8s regardless of sample count.
-- **Scoring rules**:
-  - **Worst-page scoring**: crawl_health, on_page, security — a single broken page drags the score down because customers care about the broken page, not the average
-  - **Average scoring**: accessibility, social, schema — these are typically consistent across a site, so average is more representative
-  - **Performance**: homepage only (PageSpeed Insights is the cost bottleneck; multi-page Performance is out of scope for v1)
-- **Implementation**: `lib/process-audit.ts` — `crawlSitemapPages()` function
-- **Report display**: "Pages Audited" section in HTML report listing sampled URLs with title, word count, and detected issues
+### Multi-Page Sitemap Sampling (Mission 002 Obj 1 — 2026-05-10)
+- **Decision**: Audit the homepage with the full module suite, plus up to 5 additional sampled pages with a per-page subset, then aggregate per module.
+- **Rationale**: Customers expect a "website audit" to actually look at multiple pages, not just the homepage. A single-URL audit produces reports that are obviously thin to anyone who reviews them carefully.
+
+- **Sitemap discovery (`discoverSitemapUrls` in `lib/process-audit.ts`)**:
+  - First reads `Sitemap:` declarations from `robots.txt` (the only reliable way for sites with non-standard sitemap names — e.g. `abc.com` uses `sitemapindex-blogs.xml` etc.).
+  - Falls back to `/sitemap.xml`, `/sitemap_index.xml`, `/sitemap/sitemap.xml`.
+  - Resolves up to 2 child sitemaps when the discovered file is a sitemap index.
+  - Caps total collected URLs at 500 to keep memory/time bounded.
+
+- **Module classification (`lib/multi-page-audit.ts`)**:
+  - **Site-wide (homepage only)**: `performance`, `crawl_health`, `security`, `local`, `competitor_overview`. These are inherently single-source — robots.txt is one file, security headers come from the server, business address lives in the footer, PageSpeed runs once to protect quota.
+  - **Per-page (run on every sampled page, then aggregated)**: `on_page`, `mobile`, `accessibility`, `schema`, `social`, `llm_readiness`.
+
+- **Aggregation strategy** (`PER_PAGE_AGGREGATION` in `lib/multi-page-audit.ts`):
+  - **Worst score** for `on_page` and `mobile` — a single broken page is what visitors see and complain about; the average hides the problem. The aggregated module's summary annotates which page caused the lowest score.
+  - **Average score** for `accessibility`, `schema`, `social`, `llm_readiness` — these tend to be consistent site-wide; the average gives a truer headline reading. Issues are union-deduped across pages.
+  - The homepage is always included in the per-page set so its data feeds into the aggregation.
+
+- **Concurrency**: per-page module runs are batched at concurrency 3 to avoid overwhelming the target site and to stay within Netlify function memory limits.
+
+- **Wall-time budget**: total audit completion target is ≤ 90s for typical small-business sites. Sequence is sitemap discovery (~5s) → homepage modules including PageSpeed (~30–60s) → per-page modules in parallel batches (~10–20s).
+
+- **Report display**: "Pages Audited" section in `lib/generate-simple-report.ts` lists sampled URLs with title, word count, and detected issues, plus copy explaining the worst/average aggregation rules so customers understand what the headline scores mean.
+
+- **Failure modes**:
+  - No sitemap → homepage-only audit, no "Pages Audited" section, no regression vs. the old behavior.
+  - Sampled page returns 4xx/5xx → counted in `pagesAudited` with `status: 'failed'`, doesn't block the audit.
+  - PageSpeed unavailable → existing `PageSpeed data unavailable` banner; no silent fallback.
 
 ### Email System
 - **Decision**: Atomic reservation system using `email_sent_at` timestamp with replication lag handling
@@ -1440,4 +1460,3 @@ Updated `moduleWeights` in `process-audit.ts` to include `llm_readiness: 1` (sta
 
 **Last Updated**: 2026-04-27  
 **Next Review**: Confirm first successful inbound delivery to `admin@seochecksite.net`
-

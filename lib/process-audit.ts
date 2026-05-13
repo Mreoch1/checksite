@@ -1,9 +1,10 @@
 import { getSupabaseServiceClient } from '@/lib/supabase'
-import { runAuditModules, detectSiteType, isEnterpriseSite } from '@/lib/audit/modules'
+import { runAuditModules, detectSiteType, isEnterpriseSite, SiteData } from '@/lib/audit/modules'
+import { runMultiPageAudit, PageAuditStatus } from '@/lib/multi-page-audit'
 import { generateSimpleReport } from '@/lib/generate-simple-report'
 // import { generateReport } from '@/lib/llm' // Disabled for now - using simple report
 import { sendAuditReportEmail, sendAuditFailureEmail } from '@/lib/email-unified'
-import { ModuleKey } from '@/lib/types'
+import { ModuleKey, ModuleResult, AuditIssue } from '@/lib/types'
 import { normalizeUrl } from '@/lib/normalize-url'
 import { receivesComplimentaryFullReport } from '@/lib/free-full-report-emails'
 import { emitFunnelEvent } from '@/lib/emit-funnel-event'
@@ -22,6 +23,158 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * @param baseUrl - The base URL of the site being audited
  * @returns Array of sampled page data, or empty array on failure
  */
+/**
+ * Fetch a single XML sitemap and extract URLs.
+ * Returns a tuple: { pageUrls, childSitemapUrls } so the caller can recurse on
+ * child sitemaps when the response is a sitemap index.
+ */
+async function fetchAndParseSitemap(sitemapUrl: string, timeoutMs = 8000): Promise<{ pageUrls: string[]; childSitemapUrls: string[] } | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    const response = await fetch(sitemapUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      console.log(`[fetchAndParseSitemap] ${sitemapUrl} returned HTTP ${response.status}`)
+      return null
+    }
+
+    const content = await response.text()
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' })
+    const parsed = parser.parse(content)
+
+    const pageUrls: string[] = []
+    const childSitemapUrls: string[] = []
+
+    // Standard urlset (page-level sitemap)
+    if (parsed?.urlset?.url) {
+      const rawUrls = Array.isArray(parsed.urlset.url) ? parsed.urlset.url : [parsed.urlset.url]
+      for (const entry of rawUrls) {
+        if (typeof entry === 'string') pageUrls.push(entry)
+        else if (entry?.loc && typeof entry.loc === 'string') pageUrls.push(entry.loc)
+      }
+    }
+
+    // Sitemap index (links to other sitemaps)
+    if (parsed?.sitemapindex?.sitemap) {
+      const rawSitemaps = Array.isArray(parsed.sitemapindex.sitemap)
+        ? parsed.sitemapindex.sitemap
+        : [parsed.sitemapindex.sitemap]
+      for (const entry of rawSitemaps) {
+        if (typeof entry === 'string') childSitemapUrls.push(entry)
+        else if (entry?.loc && typeof entry.loc === 'string') childSitemapUrls.push(entry.loc)
+      }
+    }
+
+    return { pageUrls, childSitemapUrls }
+  } catch (error) {
+    console.log(`[fetchAndParseSitemap] ${sitemapUrl} fetch/parse failed:`, error instanceof Error ? error.message : String(error))
+    return null
+  }
+}
+
+/**
+ * Discover sitemap URLs and return all page URLs.
+ *
+ * Discovery priority:
+ *   1. Sitemap declarations in robots.txt (most reliable on real-world sites
+ *      that use non-standard sitemap names — e.g. abc.com uses sitemapindex-*.xml).
+ *   2. Common default locations: /sitemap.xml, /sitemap_index.xml, /sitemap/sitemap.xml.
+ *
+ * If the discovered sitemap is an index, the first 2 child sitemaps are
+ * resolved (capped to keep total fetch cost bounded). All page URLs are merged,
+ * deduplicated, and capped at 500 entries to stay within memory/time budget.
+ */
+async function discoverSitemapUrls(baseUrl: string): Promise<{ urls: string[]; sitemapsTried: string[] }> {
+  const sitemapsTried: string[] = []
+  const declaredSitemaps: string[] = []
+
+  // Step 1 — read robots.txt for declared sitemaps.
+  try {
+    const robotsUrl = new URL('/robots.txt', baseUrl).toString()
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (response.ok) {
+      const robotsText = await response.text()
+      const sitemapRegex = /^sitemap:\s*(.+)$/gim
+      let match: RegExpExecArray | null
+      while ((match = sitemapRegex.exec(robotsText)) !== null) {
+        const url = match[1].trim()
+        try {
+          // Resolve to absolute URL (robots.txt may have relative paths).
+          const abs = url.startsWith('http://') || url.startsWith('https://')
+            ? url
+            : new URL(url, baseUrl).toString()
+          declaredSitemaps.push(abs)
+        } catch {
+          // Invalid URL, skip.
+        }
+      }
+      if (declaredSitemaps.length > 0) {
+        console.log(`[discoverSitemapUrls] robots.txt declared ${declaredSitemaps.length} sitemap(s):`, declaredSitemaps.slice(0, 3))
+      }
+    }
+  } catch {
+    // robots.txt unreachable, continue.
+  }
+
+  // Step 2 — combine declared with default locations, dedupe.
+  const candidates = [
+    ...declaredSitemaps,
+    new URL('/sitemap.xml', baseUrl).toString(),
+    new URL('/sitemap_index.xml', baseUrl).toString(),
+    new URL('/sitemap/sitemap.xml', baseUrl).toString(),
+  ]
+  const uniqueCandidates = Array.from(new Set(candidates))
+
+  // Step 3 — fetch each candidate. Stop once we have URLs.
+  const allPageUrls: string[] = []
+  const MAX_CHILD_SITEMAPS = 2 // Cap recursion to control fetch cost.
+  const MAX_PAGE_URLS = 500    // Cap collected URLs to control memory/time.
+
+  for (const candidate of uniqueCandidates) {
+    if (allPageUrls.length >= MAX_PAGE_URLS) break
+    sitemapsTried.push(candidate)
+    const result = await fetchAndParseSitemap(candidate)
+    if (!result) continue
+
+    allPageUrls.push(...result.pageUrls)
+    console.log(`[discoverSitemapUrls] ${candidate}: +${result.pageUrls.length} pages, +${result.childSitemapUrls.length} child sitemaps`)
+
+    // Resolve a small number of child sitemaps if this was an index.
+    if (result.childSitemapUrls.length > 0 && allPageUrls.length < MAX_PAGE_URLS) {
+      const childrenToFetch = result.childSitemapUrls.slice(0, MAX_CHILD_SITEMAPS)
+      const childResults = await Promise.allSettled(
+        childrenToFetch.map(childUrl => {
+          sitemapsTried.push(childUrl)
+          return fetchAndParseSitemap(childUrl)
+        })
+      )
+      for (const cr of childResults) {
+        if (cr.status === 'fulfilled' && cr.value) {
+          allPageUrls.push(...cr.value.pageUrls)
+        }
+      }
+    }
+
+    // If this candidate gave us page URLs, no need to keep trying defaults.
+    if (allPageUrls.length > 0) break
+  }
+
+  // Dedupe and cap.
+  const uniqueUrls = Array.from(new Set(allPageUrls)).slice(0, MAX_PAGE_URLS)
+  return { urls: uniqueUrls, sitemapsTried }
+}
+
 async function crawlSitemapPages(baseUrl: string): Promise<{
   sampledPages: Array<{
     url: string
@@ -33,77 +186,10 @@ async function crawlSitemapPages(baseUrl: string): Promise<{
   }>
   totalSitemapUrls: number
 }> {
-  // Determine sitemap URL (try common locations)
-  const sitemapUrls = [
-    new URL('/sitemap.xml', baseUrl).toString(),
-    new URL('/sitemap_index.xml', baseUrl).toString(),
-    new URL('/sitemap/sitemap.xml', baseUrl).toString(),
-  ]
+  const { urls, sitemapsTried } = await discoverSitemapUrls(baseUrl)
 
-  let sitemapContent: string | null = null
-  let usedSitemapUrl: string | null = null
-
-  // Try each sitemap URL
-  for (const sitemapUrl of sitemapUrls) {
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
-      const response = await fetch(sitemapUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
-        signal: controller.signal,
-      })
-      clearTimeout(timeout)
-
-      if (response.ok) {
-        sitemapContent = await response.text()
-        usedSitemapUrl = sitemapUrl
-        console.log(`[crawlSitemapPages] Found sitemap at ${sitemapUrl}`)
-        break
-      }
-    } catch {
-      // Sitemap fetch failed for this URL, try next
-      continue
-    }
-  }
-
-  if (!sitemapContent) {
-    console.log('[crawlSitemapPages] No sitemap found - skipping multi-page crawl')
-    return { sampledPages: [], totalSitemapUrls: 0 }
-  }
-
-  // Parse the sitemap XML
-  let urls: string[] = []
-  try {
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_',
-    })
-    const parsed = parser.parse(sitemapContent)
-
-    // Handle sitemap index (multiple sitemaps) - just extract URLs from first level
-    if (parsed?.sitemapindex?.sitemap) {
-      console.log('[crawlSitemapPages] Sitemap index detected - using first-level sitemaps')
-      // For sitemap index, we could recursively fetch sub-sitemaps, but for now
-      // we just extract what we can from the index itself or fall through to URL set
-    }
-
-    // Handle standard URL set (urlset)
-    if (parsed?.urlset?.url) {
-      const rawUrls = Array.isArray(parsed.urlset.url) 
-        ? parsed.urlset.url 
-        : [parsed.urlset.url]
-      
-      urls = rawUrls
-        .map((entry: any) => {
-          // The loc field could be a string or an object
-          if (typeof entry.loc === 'string') return entry.loc
-          if (typeof entry === 'string') return entry
-          return null
-        })
-        .filter((url: string | null): url is string => url !== null)
-    }
-  } catch (parseError) {
-    console.warn('[crawlSitemapPages] Failed to parse sitemap XML:', parseError)
+  if (urls.length === 0) {
+    console.log(`[crawlSitemapPages] No sitemap URLs found after trying ${sitemapsTried.length} location(s) - skipping multi-page crawl`)
     return { sampledPages: [], totalSitemapUrls: 0 }
   }
 
@@ -351,19 +437,30 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       }
     }
 
-    // Run audit modules
+    // Run audit modules.
+    // First the sitemap crawl (~5s) so we know which pages to audit, then the
+    // multi-page audit which runs the full module suite on the homepage plus
+    // per-page modules on each sampled page. Per-module aggregation lives in
+    // lib/multi-page-audit.ts.
     console.log('Starting audit module execution...')
-    let results, siteData
-    // Launch sitemap crawl in parallel with modules to save wall clock time
-    const crawlPromise = crawlSitemapPages(normalizedAuditUrl).catch(err => {
-      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', err)
-      return { sampledPages: [], totalSitemapUrls: 0 }
-    })
+    let results: ModuleResult[] = []
+    let siteData: SiteData | null = null
+    let pagesAudited: PageAuditStatus[] = []
+    let crawlResult: { sampledPages: any[]; totalSitemapUrls: number } = { sampledPages: [], totalSitemapUrls: 0 }
     try {
-      const moduleResult = await runAuditModules(normalizedAuditUrl, enabledModules, competitorUrl)
-      results = moduleResult.results
-      siteData = moduleResult.siteData
-      console.log(`Audit modules completed. Results: ${results.length} modules`)
+      crawlResult = await crawlSitemapPages(normalizedAuditUrl).catch(err => {
+        console.warn('[processAudit] Sitemap crawl failed (continuing with homepage-only audit):', err)
+        return { sampledPages: [], totalSitemapUrls: 0 }
+      })
+      const sampledUrls: string[] = crawlResult.sampledPages
+        .map((p: any) => p.url)
+        .filter((u: string | undefined): u is string => !!u && u !== '[unknown]')
+      console.log(`[processAudit] Multi-page audit: 1 homepage + ${sampledUrls.length} sampled pages from sitemap`)
+      const multiResult = await runMultiPageAudit(normalizedAuditUrl, sampledUrls, enabledModules, competitorUrl)
+      results = multiResult.results
+      siteData = multiResult.siteData
+      pagesAudited = multiResult.pagesAudited
+      console.log(`Audit modules completed. Results: ${results.length} modules across ${pagesAudited.length} page(s)`)
     } catch (moduleError) {
       console.error('❌ Error running audit modules:', moduleError)
       console.error('Module error details:', moduleError instanceof Error ? moduleError.message : String(moduleError))
@@ -507,18 +604,18 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
       isIndexable: true, // Default to true, can be enhanced with robots meta check
     }
 
-    // Collect sitemap crawl results (launched in parallel with modules above)
-    try {
-      const crawlResult = await crawlPromise
+    // Attach sitemap crawl results to pageAnalysis for the report's Pages Audited section.
+    {
       const sampledPages = crawlResult.sampledPages
       const totalSitemapUrls = crawlResult.totalSitemapUrls
-      console.log(`[processAudit] Sitemap crawl complete: ${sampledPages.length} pages sampled from ${totalSitemapUrls} sitemap URLs`)
       if (sampledPages.length > 0) {
+        console.log(`[processAudit] Attaching ${sampledPages.length} sampled pages to report (${totalSitemapUrls} total in sitemap)`)
         ;(pageAnalysis as any).sampledPages = sampledPages
         ;(pageAnalysis as any).totalSitemapUrls = totalSitemapUrls
       }
-    } catch (crawlError) {
-      console.warn('[processAudit] Sitemap crawl failed (continuing without multi-page data):', crawlError)
+      if (pagesAudited.length > 0) {
+        ;(pageAnalysis as any).pagesAudited = pagesAudited
+      }
     }
 
     // Store raw results
@@ -1336,4 +1433,3 @@ export async function processAudit(auditId: string, serviceClient?: SupabaseClie
           }
   }
 }
-

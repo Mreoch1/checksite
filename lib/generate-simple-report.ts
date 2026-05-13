@@ -716,10 +716,10 @@ function generateHTMLReport(data: {
     <h2 id="pages-audited">Pages Audited</h2>
     <div class="summary" style="background: #f0f9ff; border-left-color: #0ea5e9;">
       <p style="margin: 5px 0; color: #374151;">
-        <strong>Sitemap Sampling</strong> — We found <strong>${data.pageAnalysis.totalSitemapUrls ?? data.pageAnalysis.sampledPages.length}</strong> pages in your sitemap and checked <strong>${data.pageAnalysis.sampledPages.length}</strong> to see how your site's content looks across multiple pages.
+        <strong>Multi-page audit</strong> — Your sitemap contains <strong>${data.pageAnalysis.totalSitemapUrls ?? data.pageAnalysis.sampledPages.length}</strong> pages. We audited the homepage plus <strong>${data.pageAnalysis.sampledPages.length}</strong> additional sampled pages so the scores reflect site-wide patterns, not just one page.
       </p>
       <p style="margin: 5px 0; color: #6b7280; font-size: 0.9em;">
-        The table below shows key SEO elements from a random sample of pages. This helps catch site-wide patterns that a single-page audit might miss.
+        On-Page SEO and Mobile use the lowest-scoring page (a single broken page is what visitors see). Accessibility, Schema, Social Metadata, and AI Readiness are averaged across pages. Performance, Crawl Health, Security, and Local SEO are evaluated site-wide from the homepage.
       </p>
       <table class="evidence-table" style="margin-top: 15px;">
         <thead>
@@ -1121,9 +1121,9 @@ function generateHTMLReport(data: {
         <!-- How You Compare Section -->
     <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 25px; margin: 30px 0; border-radius: 8px;">
       <h2 style="color: #0369a1; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; border: none; padding: 0;">📊 How You Compare</h2>
-      
+
       <p style="color: #374151; font-size: 0.95em; margin-bottom: 20px;">
-        Here's how ${escapeHtml(data.domain)} stacks up against typical websites in the same category:
+        Here's how ${escapeHtml(data.domain)} compares to common scoring guidelines for each module:
       </p>
       
       <div style="background: white; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb;">
@@ -1132,7 +1132,7 @@ function generateHTMLReport(data: {
             <tr style="border-bottom: 2px solid #e5e7eb;">
               <th style="text-align: left; padding: 10px 8px; color: #374151;">Module</th>
               <th style="text-align: center; padding: 10px 8px; color: #0369a1;">Your Score</th>
-              <th style="text-align: center; padding: 10px 8px; color: #6b7280;">Typical Range</th>
+              <th style="text-align: center; padding: 10px 8px; color: #6b7280;">Reference Range</th>
               <th style="text-align: center; padding: 10px 8px;">Status</th>
             </tr>
           </thead>
@@ -1172,7 +1172,7 @@ function generateHTMLReport(data: {
           </tbody>
         </table>
         <p style="margin: 15px 0 0 0; color: #9ca3af; font-size: 0.8em; font-style: italic;">
-          Typical ranges are based on aggregated data from similar small-to-medium business websites. Scores are based on static analysis and PageSpeed data.
+          Reference ranges are guideline thresholds based on common scoring patterns, not site-specific benchmarks. Use them as a sanity check rather than a competitive ranking. Your scores are computed from static HTML analysis plus Google PageSpeed data where available.
         </p>
       </div>
     </div>
@@ -1364,4 +1364,3 @@ function generatePlaintextReport(data: {
   
   return text
 }
-

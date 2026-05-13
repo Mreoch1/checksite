@@ -7,7 +7,7 @@ import * as cheerio from 'cheerio'
 import { ModuleKey, ModuleResult, AuditIssue } from '../types'
 import { fetchPageSpeedMetrics } from '../pagespeed-api'
 
-interface SiteData {
+export interface SiteData {
   url: string
   html: string
   $: cheerio.CheerioAPI
@@ -1812,6 +1812,126 @@ export async function runSocialModule(siteData: SiteData): Promise<ModuleResult>
 }
 
 /**
+ * Parsed structure of a robots.txt file. Single source of truth for robots.txt
+ * interpretation — used by both blocking detection and evidence display so the
+ * two cannot disagree.
+ */
+type RobotsParsed = {
+  groups: { ua: string; disallows: string[]; allows: string[] }[]
+  sitemapLinks: string[]
+}
+
+function parseRobotsTxt(content: string): RobotsParsed {
+  const groups: RobotsParsed['groups'] = []
+  const sitemapLinks: string[] = []
+  let currentGroup: RobotsParsed['groups'][number] | null = null
+
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+
+    const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
+    if (uaMatch) {
+      const ua = uaMatch[1].toLowerCase().trim()
+      currentGroup = { ua, disallows: [], allows: [] }
+      groups.push(currentGroup)
+      continue
+    }
+
+    if (currentGroup) {
+      const disallowMatch = line.match(/^disallow:\s*(.*)$/i)
+      if (disallowMatch !== null) {
+        currentGroup.disallows.push(disallowMatch[1].trim())
+        continue
+      }
+      const allowMatch = line.match(/^allow:\s*(.*)$/i)
+      if (allowMatch !== null) {
+        currentGroup.allows.push(allowMatch[1].trim())
+        continue
+      }
+    }
+
+    const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
+    if (sitemapMatch) sitemapLinks.push(sitemapMatch[1].trim())
+  }
+
+  return { groups, sitemapLinks }
+}
+
+/**
+ * A user-agent group blocks search engines if it has Disallow: / and no
+ * Allow: / overriding it. Per Google's robots.txt spec, Allow takes precedence
+ * over Disallow regardless of ordering within the same group.
+ *
+ * Site is considered blocked if any group matching '*' or googlebot blocks.
+ */
+function robotsBlocksSearch(parsed: RobotsParsed): { isBlocking: boolean; blockedUserAgents: string[] } {
+  const blockedUserAgents: string[] = []
+  for (const group of parsed.groups) {
+    const isRelevant = group.ua === '*' || group.ua.includes('googlebot')
+    if (!isRelevant) continue
+    const hasDisallowRoot = group.disallows.includes('/')
+    const hasAllowRoot = group.allows.some(p => p === '/' || p === '')
+    if (hasDisallowRoot && !hasAllowRoot) {
+      blockedUserAgents.push(group.ua)
+    }
+  }
+  return { isBlocking: blockedUserAgents.length > 0, blockedUserAgents }
+}
+
+/**
+ * Identify AI/LLM crawler bots that are explicitly blocked.
+ * Uses the same Allow-overrides-Disallow logic as the general search check.
+ */
+function robotsBlocksAiBots(parsed: RobotsParsed): { name: string; description: string }[] {
+  const aiBots = [
+    { matcher: 'gptbot', name: 'GPTBot', description: 'OpenAI GPT training crawler' },
+    { matcher: 'chatgpt-user', name: 'ChatGPT-User', description: 'OpenAI ChatGPT assistant crawler' },
+    { matcher: 'claude-web', name: 'Claude-Web', description: 'Anthropic Claude assistant crawler' },
+    { matcher: 'anthropic-ai', name: 'Anthropic-AI', description: 'Anthropic crawler' },
+    { matcher: 'ccbot', name: 'CCBot', description: 'Common Crawl bot' },
+    { matcher: 'google-extended', name: 'Google-Extended', description: 'Google AI training crawler' },
+    { matcher: 'perplexitybot', name: 'PerplexityBot', description: 'Perplexity AI crawler' },
+  ]
+  const blocked: { name: string; description: string }[] = []
+  for (const bot of aiBots) {
+    for (const group of parsed.groups) {
+      if (group.ua !== bot.matcher) continue
+      const hasDisallowRoot = group.disallows.includes('/')
+      const hasAllowRoot = group.allows.some(p => p === '/' || p === '')
+      if (hasDisallowRoot && !hasAllowRoot) {
+        if (!blocked.find(b => b.name === bot.name)) blocked.push({ name: bot.name, description: bot.description })
+      }
+    }
+  }
+  return blocked
+}
+
+/**
+ * List AI bots that have ANY rule (allow or disallow) for them.
+ * Used to detect "no AI bot directives at all" case.
+ */
+function robotsAiBotRulesFound(parsed: RobotsParsed): string[] {
+  const aiBotMatchers: Record<string, string> = {
+    'gptbot': 'GPTBot',
+    'chatgpt-user': 'ChatGPT-User',
+    'claude-web': 'Claude-Web',
+    'anthropic-ai': 'Anthropic-AI',
+    'ccbot': 'CCBot',
+    'google-extended': 'Google-Extended',
+    'perplexitybot': 'PerplexityBot',
+  }
+  const found: string[] = []
+  for (const group of parsed.groups) {
+    const name = aiBotMatchers[group.ua]
+    if (name && (group.disallows.length > 0 || group.allows.length > 0) && !found.includes(name)) {
+      found.push(name)
+    }
+  }
+  return found
+}
+
+/**
  * Crawl Health Module
  */
 export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleResult> {
@@ -1930,208 +2050,53 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
       score -= 10
     } else {
       const robotsContent = await robotsResponse.text()
-      // Parse robots.txt properly to check if it actually blocks search engines
-      // Only flag if Googlebot or * is explicitly blocked from /
-      const lines = robotsContent.split('\n').map(line => line.trim())
-      let currentUserAgent: string | null = null
-      let isBlocking = false
-      let hasAllowRoot = false
-      
-      for (const line of lines) {
-        // Skip comments and empty lines
-        if (!line || line.startsWith('#')) continue
-        
-        // Check for User-agent directive
-        const userAgentMatch = line.match(/^user-agent:\s*(.+)$/i)
-        if (userAgentMatch) {
-          currentUserAgent = userAgentMatch[1].toLowerCase()
-          hasAllowRoot = false // Reset when new user-agent section starts
-          continue
-        }
-        
-        // Check for Allow directive (takes precedence over Disallow)
-        const allowMatch = line.match(/^allow:\s*(.+)$/i)
-        if (allowMatch && currentUserAgent) {
-          const allowPath = allowMatch[1].trim()
-          if (allowPath === '/' || allowPath === '') {
-            hasAllowRoot = true
-          }
-          continue
-        }
-        
-        // Check for Disallow directive
-        const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
-        if (disallowMatch && currentUserAgent) {
-          const disallowPath = disallowMatch[1].trim()
-          // Only flag if:
-          // 1. It blocks the root path (/)
-          // 2. For Googlebot or * (all bots)
-          // 3. AND there's no Allow: / that overrides it
-          if (disallowPath === '/' && 
-              (currentUserAgent === '*' || currentUserAgent.includes('googlebot')) &&
-              !hasAllowRoot) {
-            isBlocking = true
-            break
-          }
-        }
-      }
-      
+      // Single canonical parse — used by both blocking detection and evidence display.
+      const robotsParsed = parseRobotsTxt(robotsContent)
+      const { isBlocking, blockedUserAgents } = robotsBlocksSearch(robotsParsed)
+
       if (isBlocking) {
-        // Parse robots.txt to create interpretive summary
-        const disallowedPaths: string[] = []
-        const allowedPaths: string[] = []
-        const sitemapLinks: string[] = []
-        let crawlAllowed = true
-        
-        const parseLines = robotsContent.split('\n').map(line => line.trim())
-        let currentUA: string | null = null
-        for (const line of parseLines) {
-          if (!line || line.startsWith('#')) continue
-          const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
-          if (uaMatch) {
-            currentUA = uaMatch[1].toLowerCase()
-            continue
-          }
-          const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
-          if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
-            const path = disallowMatch[1].trim()
-            if (path === '/') {
-              crawlAllowed = false
-            } else if (path) {
-              disallowedPaths.push(path)
-            }
-          }
-          const allowMatch = line.match(/^allow:\s*(.+)$/i)
-          if (allowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
-            const path = allowMatch[1].trim()
-            if (path && path !== '/') {
-              allowedPaths.push(path)
-            }
-          }
-          const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
-          if (sitemapMatch) {
-            sitemapLinks.push(sitemapMatch[1].trim())
-          }
-        }
-        
+        // Aggregate disallowed/allowed paths from relevant UA groups for evidence detail.
+        const relevantGroups = robotsParsed.groups.filter(g => g.ua === '*' || g.ua.includes('googlebot'))
+        const disallowedPaths = relevantGroups.flatMap(g => g.disallows.filter(p => p && p !== '/'))
+        const allowedPaths = relevantGroups.flatMap(g => g.allows.filter(p => p && p !== '/'))
+
         issues.push({
           title: 'Robots.txt is blocking search engines',
           severity: 'high',
-          technicalExplanation: 'robots.txt contains "Disallow: /" which blocks all pages',
+          technicalExplanation: `robots.txt contains "Disallow: /" with no overriding Allow: / for user-agent(s): ${blockedUserAgents.join(', ')}`,
           plainLanguageExplanation: 'Your robots.txt file is preventing search engines from finding your pages.',
-          suggestedFix: 'Remove "Disallow: /" from your robots.txt file to allow search engines to crawl your site.',
+          suggestedFix: 'Remove "Disallow: /" from your robots.txt file (or add an "Allow: /" override) to let search engines crawl your site.',
           evidence: {
-            found: crawlAllowed ? '✅ Crawl allowed' : '❌ Crawl blocked',
-            actual: crawlAllowed 
-              ? `Crawl allowed. Disallowed paths: ${disallowedPaths.length > 0 ? disallowedPaths.slice(0, 3).join(', ') : 'None'}. Sitemaps: ${sitemapLinks.length}`
-              : '❌ Critical: All pages blocked from crawling',
+            found: '❌ Crawl blocked',
+            actual: `❌ Critical: All pages blocked from crawling for user-agent: ${blockedUserAgents.join(', ')}`,
             expected: 'Should allow search engines to crawl pages',
             details: {
-              crawlAllowed,
+              crawlAllowed: false,
+              blockedUserAgents,
               disallowedPaths: disallowedPaths.slice(0, 5),
               allowedPaths: allowedPaths.slice(0, 5),
-              sitemapCount: sitemapLinks.length,
+              sitemapCount: robotsParsed.sitemapLinks.length,
             },
           },
         })
         score = Math.max(0, Math.min(score, 49)) // Critical finding caps score at 49 regardless of other signals
-      } else {
-        // Even if not blocking, provide interpretive summary
-        const disallowedPaths: string[] = []
-        const sitemapLinks: string[] = []
-        const parseLines = robotsContent.split('\n').map(line => line.trim())
-        let currentUA: string | null = null
-        for (const line of parseLines) {
-          if (!line || line.startsWith('#')) continue
-          const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
-          if (uaMatch) {
-            currentUA = uaMatch[1].toLowerCase()
-            continue
-          }
-          const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
-          if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
-            const path = disallowMatch[1].trim()
-            if (path && path !== '/') {
-              disallowedPaths.push(path)
-            }
-          }
-          const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
-          if (sitemapMatch) {
-            sitemapLinks.push(sitemapMatch[1].trim())
-          }
-        }
-        
-        // Store interpretive summary in evidence (not as issue)
-        // This will be shown in the evidence table
       }
-      // Check robots.txt for AI bot directives
-      const aiBots = [
-        { name: 'GPTBot', description: 'OpenAI GPT training crawler' },
-        { name: 'ChatGPT-User', description: 'OpenAI ChatGPT assistant crawler' },
-        { name: 'Claude-Web', description: 'Anthropic Claude assistant crawler' },
-        { name: 'CCBot', description: 'Common Crawl / AI training bot' },
-        { name: 'Google-Extended', description: 'Google AI training crawler (used for Vertex AI, Bard/Gemini)' },
-        { name: 'PerplexityBot', description: 'Perplexity AI search assistant crawler' },
-      ]
-      
-      const blockedAiBots: string[] = []
-      const allowedAiBots: string[] = []
-      const aiBotRulesFound: string[] = []
-      
-      // Parse robots.txt to find AI bot directives
-      const parseLines = robotsContent.split('\n').map(line => line.trim())
-      let currentUA: string | null = null
-      
-      for (const line of parseLines) {
-        if (!line || line.startsWith('#')) continue
-        const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
-        if (uaMatch) {
-          currentUA = uaMatch[1].trim()
-          continue
-        }
-        
-        // Check if currentUA matches any AI bot
-        if (currentUA) {
-          for (const bot of aiBots) {
-            if (currentUA.toLowerCase() === bot.name.toLowerCase()) {
-              const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
-              const allowMatch = line.match(/^allow:\s*(.+)$/i)
-              
-              if (!aiBotRulesFound.includes(bot.name)) {
-                aiBotRulesFound.push(bot.name)
-              }
-              
-              if (disallowMatch) {
-                const path = disallowMatch[1].trim()
-                if (path === '/') {
-                  if (!blockedAiBots.includes(bot.name)) {
-                    blockedAiBots.push(bot.name)
-                  }
-                }
-              } else if (allowMatch) {
-                const path = allowMatch[1].trim()
-                if (path === '/') {
-                  if (!allowedAiBots.includes(bot.name)) {
-                    allowedAiBots.push(bot.name)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      // Report AI bot findings
-      if (blockedAiBots.length > 0) {
+
+      // === AI bot directives — uses the same canonical parser ===
+      const blockedAiBotEntries = robotsBlocksAiBots(robotsParsed)
+      const aiBotRulesFound = robotsAiBotRulesFound(robotsParsed)
+      const blockedAiBotNames = blockedAiBotEntries.map(b => b.name)
+
+      if (blockedAiBotNames.length > 0) {
         issues.push({
-          title: `${blockedAiBots.length} AI bot${blockedAiBots.length > 1 ? 's' : ''} blocked by robots.txt`,
+          title: `${blockedAiBotNames.length} AI bot${blockedAiBotNames.length > 1 ? 's' : ''} blocked by robots.txt`,
           severity: 'medium',
-          technicalExplanation: `${blockedAiBots.join(', ')} ${blockedAiBots.length > 1 ? 'are' : 'is'} blocked via Disallow: / in robots.txt`,
+          technicalExplanation: `${blockedAiBotNames.join(', ')} ${blockedAiBotNames.length > 1 ? 'are' : 'is'} blocked via Disallow: / with no overriding Allow: /`,
           plainLanguageExplanation: 'Some AI-powered search engines and assistants (like ChatGPT, Google Gemini, and Claude) are being blocked from reading your content. While this may protect against AI training, it can also reduce your visibility in AI-generated search results and assistants that are becoming increasingly common.',
           suggestedFix: 'Review your robots.txt and consider removing Disallow: / directives for AI bots you want to allow. If you want to allow AI bots, remove the Disallow: / line for each bot user-agent. Some services like Google-Extended respect opt-out signals differently — research each bot before making changes.',
           evidence: {
-            found: `${blockedAiBots.length} AI bot${blockedAiBots.length > 1 ? 's' : ''} blocked`,
-            actual: `Blocked: ${blockedAiBots.join(', ')}`,
+            found: `${blockedAiBotNames.length} AI bot${blockedAiBotNames.length > 1 ? 's' : ''} blocked`,
+            actual: `Blocked: ${blockedAiBotNames.join(', ')}`,
             expected: 'AI bots should be allowed unless you have a specific reason to block them',
           },
         })
@@ -2151,13 +2116,7 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
           },
         })
         score -= 3
-      } else if (allowedAiBots.length === aiBotRulesFound.length) {
-        // All AI bots with rules are allowed — good
-        // No issue needed; we'll note it in evidence
       }
-      
-      // Store AI bot findings in evidence for the report
-      // If robots.txt exists and doesn't block, it's good - no issue needed
     }
   } catch (error) {
     issues.push({
@@ -2300,56 +2259,49 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     ? 'Your crawl health needs improvement. Create a sitemap.xml file to help search engines find all your pages.'
     : 'Your crawl health needs work. Start by creating a sitemap.xml file and checking your robots.txt file.'
   
-  // Collect module-level evidence with interpretive robots.txt summary
-  let robotsSummary: any = { found: false, crawlAllowed: null, disallowedPaths: [], sitemapCount: 0, sitemapUrls: [], hasNormalBlocking: false }
+  // Collect module-level evidence with interpretive robots.txt summary.
+  // Uses the canonical parser to guarantee the evidence agrees with the score above.
+  let robotsSummary: {
+    found: boolean
+    crawlAllowed: boolean | null
+    blockedUserAgents: string[]
+    disallowedPaths: string[]
+    sitemapCount: number
+    sitemapUrls: string[]
+    hasNormalBlocking: boolean
+  } = { found: false, crawlAllowed: null, blockedUserAgents: [], disallowedPaths: [], sitemapCount: 0, sitemapUrls: [], hasNormalBlocking: false }
   try {
     const robotsUrl = new URL('/robots.txt', siteData.url).toString()
+    const robotsController = new AbortController()
+    const robotsTimeout = setTimeout(() => robotsController.abort(), 5000)
     const robotsResponse = await fetch(robotsUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+      signal: robotsController.signal,
     })
+    clearTimeout(robotsTimeout)
     if (robotsResponse.ok) {
       const robotsContent = await robotsResponse.text()
-      robotsSummary.found = true
-      
-      // Parse for summary
-      const disallowedPaths: string[] = []
-      const sitemapLinks: string[] = []
-      let crawlBlocked = false
-      const parseLines = robotsContent.split('\n').map(line => line.trim())
-      let currentUA: string | null = null
-      
-      for (const line of parseLines) {
-        if (!line || line.startsWith('#')) continue
-        const uaMatch = line.match(/^user-agent:\s*(.+)$/i)
-        if (uaMatch) {
-          currentUA = uaMatch[1].toLowerCase()
-          continue
-        }
-        const disallowMatch = line.match(/^disallow:\s*(.+)$/i)
-        if (disallowMatch && currentUA && (currentUA === '*' || currentUA.includes('google'))) {
-          const path = disallowMatch[1].trim()
-          if (path === '/') {
-            crawlBlocked = true
-          } else if (path) {
-            disallowedPaths.push(path)
-          }
-        }
-        const sitemapMatch = line.match(/^sitemap:\s*(.+)$/i)
-        if (sitemapMatch) {
-          sitemapLinks.push(sitemapMatch[1].trim())
-        }
-      }
-      
-      robotsSummary.crawlAllowed = !crawlBlocked
-      robotsSummary.disallowedPaths = disallowedPaths.slice(0, 5)
-      robotsSummary.sitemapCount = sitemapLinks.length
-      robotsSummary.sitemapUrls = sitemapLinks.slice(0, 3)
-      
-      // Check if disallowed paths are normal utility paths
+      const parsed = parseRobotsTxt(robotsContent)
+      const blocking = robotsBlocksSearch(parsed)
+
+      // Aggregate non-root disallowed paths from relevant UA groups (* or googlebot).
+      const relevantGroups = parsed.groups.filter(g => g.ua === '*' || g.ua.includes('google'))
+      const disallowedPaths = relevantGroups.flatMap(g => g.disallows.filter(p => p && p !== '/'))
+
       const normalPaths = ['/wp-admin', '/cart', '/checkout', '/search', '/admin', '/login', '/private', '/api']
-      robotsSummary.hasNormalBlocking = disallowedPaths.some(path => 
+      const hasNormalBlocking = disallowedPaths.some(path =>
         normalPaths.some(normal => path.toLowerCase().includes(normal.toLowerCase()))
       )
+
+      robotsSummary = {
+        found: true,
+        crawlAllowed: !blocking.isBlocking,
+        blockedUserAgents: blocking.blockedUserAgents,
+        disallowedPaths: disallowedPaths.slice(0, 5),
+        sitemapCount: parsed.sitemapLinks.length,
+        sitemapUrls: parsed.sitemapLinks.slice(0, 3),
+        hasNormalBlocking,
+      }
     }
   } catch {
     // robots.txt not accessible
@@ -2361,11 +2313,13 @@ export async function runCrawlHealthModule(siteData: SiteData): Promise<ModuleRe
     sitemapSummary = `Sitemaps detected: ${robotsSummary.sitemapUrls?.join(', ') || `${robotsSummary.sitemapCount} found`}`
   }
   
-  // Build robots interpretation
+  // Build robots interpretation. Sourced from the same parser as the score above
+  // so the headline and the evidence cannot disagree.
   let robotsInterpretation = ''
   if (robotsSummary.found) {
     if (!robotsSummary.crawlAllowed) {
-      robotsInterpretation = '❌ Critical: Your robots.txt blocks all crawling for all search engines (Disallow: / for User-agent: *). This will prevent your site from being indexed normally.'
+      const uaList = robotsSummary.blockedUserAgents.join(', ')
+      robotsInterpretation = `❌ Critical: Your robots.txt blocks all crawling for user-agent: ${uaList} (Disallow: / with no overriding Allow: /). This will prevent your site from being indexed normally.`
     } else if (robotsSummary.disallowedPaths.length > 0) {
       if (robotsSummary.hasNormalBlocking) {
         robotsInterpretation = `✅ Normal: Common utility paths are disallowed from crawling (${robotsSummary.disallowedPaths.slice(0, 3).join(', ')}). This is typical and not a problem.`
@@ -3124,4 +3078,3 @@ export async function runAuditModules(
 
   return { results, siteData }
 }
-
