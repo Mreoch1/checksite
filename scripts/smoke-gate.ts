@@ -51,6 +51,9 @@ const adminSecret = args['admin-secret']
 const stage = args['stage'] || 'both'
 const reportToBridge = !!args['report-to-bridge']
 
+// Support ADMIN_SECRET env var as fallback (Windows/PowerShell workaround)
+const effectiveAdminSecret = adminSecret || process.env.ADMIN_SECRET
+
 if (!manifestPath || !targetUrl) {
   console.error('❌ Required: --manifest <path> --target-url <url>')
   process.exit(1)
@@ -71,7 +74,7 @@ function validateManifest(item: SmokeAssertion, index: number): string | null {
   if (item.assertion_type === 'admin_api_post' && !item.url) return `Item ${index} (${item.id}): admin_api_post requires 'url'`
   // Stage-aware: only check admin_secret if this item would run in the current stage
   const stageMatches = stage === 'both' || item.stage === stage || item.stage === 'both'
-  if (stageMatches && item.stage !== 'preview' && typeof adminSecret === 'undefined' && item.assertion_type === 'admin_api_post') {
+  if (stageMatches && item.stage !== 'preview' && typeof effectiveAdminSecret === 'undefined' && item.assertion_type === 'admin_api_post') {
     return `Item ${index} (${item.id}): admin_api_post assertions on production stage require --admin-secret`
   }
   return null
@@ -173,7 +176,7 @@ async function runAssertion(item: SmokeAssertion): Promise<{ pass: boolean; deta
     }
 
     case 'admin_api_post': {
-      if (!adminSecret) {
+      if (!effectiveAdminSecret) {
         return { pass: false, detail: 'Admin secret required for admin_api_post assertions. Pass --admin-secret.' }
       }
       const url = `${targetUrl}${item.url}`
@@ -181,7 +184,7 @@ async function runAssertion(item: SmokeAssertion): Promise<{ pass: boolean; deta
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminSecret}`,
+          'Authorization': `Bearer ${effectiveAdminSecret}`,
         },
         body: JSON.stringify(item.body || {}),
       })
@@ -208,7 +211,7 @@ async function runAssertion(item: SmokeAssertion): Promise<{ pass: boolean; deta
           const cleanRes = await fetch(cleanUrl, {
             method: item.cleanup.method || 'DELETE',
             headers: {
-              'Authorization': `Bearer ${adminSecret}`,
+              'Authorization': `Bearer ${effectiveAdminSecret}`,
             },
           })
           if (!cleanRes.ok) {
