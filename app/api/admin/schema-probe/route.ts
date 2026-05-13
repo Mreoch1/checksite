@@ -8,6 +8,14 @@ export const runtime = 'nodejs'
 const ALLOWED_TABLES = ['urgent_alerts', 'audits', 'email_events', 'audit_queue', 'audit_modules', 'customers', 'app_settings', 'funnel_events']
 
 export async function GET(request: NextRequest) {
+  return handleRequest(request)
+}
+
+export async function POST(request: NextRequest) {
+  return handleRequest(request)
+}
+
+async function handleRequest(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 

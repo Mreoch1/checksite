@@ -10,7 +10,8 @@
     "setup": "./setup.sh",
     "stripe:webhook": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "smoke:preview": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage preview",
-    "smoke:production": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage production_promote"
+    "smoke:production": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage production_promote",
+    "smoke:all": "npx tsx scripts/smoke-gate.ts --manifest smoke-manifests/m-003.yaml --target-url https://seochecksite.net --stage both"
   },
   "dependencies": {
     "@netlify/functions": "^5.1.0",
@@ -38,8 +39,10 @@
     "autoprefixer": "^10.4.0",
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.2.0",
+    "js-yaml": "^4.1.1",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.0"
   },
   "description": "A production-ready, beginner-friendly website audit tool built for non-technical website and small business owners. Get clear, actionable insights about your website without the jargon.",

@@ -56,6 +56,25 @@ if (!manifestPath || !targetUrl) {
   process.exit(1)
 }
 
+// Validate required fields on load
+const VALID_STAGES = ['preview', 'production_promote', 'both']
+const VALID_TYPES = ['http_get', 'http_post', 'admin_api_post', 'sql_query', 'file_exists']
+
+function validateManifest(item: SmokeAssertion, index: number): string | null {
+  if (!item.id) return `Item ${index}: missing 'id'`
+  if (!item.description) return `Item ${index} (${item.id}): missing 'description'`
+  if (!item.stage) return `Item ${index} (${item.id}): missing 'stage'`
+  if (!VALID_STAGES.includes(item.stage)) return `Item ${index} (${item.id}): invalid stage '${item.stage}'. Valid: ${VALID_STAGES.join(', ')}`
+  if (!item.assertion_type) return `Item ${index} (${item.id}): missing 'assertion_type'`
+  if (!VALID_TYPES.includes(item.assertion_type)) return `Item ${index} (${item.id}): invalid assertion_type '${item.assertion_type}'. Valid: ${VALID_TYPES.join(', ')}`
+  if (item.assertion_type === 'http_get' && !item.url) return `Item ${index} (${item.id}): http_get requires 'url'`
+  if (item.assertion_type === 'admin_api_post' && !item.url) return `Item ${index} (${item.id}): admin_api_post requires 'url'`
+  if (item.stage !== 'preview' && adminSecret === undefined && item.assertion_type === 'admin_api_post') {
+    return `Item ${index} (${item.id}): admin_api_post assertions on production stage require --admin-secret`
+  }
+  return null
+}
+
 async function main() {
   // Load manifest
   const fs = await import('fs')
@@ -67,6 +86,15 @@ async function main() {
   if (!manifest.items?.length) {
     console.error('❌ Manifest has no items')
     process.exit(1)
+  }
+
+  // Validate all items before running
+  for (let i = 0; i < manifest.items.length; i++) {
+    const err = validateManifest(manifest.items[i], i)
+    if (err) {
+      console.error(`❌ Manifest validation failed: ${err}`)
+      process.exit(1)
+    }
   }
 
   // Filter by stage
