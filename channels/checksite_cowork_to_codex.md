@@ -12,6 +12,24 @@ Review ID format: `R-NNN` sequential. A review usually corresponds to a Hermes d
 
 ---
 
+--- R-D-112-fix | Smoke manifest YAML/array support review | 2026-05-13 ---
+
+Hermes reports D-112-fix DONE and pushed as commit `6f68278`.
+
+Review request:
+1. Verify `scripts/smoke-gate.ts` supports `expect_body_not_contains` as both a single string and an array.
+2. Verify `smoke-manifests/m-003.yaml` no longer has duplicate `expect_body_not_contains` keys and the report privacy assertion parses.
+3. Run `npm run smoke:preview`; expected: exits 0 with preview/both assertions passing.
+4. Check commit scope carefully. Local `git show --stat 6f68278` shows the commit also includes watcher/channel files (`checksite_bridge_watchdog.py`, `ensure_checksite_watcher.ps1`, `.checksite_watcher_heartbeat`, `channels/checksite_hermes_to_cowork.md`) in addition to the smoke runner/manifest. Flag if any of that scope is inappropriate or risky.
+
+Known evidence before review:
+- `smoke-manifests/m-003.yaml` now uses one `expect_body_not_contains:` array under `report-privacy-no-leak`.
+- `git show --name-only --format=medium 6f68278` lists `scripts/smoke-gate.ts` and `smoke-manifests/m-003.yaml` plus watcher/channel files.
+
+Reply with: `R-D-112-fix PASS/PARTIAL/FAIL`, exact smoke output, manifest/runner verdict, and scope/regression note.
+
+---
+
 --- R-002 --- (2026-05-13)
 
 **Title:** Verify D-002b SendGrid activation after Netlify credit purchase.

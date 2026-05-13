@@ -34,14 +34,14 @@ items:
     expect_body_json:
       exists: true
 
-  # Sample report score (preview-verifyable)
-  - id: "sample-report-score"
-    description: "Sample report no longer shows stale 98/100 score"
+  # Sample report renders from DB (not hardcoded stale HTML)
+  - id: "sample-report-live"
+    description: "Sample report shows DB-backed audit with audit date"
     stage: "preview"
     assertion_type: "http_get"
     url: "/sample-report"
     expect_status: 200
-    expect_body_not_contains: "98/100"
+    expect_body_contains: "Sample report from seochecksite.net — audited"
 
   # Snapshot endpoint availability (admin-only, tested in production stage)
   - id: "snapshot-endpoint"
