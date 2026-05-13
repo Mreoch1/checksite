@@ -175,8 +175,8 @@ export default function SampleReportPage() {
       <p><strong>Website:</strong> seochecksite.net</p>
       <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       <p><strong>Overall Score:</strong> 
-        <span class="score-badge score-high">
-          98/100
+        <span class="score-badge score-medium">
+          79/100
         </span>
       </p>
     </div>
@@ -202,12 +202,12 @@ export default function SampleReportPage() {
     <h2>Executive Summary</h2>
     <div class="summary">
       <div style="margin-bottom: 15px;">
-        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: 98/100</strong>
-        <span class="score-badge score-high" style="margin-left: 10px;">
+        <strong style="color: #0369a1; font-size: 1.1em;">Overall Score: 79/100</strong>
+        <span class="score-badge score-medium" style="margin-left: 10px;">
           GOOD
         </span>
       </div>
-      <p style="margin: 8px 0;">Your website is in good overall health with strong SEO fundamentals.</p><p style="margin: 8px 0;">We checked 8 areas of your website.</p><p style="margin: 8px 0;">Found 3 issues total.</p><p style="margin: 8px 0;">1 medium-priority issue to address.</p><p style="margin: 8px 0;">8 of 8 checked areas are performing excellently.</p>
+      <p style="margin: 8px 0;">Your website has room for improvement. We found specific issues to fix.</p><p style="margin: 8px 0;">We checked 8 areas of your website.</p><p style="margin: 8px 0;">Found 3 issues total.</p><p style="margin: 8px 0;">1 medium-priority issue to address.</p><p style="margin: 8px 0;">8 of 8 checked areas are performing well.</p>
     </div>
 
     
@@ -237,7 +237,7 @@ export default function SampleReportPage() {
       <div class="module-section">
         <h2>Performance</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 85/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site performance looks good. We found one small improvement opportunity.</p>
@@ -296,7 +296,7 @@ export default function SampleReportPage() {
       <div class="module-section">
         <h2>Crawl Health</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Search engines should be able to find your pages easily. Make sure you have a sitemap.xml file.</p>
@@ -336,7 +336,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>On-Page SEO</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your on-page SEO is in good shape. Keep titles and descriptions clear and descriptive.</p>
@@ -357,7 +357,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>Mobile Optimization</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site is mobile-friendly. Keep up the good work!</p>
@@ -378,7 +378,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>Accessibility</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your site is accessible. Good job making your site usable for everyone!</p>
@@ -399,7 +399,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>Security</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 95/100</span>
         </div>
         <p style="margin-bottom: 15px;">Good, but some optional security enhancements are recommended.</p>
@@ -445,7 +445,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>Schema Markup</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your structured data is well implemented. This helps search engines understand your business.</p>
@@ -466,7 +466,7 @@ Sitemap: https://seochecksite.net/sitemap.xml
       <div class="module-section">
         <h2>Social Metadata</h2>
         <div style="margin-bottom: 15px;">
-          <span class="score-badge score-high" style="margin-right: 10px;">GOOD</span>
+          <span class="score-badge score-medium" style="margin-right: 10px;">GOOD</span>
           <span style="color: #6b7280; font-size: 0.9em;">Score: 100/100</span>
         </div>
         <p style="margin-bottom: 15px;">Your social sharing is well configured. Your links will look great when shared!</p>

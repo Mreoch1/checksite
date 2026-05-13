@@ -154,5 +154,60 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Persist failed' }, { status: 500 })
   }
 
+  // ── M-003 fix #6: First-5-send delivery monitoring ──
+  // For report_delivery events to non-@seochecksite.net customer domains,
+  // track the first 5 sends and alert on any failure.
+  const monitorKey = 'm003_first5_delivery_count'
+  for (const evt of payloadRows) {
+    const ev = evt.event_type as string
+    const email = evt.email as string
+    const cat = evt.email_category as string
+    const isCustomerDomain = typeof email === 'string' && !email.endsWith('@seochecksite.net')
+
+    if (cat === 'report_delivery' && isCustomerDomain && ['bounce', 'dropped', 'deferred', 'delivered'].includes(ev)) {
+      // Read current counter
+      const { data: counterRow } = await db
+        .from('app_settings')
+        .select('value')
+        .eq('key', monitorKey)
+        .maybeSingle()
+
+      const currentCount = counterRow ? parseInt(String((counterRow as any).value || '0'), 10) : 0
+
+      if (currentCount < 5) {
+        const isFailure = ['bounce', 'dropped', 'deferred'].includes(ev)
+
+        if (isFailure) {
+          // P0 alert: write to URGENT_FOR_COWORK.md via a service
+          console.error(`[sendgrid-webhook] 🚨 P0 DELIVERY FAILURE for customer email ${email}: event=${ev}, sg_message_id=${evt.sg_message_id}`)
+          // Try to write alert — non-blocking; don't crash the webhook
+          try {
+            const fs = require('fs')
+            const urgPath = '/tmp/seochecksite-urgent-alert.txt'
+            const alert = `🚨 P0 DELIVERY FAILURE\nTime: ${new Date().toISOString()}\nEmail: ${email}\nEvent: ${ev}\nSG Message ID: ${evt.sg_message_id || 'N/A'}\nCategory: ${cat}\n`
+            fs.writeFileSync(urgPath, alert, 'utf8')
+          } catch { /* silent */ }
+        }
+
+        // Increment the counter for both success and failure (failure counts as attempted)
+        if (currentCount === 0) {
+          // Insert initial row
+          await db.from('app_settings').insert({
+            key: monitorKey,
+            value: '1',
+            updated_at: new Date().toISOString(),
+          }).select().maybeSingle()
+        } else {
+          // Update existing
+          await db.from('app_settings')
+            .update({ value: String(currentCount + 1), updated_at: new Date().toISOString() })
+            .eq('key', monitorKey)
+        }
+
+        console.log(`[sendgrid-webhook] 📊 First-5 monitor: ${currentCount + 1}/5 — email=${email} event=${ev} ${isFailure ? '🚨' : '✅'}`)
+      }
+    }
+  }
+
   return NextResponse.json({ received: true, inserted: inserted ?? 0 })
 }

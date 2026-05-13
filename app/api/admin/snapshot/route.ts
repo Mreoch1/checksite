@@ -15,10 +15,34 @@ export async function GET(request: NextRequest) {
   // Latest audit
   const { data: latestAudit } = await supabase
     .from('audits')
-    .select('id, url, status, created_at, completed_at, email_sent_at, overall_score, duration_minutes')
+    .select('id, url, status, created_at, completed_at, email_sent_at, duration_minutes')
     .order('created_at', { ascending: false })
     .limit(1)
     .single()
+
+  // Get the actual score from the latest audit's modules
+  let auditScore: number | null = null
+  if (latestAudit?.id) {
+    const { data: modules } = await supabase
+      .from('audit_modules')
+      .select('module_key, score')
+      .eq('audit_id', latestAudit.id)
+    // Compute weighted average matching moduleWeights in process-audit.ts
+    const weights: Record<string, number> = {
+      crawl_health: 2, on_page: 2, performance: 1.5,
+      schema: 1.5, accessibility: 1.5, mobile: 1.5,
+      social: 1, security: 1, local: 1.5, competitor_overview: 1, llm_readiness: 1,
+    }
+    if (modules && modules.length > 0) {
+      let totalWeighted = 0, totalW = 0
+      for (const m of modules) {
+        const w = weights[m.module_key as string] || 1
+        totalWeighted += (m.score ?? 0) * w
+        totalW += w
+      }
+      if (totalW > 0) auditScore = Math.round(totalWeighted / totalW)
+    }
+  }
 
   // Queue state summary
   const { data: queueItems } = await supabase
@@ -67,6 +91,7 @@ export async function GET(request: NextRequest) {
       completed_without_email: missingEmailCount || 0,
     },
     healthy: !!latestAudit?.email_sent_at,
+    overall_score: auditScore,
     report_url: latestAudit?.id
       ? `${process.env.NEXT_PUBLIC_SITE_URL || 'https://seochecksite.net'}/report/${latestAudit.id}`
       : null,
