@@ -6,6 +6,14 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  return handleRequest(request)
+}
+
+export async function POST(request: NextRequest) {
+  return handleRequest(request)
+}
+
+async function handleRequest(request: NextRequest) {
   const authError = requireAdminAuth(request)
   if (authError) return authError
 

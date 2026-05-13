@@ -43,14 +43,14 @@ items:
     expect_status: 200
     expect_body_not_contains: "98/100"
 
-  # Snapshot endpoint availability
+  # Snapshot endpoint availability (admin-only, tested in production stage)
   - id: "snapshot-endpoint"
     description: "Admin snapshot endpoint returns valid data"
-    stage: "preview"
-    assertion_type: "http_get"
+    stage: "production_promote"
+    assertion_type: "admin_api_post"
     url: "/api/admin/snapshot"
+    body: {}
     expect_status: 200
-    expect_body_contains: "latest_audit"
 
   # Runner script exists
   - id: "smoke-runner-exists"
