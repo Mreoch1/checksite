@@ -17,16 +17,6 @@ const terms = [
   { slug: 'indexing', label: 'Indexing' },
   { slug: 'canonical-url', label: 'Canonical URL' },
   { slug: 'alt-text', label: 'Alt Text' },
-  { slug: '301-redirect', label: '301 Redirect' },
-  { slug: 'canonical-tag', label: 'Canonical Tag' },
-  { slug: 'meta-robots', label: 'Meta Robots' },
-  { slug: 'heading-structure', label: 'Heading Structure (H1, H2, H3)' },
-  { slug: 'internal-linking', label: 'Internal Linking' },
-  { slug: 'google-search-console', label: 'Google Search Console' },
-  { slug: 'page-speed', label: 'Page Speed' },
-  { slug: 'mobile-usability', label: 'Mobile Usability' },
-  { slug: 'duplicate-content', label: 'Duplicate Content' },
-  { slug: 'organic-traffic', label: 'Organic Traffic' },
 ]
 
 export const metadata: Metadata = {

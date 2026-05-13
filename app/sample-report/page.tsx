@@ -173,7 +173,7 @@ export default function SampleReportPage() {
     <h1 style="margin-top: 20px;">Website Report</h1>
     <div class="meta-info">
       <p><strong>Website:</strong> seochecksite.net</p>
-      <p><strong>Date:</strong> November 26, 2025</p>
+      <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       <p><strong>Overall Score:</strong> 
         <span class="score-badge score-high">
           98/100

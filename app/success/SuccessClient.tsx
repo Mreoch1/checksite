@@ -181,6 +181,21 @@ export default function SuccessClient() {
               </div>
             </div>
           </section>
+
+          {/* While You Wait section */}
+          <section aria-labelledby="while-you-wait-heading" className="bg-gray-50 rounded-lg p-6 mt-6 text-left">
+            <h2 id="while-you-wait-heading" className="font-semibold text-gray-900 mb-3">While You Wait (About 60-90 Seconds)</h2>
+            <p className="text-gray-600 mb-3">Your free preview report includes:</p>
+            <ul className="list-disc list-inside text-gray-600 space-y-1 mb-4">
+              <li>Overall SEO score (0-100)</li>
+              <li>Module scores: Performance, Crawl Health, On-Page SEO, Mobile</li>
+              <li>Top priority issues to fix</li>
+              <li>Multi-page analysis from your sitemap</li>
+            </ul>
+            <p className="text-gray-600 text-sm">
+              Want to see what a full report looks like? <Link href="/report/c62829fb-54cb-481c-a051-89c6f02aebef" className="text-blue-600 hover:text-blue-700 font-medium underline">View a real sample report →</Link>
+            </p>
+          </section>
         </div>
       </div>
     </div>
